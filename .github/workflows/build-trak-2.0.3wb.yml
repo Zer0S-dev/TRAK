@@ -1,0 +1,71 @@
+name: Build TRAK 2.0.3wb
+
+on:
+  push:
+    branches: [trak-2.0.3wb]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create TRAK 2.0.3wb source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf firmware/TRAK_2_0_3wb
+          cp -a firmware/TRAK_2_0_2wb firmware/TRAK_2_0_3wb
+          mv firmware/TRAK_2_0_3wb/TRAK_2_0_2wb.ino firmware/TRAK_2_0_3wb/TRAK_2_0_3wb.ino
+
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('firmware/TRAK_2_0_3wb')
+          for p in root.rglob('*'):
+              if p.is_file() and p.suffix.lower() in {'.h','.cpp','.ino','.md','.html','.js','.css','.txt'}:
+                  try:
+                      s = p.read_text(encoding='utf-8')
+                  except UnicodeDecodeError:
+                      continue
+                  s = s.replace('2.0.2wb', '2.0.3wb')
+                  p.write_text(s, encoding='utf-8')
+
+          ino = root / 'TRAK_2_0_3wb.ino'
+          s = ino.read_text(encoding='utf-8')
+
+          marker = 'static void publishNetworkState(\n'
+          helper = '''static bool tryPreferredWiFiReturn()\n{\n  if (getNetworkMode() != NetworkMode::WIFI) {\n    return false;\n  }\n\n  if (wifiProfileCount() == 0) {\n    Serial.println("[NET] Aucun profil Wi-Fi pour le retour automatique.");\n    return false;\n  }\n\n  Serial.println("[NET] 4G active -> recherche Wi-Fi préféré...");\n\n  if (activateWiFi()) {\n    activeNetwork = ActiveNetwork::WIFI;\n    Serial.println("[NET] Retour automatique 4G -> WiFi réussi.");\n    return true;\n  }\n\n  Serial.println("[NET] WiFi préféré indisponible, maintien 4G.");\n  return false;\n}\n\n'''
+          if marker not in s:
+              raise SystemExit('marker for network helper not found')
+          s = s.replace(marker, helper + marker, 1)
+
+          old = '''    previousMoving = motion.moving;\n\n    // -----------------------------\n    // Fallback réseau automatique\n    // -----------------------------\n'''
+          new = '''    previousMoving = motion.moving;\n\n    // ------------------------------------------------------------\n    // Réseau préférentiel + fallback\n    //\n    // Préférence WiFi : 4G -> recherche WiFi périodique -> retour WiFi.\n    // Préférence 4G : rester en 4G tant que la data fonctionne.\n    // La préférence ne change pas la logique de fallback si le réseau actif tombe.\n    // ------------------------------------------------------------\n    static uint32_t lastPreferredWiFiCheck = 0;\n\n    // Si le profil WiFi actuellement utilisé a été supprimé, on invalide\n    // immédiatement le réseau actif. Aucun reboot n'est nécessaire.\n    if (activeNetwork == ActiveNetwork::WIFI && activeWiFiSlot >= 0) {\n      WiFiProfile activeProfile;\n      if (!getWiFiProfile((uint8_t)activeWiFiSlot, activeProfile)) {\n        Serial.println("[NET] Profil WiFi actif supprimé -> déconnexion.");\n        WiFi.disconnect(false);\n        activeWiFiSlot = -1;\n        activeNetwork = ActiveNetwork::NONE;\n      }\n    }\n\n    // Si la préférence est WiFi et que nous sommes temporairement en 4G,\n    // on retente le WiFi périodiquement sans interrompre la 4G si l'essai échoue.\n    if (activeNetwork == ActiveNetwork::CELLULAR &&\n        getNetworkMode() == NetworkMode::WIFI &&\n        now - lastPreferredWiFiCheck >= 20000UL) {\n\n      lastPreferredWiFiCheck = now;\n\n      if (tryPreferredWiFiReturn()) {\n        lastSend = now - (SEND_INTERVAL_MOVING_SEC * 1000UL);\n      }\n    }\n\n    // -----------------------------\n    // Fallback réseau automatique\n    // -----------------------------\n'''
+          if old not in s:
+              raise SystemExit('network fallback marker not found')
+          s = s.replace(old, new, 1)
+
+          ino.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate source structure
+        run: |
+          test -f firmware/TRAK_2_0_3wb/TRAK_2_0_3wb.ino
+          test -f firmware/TRAK_2_0_3wb/Config.h
+          test -f firmware/TRAK_2_0_3wb/RuntimeConfig.cpp
+          grep -q 'FIRMWARE_VERSION.*2.0.3wb' firmware/TRAK_2_0_3wb/Config.h
+          grep -q 'tryPreferredWiFiReturn' firmware/TRAK_2_0_3wb/TRAK_2_0_3wb.ino
+
+      - name: Archive complete source
+        run: |
+          zip -r TRAK_2_0_3wb.zip firmware/TRAK_2_0_3wb
+
+      - name: Upload complete firmware source
+        uses: actions/upload-artifact@v4
+        with:
+          name: TRAK_2_0_3wb
+          path: TRAK_2_0_3wb.zip
+          retention-days: 30
