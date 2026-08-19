@@ -3,6 +3,8 @@ name: Build TRAK 2.0.3wb
 on:
   push:
     branches: [trak-2.0.3wb]
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
