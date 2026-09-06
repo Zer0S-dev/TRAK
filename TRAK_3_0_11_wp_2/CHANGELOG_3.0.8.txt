@@ -1,0 +1,10 @@
+TRAK 3.0.8 — PHASE 8 / SMS POSITION
+
+- Ajout de la commande SMS entrante `POSITION`.
+- Le TRAK ne traite la commande que si le numero expediteur correspond au numero utilisateur Sentinel enregistre en NVS.
+- Si le GPS a un fix, la reponse reutilise exactement le format du SMS de position Sentinel, avec position et lien Google Maps.
+- Si le GPS n'a pas de fix, la reponse est : `TRAK: Position indisponible, pas de fix GPS`.
+- Les SMS entrants sont lus en mode SMS texte et supprimes apres traitement pour eviter leur retraitement.
+- Les autres commandes SMS sont ignorees.
+- Aucun numero de telephone n'est affiche dans les logs de diagnostic.
+- Aucun changement apporte a la logique PositionBuffer / LIVE / FIFO de la 3.0.7.
