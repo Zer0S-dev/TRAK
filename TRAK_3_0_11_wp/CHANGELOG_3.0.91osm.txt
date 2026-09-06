@@ -1,0 +1,33 @@
+TRAK 3.0.91osm
+================
+
+Base : TRAK 3.0.91
+
+TrackingEngine v2 inspiré de l'architecture de suivi en ligne d'OsmAnd.
+
+Principe :
+  GNSS -> enregistrement local FIFO SD -> Sender indépendant -> Trackserver
+
+Changements :
+- Chaque position de tracking avec fix GNSS est d'abord enregistrée dans
+  /trak_buffer.bin.
+- L'envoi réseau ne décide plus si une position est conservée ou perdue.
+- Le Sender tourne dans une tâche FreeRTOS indépendante sur le Core 0.
+- Une requête HTTP lente ne décale plus l'échéancier de capture GNSS.
+- Après retour du réseau, le FIFO est drainé automatiquement.
+- Les positions conservent leur date/heure GNSS d'origine.
+- Les mécanismes GNSS, LSM6DS3, Sentinel, SMS, réseau et Dashboard restent
+  ceux de la 3.0.91.
+- L'intervalle utilisateur 5/10/15/20/25 s reste inchangé en mouvement.
+- L'intervalle stationnaire reste inchangé.
+
+Objectif de test :
+- trajet aller Wi-Fi
+- bascule Wi-Fi -> 4G
+- arrêt prolongé
+- trajet retour
+- vérifier que les positions produites pendant une coupure réseau sont
+  toutes présentes dans le FIFO puis rattrapées après reconnexion.
+
+Référence technique : séparation production/queue/transport observée dans
+OsmAnd Online Tracking.
