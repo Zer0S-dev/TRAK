@@ -8,6 +8,9 @@
 #include "TrackerState.h"
 #include "StatusLedManager.h"
 
+// Forward declaration: used by the internal Wi-Fi connection helper below.
+const char* wifiStatusName(wl_status_t status);
+
 namespace {
 
 static int8_t trackedWiFiSlot = -1;
