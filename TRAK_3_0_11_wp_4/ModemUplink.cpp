@@ -12,11 +12,12 @@ namespace {
 // les plus récents lorsque la 4G est temporairement occupée.
 static constexpr size_t TRAK_CONNECT_QUEUE_DEPTH = 4;
 
-// On ne change pas de protocole HTTP à chaque position lorsque plusieurs
-// positions Trackserver sont déjà en attente. Le changement HTTP <-> HTTPS
-// force une reconfiguration de la session A7670 et doit donc rester rare.
+// TRAK Connect reste prioritaire, mais Trackserver possède désormais un
+// créneau garanti lorsqu'il y a du FIFO à vider. On évite ainsi qu'un flux
+// live à 2 s ne puisse affamer complètement le tracking historique.
 static constexpr uint8_t TRAK_CONNECT_BATCH_MAX = 2;
 static constexpr uint8_t TRACKSERVER_BATCH_MAX = 3;
+static constexpr uint32_t TRACKSERVER_SERVICE_INTERVAL_MS = 5000;
 static constexpr uint32_t HTTP_MODE_SWITCH_GUARD_MS = 250;
 static constexpr uint32_t RETRY_AFTER_HTTP_FAILURE_MS = 500;
 
@@ -27,6 +28,9 @@ size_t queueCount = 0;
 
 volatile bool trakConnectLastOk = false;
 TaskHandle_t uplinkTaskHandle = nullptr;
+
+// Dernier créneau Trackserver effectivement tenté en 4G.
+uint32_t lastTrackserverServiceMs = 0;
 
 enum class LastTransport : uint8_t {
   NONE,
@@ -61,6 +65,18 @@ bool popTrakConnectSample(TrakConnectSample& out)
   return has;
 }
 
+bool hasTrackserverPending()
+{
+  return positionBufferIsReady() && positionBufferCount() > 0;
+}
+
+bool trackserverServiceDue()
+{
+  if (!hasTrackserverPending()) return false;
+  if (lastTrackserverServiceMs == 0) return true;
+  return (millis() - lastTrackserverServiceMs) >= TRACKSERVER_SERVICE_INTERVAL_MS;
+}
+
 void guardTransportSwitch(LastTransport nextTransport)
 {
   if (lastTransport != LastTransport::NONE &&
@@ -84,18 +100,22 @@ void modemUplinkTask(void* parameter)
       // En WiFi, les deux services utilisent leur transport indépendant.
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(500));
       lastTransport = LastTransport::NONE;
+      lastTrackserverServiceMs = 0;
       continue;
     }
 
     bool didWork = false;
 
     // ---------------------------------------------------------------------
-    // 1) TRAK Connect : priorité live, mais avec une limite de lot.
+    // 1) TRAK Connect : priorité live.
     // ---------------------------------------------------------------------
-    // Plusieurs échantillons TRAK Connect peuvent avoir été produits pendant
-    // une transaction Trackserver. Ils utilisent tous HTTPS : les traiter
-    // dans le même lot évite de refaire HTTPINIT/SSL à chaque point.
-    for (uint8_t i = 0; i < TRAK_CONNECT_BATCH_MAX; ++i) {
+    // Si Trackserver a atteint son créneau garanti, on limite ce lot à un
+    // seul point TC afin de libérer immédiatement le modem pour Trackserver.
+    const uint8_t tcBatchMax = trackserverServiceDue()
+        ? 1
+        : TRAK_CONNECT_BATCH_MAX;
+
+    for (uint8_t i = 0; i < tcBatchMax; ++i) {
       TrakConnectSample sample;
       if (!popTrakConnectSample(sample)) break;
 
@@ -115,28 +135,44 @@ void modemUplinkTask(void* parameter)
     }
 
     // ---------------------------------------------------------------------
-    // 2) Trackserver : on profite de la session HTTP tant qu'aucun point
-    //    TRAK Connect n'est en attente.
+    // 2) Trackserver : créneau garanti toutes les 5 s si le FIFO est rempli.
     // ---------------------------------------------------------------------
-    // Contrairement à l'ancien "1 + 1" strict, on peut envoyer plusieurs
-    // positions Trackserver consécutives. Cela amortit le coût HTTPINIT /
-    // HTTPTERM lors du changement HTTPS <-> HTTP, tout en conservant une
-    // latence bornée pour le canal live : dès qu'un nouveau point TRAK
-    // Connect est en file, le lot Trackserver s'arrête après le point courant.
-    for (uint8_t i = 0; i < TRACKSERVER_BATCH_MAX; ++i) {
-      if (hasTrakConnectPending()) break;
-      if (!positionBufferIsReady() || positionBufferCount() == 0) break;
+    // En mouvement, TRAK Connect produit un point toutes les 2 s : on force
+    // malgré tout un passage Trackserver au plus tard toutes les 5 s.
+    // Cela empêche le canal live de monopoliser complètement le modem.
+    //
+    // Si aucun point TC n'est en attente, on profite au contraire de la
+    // session HTTP pour vider jusqu'à 3 positions consécutives.
+    if (hasTrackserverPending()) {
+      const bool tcPending = hasTrakConnectPending();
+      const bool serviceDue = trackserverServiceDue();
 
-      guardTransportSwitch(LastTransport::TRACKSERVER);
+      if (!tcPending || serviceDue) {
+        const uint8_t batchMax = tcPending ? 1 : TRACKSERVER_BATCH_MAX;
 
-      const bool ok = trackingEngineSendOneCellular();
-      didWork = true;
+        for (uint8_t i = 0; i < batchMax; ++i) {
+          if (!hasTrackserverPending()) break;
 
-      if (!ok) {
-        // Ne pas marteler HTTPINIT en boucle. Le point reste dans le FIFO et
-        // sera repris lors du prochain passage.
-        vTaskDelay(pdMS_TO_TICKS(RETRY_AFTER_HTTP_FAILURE_MS));
-        break;
+          // Dès qu'un nouveau point TC arrive pendant un batch de rattrapage,
+          // on arrête le lot après le point Trackserver courant.
+          if (i > 0 && hasTrakConnectPending()) break;
+
+          guardTransportSwitch(LastTransport::TRACKSERVER);
+
+          // Le créneau est consommé dès la tentative : une erreur ne doit
+          // pas provoquer une boucle Trackserver qui bloque le canal live.
+          lastTrackserverServiceMs = millis();
+
+          const bool ok = trackingEngineSendOneCellular();
+          didWork = true;
+
+          if (!ok) {
+            // Le point reste dans le FIFO. On laisse ensuite TRAK Connect
+            // reprendre la main et on réessaiera au prochain créneau.
+            vTaskDelay(pdMS_TO_TICKS(RETRY_AFTER_HTTP_FAILURE_MS));
+            break;
+          }
+        }
       }
     }
 
@@ -175,7 +211,7 @@ void modemUplinkBegin()
     return;
   }
 
-  DevSerial.println("[UPLINK] Ordonnanceur modem 4G prêt : lots TC/Trackserver + bascule amortie.");
+  DevSerial.println("[UPLINK] Ordonnanceur modem 4G prêt : TC prioritaire + créneau Trackserver garanti 5 s.");
 }
 
 void modemUplinkEnqueueTrakConnect(const TrakConnectSample& sample)
