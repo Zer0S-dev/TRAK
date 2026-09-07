@@ -8,9 +8,17 @@
 
 namespace {
 
-// Tampon circulaire TRAK Connect : profondeur volontairement faible,
-// seule la position la plus récente compte pour l'affichage live.
+// TRAK Connect est un canal live : on conserve uniquement les échantillons
+// les plus récents lorsque la 4G est temporairement occupée.
 static constexpr size_t TRAK_CONNECT_QUEUE_DEPTH = 4;
+
+// On ne change pas de protocole HTTP à chaque position lorsque plusieurs
+// positions Trackserver sont déjà en attente. Le changement HTTP <-> HTTPS
+// force une reconfiguration de la session A7670 et doit donc rester rare.
+static constexpr uint8_t TRAK_CONNECT_BATCH_MAX = 2;
+static constexpr uint8_t TRACKSERVER_BATCH_MAX = 3;
+static constexpr uint32_t HTTP_MODE_SWITCH_GUARD_MS = 250;
+static constexpr uint32_t RETRY_AFTER_HTTP_FAILURE_MS = 500;
 
 SemaphoreHandle_t queueMutex = nullptr;
 TrakConnectSample queueItems[TRAK_CONNECT_QUEUE_DEPTH];
@@ -18,8 +26,24 @@ size_t queueHead = 0;
 size_t queueCount = 0;
 
 volatile bool trakConnectLastOk = false;
-
 TaskHandle_t uplinkTaskHandle = nullptr;
+
+enum class LastTransport : uint8_t {
+  NONE,
+  TRAK_CONNECT,
+  TRACKSERVER
+};
+
+LastTransport lastTransport = LastTransport::NONE;
+
+bool hasTrakConnectPending()
+{
+  if (queueMutex == nullptr) return false;
+  if (xSemaphoreTake(queueMutex, pdMS_TO_TICKS(20)) != pdTRUE) return false;
+  const bool has = queueCount > 0;
+  xSemaphoreGive(queueMutex);
+  return has;
+}
 
 bool popTrakConnectSample(TrakConnectSample& out)
 {
@@ -37,6 +61,19 @@ bool popTrakConnectSample(TrakConnectSample& out)
   return has;
 }
 
+void guardTransportSwitch(LastTransport nextTransport)
+{
+  if (lastTransport != LastTransport::NONE &&
+      lastTransport != nextTransport) {
+    // Le A7670 a besoin d'un petit temps de stabilisation lorsqu'on passe
+    // d'une session HTTP à une session HTTPS, ou inversement. Ce délai est
+    // uniquement appliqué lors d'un vrai changement de transport.
+    vTaskDelay(pdMS_TO_TICKS(HTTP_MODE_SWITCH_GUARD_MS));
+  }
+
+  lastTransport = nextTransport;
+}
+
 void modemUplinkTask(void* parameter)
 {
   (void)parameter;
@@ -44,46 +81,69 @@ void modemUplinkTask(void* parameter)
 
   for (;;) {
     if (getActiveNetwork() != ActiveNetwork::CELLULAR) {
-      // Rien à faire : en WiFi, TrackingEngine et TRAKConnect envoient
-      // directement (pas de ressource matérielle partagée à protéger).
+      // En WiFi, les deux services utilisent leur transport indépendant.
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(500));
+      lastTransport = LastTransport::NONE;
       continue;
     }
 
     bool didWork = false;
 
-    // 1) Position "live" TRAK Connect : sensible à la latence (affichage
-    //    carte en direct), donc toujours traitée en premier quand une
-    //    est en attente. Coût désormais réduit (session TLS réutilisée,
-    //    SSL configuré une seule fois — voir ModemManager.cpp).
-    TrakConnectSample sample;
-    if (popTrakConnectSample(sample)) {
+    // ---------------------------------------------------------------------
+    // 1) TRAK Connect : priorité live, mais avec une limite de lot.
+    // ---------------------------------------------------------------------
+    // Plusieurs échantillons TRAK Connect peuvent avoir été produits pendant
+    // une transaction Trackserver. Ils utilisent tous HTTPS : les traiter
+    // dans le même lot évite de refaire HTTPINIT/SSL à chaque point.
+    for (uint8_t i = 0; i < TRAK_CONNECT_BATCH_MAX; ++i) {
+      TrakConnectSample sample;
+      if (!popTrakConnectSample(sample)) break;
+
+      guardTransportSwitch(LastTransport::TRAK_CONNECT);
+
       const bool ok = trakConnectSendOneCellular(
           sample.latitude, sample.longitude, sample.seq);
       trakConnectLastOk = ok;
       didWork = true;
+
+      if (!ok) {
+        // Une erreur HTTPS doit laisser une chance au Trackserver de passer
+        // après la remise à zéro effectuée par ModemManager.
+        vTaskDelay(pdMS_TO_TICKS(RETRY_AFTER_HTTP_FAILURE_MS));
+        break;
+      }
     }
 
-    // 2) Un point du backlog Trackserver (FIFO SD). Un seul par
-    //    itération : avec deux tâches concurrentes supprimées, il n'y a
-    //    plus besoin d'un arbitrage à courte échéance — la boucle
-    //    elle-même garantit qu'un gros backlog Trackserver ne peut pas
-    //    empêcher indéfiniment le prochain échantillon TRAK Connect de
-    //    passer, puisqu'on revérifie la file TRAK Connect à chaque tour.
-    if (trackingEngineSendOneCellular()) {
+    // ---------------------------------------------------------------------
+    // 2) Trackserver : on profite de la session HTTP tant qu'aucun point
+    //    TRAK Connect n'est en attente.
+    // ---------------------------------------------------------------------
+    // Contrairement à l'ancien "1 + 1" strict, on peut envoyer plusieurs
+    // positions Trackserver consécutives. Cela amortit le coût HTTPINIT /
+    // HTTPTERM lors du changement HTTPS <-> HTTP, tout en conservant une
+    // latence bornée pour le canal live : dès qu'un nouveau point TRAK
+    // Connect est en file, le lot Trackserver s'arrête après le point courant.
+    for (uint8_t i = 0; i < TRACKSERVER_BATCH_MAX; ++i) {
+      if (hasTrakConnectPending()) break;
+      if (!positionBufferIsReady() || positionBufferCount() == 0) break;
+
+      guardTransportSwitch(LastTransport::TRACKSERVER);
+
+      const bool ok = trackingEngineSendOneCellular();
       didWork = true;
+
+      if (!ok) {
+        // Ne pas marteler HTTPINIT en boucle. Le point reste dans le FIFO et
+        // sera repris lors du prochain passage.
+        vTaskDelay(pdMS_TO_TICKS(RETRY_AFTER_HTTP_FAILURE_MS));
+        break;
+      }
     }
 
     if (!didWork) {
-      // Rien à envoyer pour l'instant : on attend soit une notification
-      // (nouveau point FIFO ou nouvel échantillon TRAK Connect), soit un
-      // court délai, pour ne pas boucler à vide sur le CPU.
+      // Attente courte : notification d'un nouveau point ou réveil périodique.
       ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250));
     }
-    // Si du travail a été fait, on reboucle immédiatement (pas de délai
-    // artificiel) : c'est cette absence de "pause de politesse" a
-    // posteriori — remplacée par le fait qu'un seul task existe — qui
-    // élimine la famine mutuelle observée avec l'ancien ModemArbiter.
   }
 }
 
@@ -115,7 +175,7 @@ void modemUplinkBegin()
     return;
   }
 
-  DevSerial.println("[UPLINK] Ordonnanceur modem 4G pret.");
+  DevSerial.println("[UPLINK] Ordonnanceur modem 4G prêt : lots TC/Trackserver + bascule amortie.");
 }
 
 void modemUplinkEnqueueTrakConnect(const TrakConnectSample& sample)
@@ -124,8 +184,7 @@ void modemUplinkEnqueueTrakConnect(const TrakConnectSample& sample)
   if (xSemaphoreTake(queueMutex, pdMS_TO_TICKS(50)) != pdTRUE) return;
 
   if (queueCount == TRAK_CONNECT_QUEUE_DEPTH) {
-    // File pleine : on écrase le plus ancien échantillon en attente.
-    // Seule la fraîcheur compte pour TRAK Connect, pas l'historique.
+    // La fraîcheur est prioritaire pour le live : on remplace le plus ancien.
     queueHead = (queueHead + 1) % TRAK_CONNECT_QUEUE_DEPTH;
     --queueCount;
   }
