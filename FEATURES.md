@@ -8,6 +8,7 @@ TRAK box
 - dev log sur SD horodaté
 
 Dashboard TRAK Connect
+- REST API / json
 - reçois les datas par API de TRAK
 - donne les reglages au TRAK
 - genere la key API
@@ -19,3 +20,4 @@ Priorités
 - performance d'envoi rapide en 4G https
 - connexion stable
 - rapidité de communication
+
