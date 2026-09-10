@@ -184,6 +184,11 @@ bool processSmsBody(const String& sender, const String& body) {
   if (message == "HELLO TRAK") {
     if (trakUserPhone().isEmpty()) {
       Serial.println("[SMS] HELLO TRAK -> TRAK vierge, ouverture Wizard.");
+      if (sendSms(normalizedSender, "TRAK: configuration disponible. Wi-Fi: TRAK-DIRECT. Ouvre http://192.168.4.1/wizard.html")) {
+        Serial.println("[SMS] Reponse Wizard envoyee au demandeur.");
+      } else {
+        Serial.println("[SMS] ERREUR: reponse Wizard non envoyee.");
+      }
       enterWizard(true);
       return true;
     }
