@@ -56,14 +56,6 @@ String generateApiKey() {
   return out;
 }
 
-void saveConfig() {
-  prefs.putString(KEY_URL, webUrl);
-  prefs.putString(KEY_USER_PHONE, userPhone);
-  prefs.putString(KEY_TRAK_PHONE, storedTrakPhone);
-  prefs.putString(KEY_API, apiKey);
-  prefs.putBool(KEY_PROVISIONED, provisioned);
-}
-
 void printConfig() {
   Serial.println("[CONFIG] TRAK configuration:");
   Serial.print("[CONFIG] URL_WEB_APP = "); Serial.println(webUrl);
@@ -78,7 +70,7 @@ void printConfig() {
 void resetConfig() {
   trakConfigResetProvisioning();
   Serial.println("[CONFIG] Provisioning efface; les profils Wi-Fi sont conserves.");
-  Serial.print("[CONFIG] API_KEY apres reset = "); Serial.println(apiKey.length() ? apiKey : "EMPTY");
+  Serial.println("[CONFIG] API_KEY apres reset = EMPTY");
 }
 }
 
@@ -147,18 +139,26 @@ bool trakConfigSetServerUrl(const String& url) {
 bool trakConfigSetUserPhone(const String& phone) {
   userPhone = normalizePhone(phone);
   prefs.putString(KEY_USER_PHONE, userPhone);
-  return true;
+  return userPhone.length() > 0;
 }
 
 bool trakConfigSetTrakPhone(const String& phone) {
   storedTrakPhone = normalizePhone(phone);
   prefs.putString(KEY_TRAK_PHONE, storedTrakPhone);
-  return true;
+  return storedTrakPhone.length() > 0;
 }
 
 bool trakConfigSetProvisioned(bool value) {
   provisioned = value;
   prefs.putBool(KEY_PROVISIONED, provisioned);
+  return true;
+}
+
+bool trakConfigRegenerateApiKey() {
+  if (!ready) return false;
+  apiKey = generateApiKey();
+  if (prefs.putString(KEY_API, apiKey) != apiKey.length()) return false;
+  Serial.println("[CONFIG] Nouvelle API_KEY generee et stockee en NVS.");
   return true;
 }
 
