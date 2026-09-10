@@ -6,6 +6,7 @@
 #include "MotionManager.h"
 #include "WiFiManager.h"
 #include "TrakConfig.h"
+#include "WizardManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -199,6 +200,13 @@ void trakCommunicationTaskFixed(void*) {
   else activeNetwork = NetworkPath::None;
 
   for (;;) {
+    trakWizardSmsTick();
+    if (trakWizardActive()) {
+      activeNetwork = NetworkPath::None;
+      vTaskDelay(pdMS_TO_TICKS(20));
+      continue;
+    }
+
     const uint32_t now = millis();
     wifiNetworkTick(true);
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
@@ -239,8 +247,15 @@ void trakCommunicationTaskFixed(void*) {
         else Serial.printf("[TRAK-CONNECT] HTTP %d, position conservee.\n", httpStatus);
         break;
       }
-      if (positionBuffer.empty()) { if (bufferFlushActive) devLog("Buffer flush completed"); bufferFlushActive = false; bufferWasFull = false; }
+      if (positionBuffer.empty() && bufferFlushActive) { bufferFlushActive = false; devLog("Buffer flush complete"); }
+      if (positionBuffer.size() >= POSITION_BUFFER_CAPACITY && !bufferWasFull) { bufferWasFull = true; Serial.println("[BUFFER] FIFO pleine."); devLog("Buffer full"); }
+      if (positionBuffer.size() < POSITION_BUFFER_CAPACITY) bufferWasFull = false;
     }
-    vTaskDelay(pdMS_TO_TICKS(20));
+
+    if (now - lastLog >= GNSS_LOG_MS) {
+      lastLog = now;
+      Serial.printf("[TRAK] network=%s buffer=%u motion=%s\n", activeNetwork == NetworkPath::WiFi ? "WiFi" : activeNetwork == NetworkPath::Cellular ? "4G" : "None", (unsigned)positionBuffer.size(), motionIsMobile() ? "MOBILE" : "IMMOBILE");
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
