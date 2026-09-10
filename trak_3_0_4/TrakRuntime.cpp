@@ -378,8 +378,8 @@ bool parseRemoteInterval(const String& response, uint32_t& intervalMs) {
 bool fetchRemoteInterval() {
   if (!modemReady || !cellularReady) return false;
   String url;
-  url.reserve(strlen(TRAK_INTERVAL_URL) + strlen(TRAK_API_KEY) + 12);
-  url += TRAK_INTERVAL_URL; url += "?api_key="; url += TRAK_API_KEY;
+  url.reserve(strlen(TRAK_INTERVAL_URL) + 1);
+  url += TRAK_INTERVAL_URL;
   at("AT+HTTPTERM", 1000);
   if (at("AT+HTTPINIT", 3000).indexOf("OK") < 0) return false;
   if (at(String("AT+HTTPPARA=\"URL\",\"") + url + "\"", 3000).indexOf("OK") < 0) { at("AT+HTTPTERM", 1000); return false; }
@@ -410,8 +410,8 @@ bool fetchRemoteInterval() {
 HttpPostResult httpPostJson(const String& json) {
   if (!modemReady || !cellularReady) return HttpPostResult::TransportError;
   String url;
-  url.reserve(strlen(TRAK_CONNECT_URL) + strlen(TRAK_API_KEY) + 12);
-  url += TRAK_CONNECT_URL; url += "?api_key="; url += TRAK_API_KEY;
+  url.reserve(strlen(TRAK_CONNECT_URL) + 1);
+  url += TRAK_CONNECT_URL;
   Serial.println("[TRAK-CONNECT] Envoi REST JSON..."); Serial.println(json);
   at("AT+HTTPTERM", 1000);
   if (at("AT+HTTPINIT", 3000).indexOf("OK") < 0) return HttpPostResult::TransportError;
