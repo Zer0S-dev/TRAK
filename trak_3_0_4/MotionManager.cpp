@@ -250,3 +250,7 @@ bool setMotionIntervals(uint32_t activeSeconds, uint32_t idleSeconds) {
 const char* motionModeName() {
   return state.moving ? "MOBILE" : "IMMOBILE";
 }
+
+bool motionIsMobile() {
+  return state.moving;
+}
