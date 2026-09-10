@@ -2,16 +2,32 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <LittleFS.h>
+#include <HardwareSerial.h>
 #include "TrakConfig.h"
 #include "WizardManager.h"
 
-extern void trakCommunicationSuspendForWizard();
+extern HardwareSerial modem;
+extern volatile bool modemReady;
+extern String at(const String& command, uint32_t timeoutMs);
 
 namespace {
 WebServer server(80);
 volatile bool active = false;
 bool pendingResetConfirmation = false;
 bool serverStarted = false;
+uint32_t lastSmsPoll = 0;
+constexpr uint32_t SMS_POLL_MS = 5000;
+
+String normalizePhoneLocal(String phone) {
+  phone.trim();
+  String out;
+  out.reserve(phone.length());
+  for (size_t i = 0; i < phone.length(); ++i) {
+    const char c = phone[i];
+    if ((c >= '0' && c <= '9') || (c == '+' && out.length() == 0)) out += c;
+  }
+  return out;
+}
 
 String jsonEscape(const String& value) {
   String out;
@@ -107,8 +123,6 @@ void startServer() {
 
 void enterWizard(bool resetProvisioning) {
   if (active) return;
-  trakCommunicationSuspendForWizard();
-
   if (resetProvisioning) {
     trakConfigResetProvisioning();
     if (!trakConfigRegenerateApiKey()) {
@@ -119,14 +133,124 @@ void enterWizard(bool resetProvisioning) {
   active = true;
   pendingResetConfirmation = false;
   startServer();
-  Serial.println("[WIZARD] MODE EXCLUSIF ACTIF. Les traitements TRAK normaux sont suspendus.");
+  Serial.println("[WIZARD] MODE EXCLUSIF ACTIF. La communication normale est suspendue par le runtime.");
+}
+
+bool sendSms(const String& destination, const String& text) {
+  if (!modemReady || destination.isEmpty()) return false;
+  at("AT+CMGF=1", 2000);
+  while (modem.available()) modem.read();
+  modem.print(String("AT+CMGS=\"") + destination + "\"\r\n");
+  String prompt;
+  const uint32_t start = millis();
+  while (millis() - start < 5000) {
+    while (modem.available()) {
+      prompt += (char)modem.read();
+      if (prompt.indexOf('>') >= 0) {
+        modem.print(text);
+        modem.write(26);
+        String result;
+        const uint32_t sendStart = millis();
+        while (millis() - sendStart < 15000) {
+          while (modem.available()) {
+            result += (char)modem.read();
+            if (result.indexOf("OK") >= 0) {
+              Serial.print("[SMS] Envoye a "); Serial.println(destination);
+              return true;
+            }
+            if (result.indexOf("ERROR") >= 0 || result.indexOf("+CMS ERROR") >= 0) return false;
+          }
+          vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        return false;
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+  Serial.println("[SMS] Pas de prompt CMGS.");
+  return false;
+}
+
+bool processSmsBody(const String& sender, const String& body) {
+  String message = body;
+  message.trim();
+  const String normalizedSender = normalizePhoneLocal(sender);
+
+  if (message == "HELLO TRAK") {
+    if (trakUserPhone().isEmpty()) {
+      Serial.println("[SMS] HELLO TRAK -> TRAK vierge, ouverture Wizard.");
+      enterWizard(true);
+      return true;
+    }
+
+    Serial.println("[SMS] HELLO TRAK -> TRAK deja configure, confirmation requise.");
+    pendingResetConfirmation = true;
+    sendSms(trakUserPhone(), "TRAK: demande de reset recue. Repondre exactement: CONFIRM RESET");
+    return true;
+  }
+
+  if (message == "CONFIRM RESET" && pendingResetConfirmation) {
+    if (normalizedSender == normalizePhoneLocal(trakUserPhone())) {
+      Serial.println("[SMS] CONFIRM RESET valide depuis USER_PHONE -> ouverture Wizard.");
+      enterWizard(true);
+    } else {
+      Serial.println("[SMS] CONFIRM RESET ignore: expediteur non autorise.");
+    }
+    return true;
+  }
+  return false;
+}
+
+void pollSms() {
+  if (active || !modemReady) return;
+  const uint32_t now = millis();
+  if (now - lastSmsPoll < SMS_POLL_MS) return;
+  lastSmsPoll = now;
+
+  at("AT+CMGF=1", 2000);
+  const String response = at("AT+CMGL=\"REC UNREAD\"", 5000);
+  int cursor = 0;
+  while (true) {
+    const int marker = response.indexOf("+CMGL:", cursor);
+    if (marker < 0) break;
+    const int lineEnd = response.indexOf('\n', marker);
+    if (lineEnd < 0) break;
+    const String header = response.substring(marker, lineEnd);
+
+    int q1 = header.indexOf('"');
+    int q2 = q1 >= 0 ? header.indexOf('"', q1 + 1) : -1;
+    int q3 = q2 >= 0 ? header.indexOf('"', q2 + 1) : -1;
+    int q4 = q3 >= 0 ? header.indexOf('"', q3 + 1) : -1;
+    if (q1 < 0 || q2 < 0 || q3 < 0 || q4 < 0) { cursor = lineEnd + 1; continue; }
+
+    const int commaAfterIndex = header.indexOf(',');
+    const int smsIndex = commaAfterIndex > 0 ? header.substring(6, commaAfterIndex).toInt() : -1;
+    const String sender = header.substring(q3 + 1, q4);
+    int bodyEnd = response.indexOf("\r\n+CMGL:", lineEnd + 1);
+    if (bodyEnd < 0) bodyEnd = response.indexOf("\n+CMGL:", lineEnd + 1);
+    if (bodyEnd < 0) bodyEnd = response.indexOf("\r\nOK", lineEnd + 1);
+    if (bodyEnd < 0) bodyEnd = response.length();
+    String body = response.substring(lineEnd + 1, bodyEnd);
+    body.trim();
+
+    if (smsIndex >= 0) {
+      processSmsBody(sender, body);
+      at(String("AT+CMGD=") + String(smsIndex), 3000);
+    }
+    cursor = bodyEnd + 1;
+    if (active) break;
+  }
+}
+}
+
+void trakWizardSmsTick() {
+  pollSms();
 }
 
 void trakWizardCommand(const String& rawCommand) {
   String command = rawCommand;
   command.trim();
 
-  // Serial commands deliberately mirror the agreed SMS flow for phase 2 testing.
   if (command == "HELLO TRAK") {
     if (trakUserPhone().isEmpty()) {
       Serial.println("[WIZARD] TRAK vierge -> ouverture directe du Wizard.");
@@ -135,7 +259,7 @@ void trakWizardCommand(const String& rawCommand) {
       pendingResetConfirmation = true;
       Serial.println("[WIZARD] TRAK deja configure.");
       Serial.println("[WIZARD] Confirmation requise : CONFIRM RESET");
-      Serial.println("[WIZARD] Simulation SMS : aucune donnee n'est effacee pour l'instant.");
+      Serial.println("[WIZARD] Simulation SMS: confirmation depuis USER_PHONE requise.");
     }
     return;
   }
@@ -149,10 +273,7 @@ void trakWizardCommand(const String& rawCommand) {
     return;
   }
 
-  if (command == "WIZARD") {
-    // Explicit development shortcut. It never exists as a normal remote trigger.
-    enterWizard(false);
-  }
+  if (command == "WIZARD") enterWizard(false);
 }
 
 void trakWizardTask() {
