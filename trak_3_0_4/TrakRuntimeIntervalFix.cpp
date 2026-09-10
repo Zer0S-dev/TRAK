@@ -178,7 +178,7 @@ void trakCommunicationTaskFixed(void*) {
     if (now - lastGnssPoll >= GNSS_POLL_MS) {
       lastGnssPoll = now; GnssPosition next; gnssFix = readGnss(next);
       if (gnssFix) { position = next; if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.printf("[GNSS] Fix OK lat=%.6f lon=%.6f alt=%.1f m\n", position.latitude, position.longitude, position.altitude); } }
-      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix...\n"); }
+      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix..."); }
     }
 
     if (motionReturnStarted && bufferReady && gnssFix) { lastRecord = now; if (positionBuffer.push(position)) centerBlinkUntil = now + 900; }
