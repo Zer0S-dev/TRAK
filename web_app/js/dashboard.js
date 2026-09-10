@@ -3,6 +3,7 @@
 function updateHome(data) {
     const hasFix = data.hasFix === true && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude));
     const online = data.online === true;
+    const is4G = data.network === '4G';
     document.body.classList.toggle('state-gps-ok', hasFix);
     document.body.classList.toggle('state-gps-search', !hasFix && online);
     document.body.classList.toggle('state-offline', !online);
@@ -13,7 +14,11 @@ function updateHome(data) {
     const lastUpdate = data && data.lastUpdate ? new Date(data.lastUpdate) : null;
     setText('lastUpdate', lastUpdate && !Number.isNaN(lastUpdate.getTime()) ? '' + lastUpdate.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' }) : '');
     setText('networkIcon', networkIconLabel(data));
-    setText('signalTop', Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + '%' : '—');
+    const signal = document.querySelector('.network-signal');
+    if (signal) signal.style.display = is4G ? '' : 'none';
+    const signalTop = document.getElementById('signalTop');
+    if (signalTop) signalTop.style.display = is4G ? '' : 'none';
+    setText('signalTop', is4G && Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + '%' : '');
     updateMapPosition(data.latitude, data.longitude);
 }
 
@@ -41,8 +46,10 @@ function updateStats(data) {
     setText('statPlan', '—');
     setText('firmwareVersion', data.firmwareVersion || '—');
     setText('serialNumber', data.serialNumber || '—');
-    setText('networkMode', data.online ? '4G' : 'Offline');
-    setText('signalSetting', Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + ' %' : '—');
+    document.querySelectorAll('#networkMode, #signalSetting').forEach((element) => {
+        const row = element.closest('.flat-row');
+        if (row) row.remove();
+    });
     setText('data4GSetting', '—');
     setText('dataEstimatedSetting', '—');
 }
