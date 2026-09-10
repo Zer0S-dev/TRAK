@@ -93,7 +93,7 @@ function requireApiKey(): void
 function loadPositions(): array
 {
     ensureTrakStorage();
-    $raw = file_get_contents(TRAK_STORAGE_FILE);
+    $raw = @file_get_contents(TRAK_STORAGE_FILE);
     if ($raw === false || trim($raw) === '') return [];
     $data = json_decode($raw, true);
     return is_array($data) ? $data : [];
@@ -104,9 +104,7 @@ function savePositions(array $positions): void
     ensureTrakStorage();
     $json = json_encode($positions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($json === false) jsonResponse(['ok' => false, 'error' => 'storage_encode_failed'], 500);
-    $tmp = TRAK_STORAGE_FILE . '.' . bin2hex(random_bytes(8)) . '.tmp';
-    if (@file_put_contents($tmp, $json, LOCK_EX) === false || !@rename($tmp, TRAK_STORAGE_FILE)) {
-        @unlink($tmp);
+    if (@file_put_contents(TRAK_STORAGE_FILE, $json, LOCK_EX) === false) {
         jsonResponse(['ok' => false, 'error' => 'storage_write_failed'], 500);
     }
 }
@@ -136,7 +134,7 @@ function storePosition(string $trakId, array $position): array
 function loadSettings(): array
 {
     ensureTrakStorage();
-    $raw = file_get_contents(TRAK_SETTINGS_FILE);
+    $raw = @file_get_contents(TRAK_SETTINGS_FILE);
     if ($raw === false || trim($raw) === '') return [
         'trackserver_url' => TRACKSERVER_OSMAND_URL,
         'record_interval' => 15,
@@ -163,9 +161,10 @@ function saveSettings(array $settings): void
     ensureTrakStorage();
     $json = json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($json === false) jsonResponse(['ok' => false, 'error' => 'settings_encode_failed'], 500);
-    $tmp = TRAK_SETTINGS_FILE . '.' . bin2hex(random_bytes(8)) . '.tmp';
-    if (@file_put_contents($tmp, $json, LOCK_EX) === false || !@rename($tmp, TRAK_SETTINGS_FILE)) {
-        @unlink($tmp);
+
+    // Shared hosting: write directly to the existing file. This avoids an atomic
+    // rename requiring directory-write permission when the file itself is writable.
+    if (@file_put_contents(TRAK_SETTINGS_FILE, $json, LOCK_EX) === false) {
         jsonResponse(['ok' => false, 'error' => 'settings_write_failed'], 500);
     }
 }
@@ -179,9 +178,9 @@ function getTrackserverConfiguredUrl(): string
 
 function normaliseTimestamp(?string $timestamp): string
 {
-    if ($timestamp === null || trim($timestamp) === '') return gmdate('Y-m-d\TH:i:s\Z');
+    if ($timestamp === null || trim($timestamp) === '') return gmdate('Y-m-d\\TH:i:s\\Z');
     $time = strtotime($timestamp);
-    return $time === false ? gmdate('Y-m-d\TH:i:s\Z') : gmdate('Y-m-d\TH:i:s\Z', $time);
+    return $time === false ? gmdate('Y-m-d\\TH:i:s\\Z') : gmdate('Y-m-d\\TH:i:s\\Z', $time);
 }
 
 function trackserverUrl(array $position): string
