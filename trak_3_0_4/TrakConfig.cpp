@@ -136,6 +136,4 @@ void trakConfigResetProvisioning() {
   prefs.remove(KEY_USER_PHONE);
   prefs.remove(KEY_TRAK_PHONE);
   prefs.remove(KEY_PROVISIONED);
-  // Remove the legacy API key if this device was previously provisioned with it.
-  prefs.remove("api_key");
 }
