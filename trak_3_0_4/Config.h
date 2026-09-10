@@ -55,9 +55,7 @@ static inline String trackerSerialNumber() {
   snprintf(serial, sizeof(serial), "TRACK-%06X", (unsigned int)(chipId & 0xFFFFFFULL));
   return String(serial);
 }
-static constexpr const char* TRAK_CONNECT_URL = "https://surlereservoir.fr/trak/api/trak/position/";
-static constexpr const char* TRAK_INTERVAL_URL = "https://surlereservoir.fr/trak/api/trak/interval/";
-static constexpr const char* TRAK_API_KEY = "TRAK-PROTO-2026";
+// Web App URL and API key are provisioned once and stored in ESP32 NVS.
 static constexpr const char* DEFAULT_APN = "orange";
 static constexpr uint32_t GNSS_POLL_MS = 1000;
 static constexpr uint32_t SEND_INTERVAL_MS = 5000;
