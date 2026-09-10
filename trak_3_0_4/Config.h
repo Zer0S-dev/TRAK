@@ -1,5 +1,5 @@
 #pragma once
-#define TRAK_VERSION "3.0.5"
+#define TRAK_VERSION "3.1.0"
 #define DEV_LOG 1
 #ifndef MODEM_RX_PIN
 #define MODEM_RX_PIN 25
@@ -62,7 +62,7 @@ static inline String trackerSerialNumber() {
 #define TRAK_INTERVAL_URL (trakWebAppUrl() + String("api/trak/interval/"))
 #define TRAK_API_KEY trakApiKey()
 
-// APN fallback. detectApn() may replace it after reading the SIM IMSI.
+// APN fallback. detectApn() selects the operator-specific APN from the IMSI table.
 static constexpr const char* DEFAULT_APN = "orange";
 static constexpr uint32_t GNSS_POLL_MS = 1000;
 static constexpr uint32_t SEND_INTERVAL_MS = 5000;
