@@ -9,14 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     jsonResponse(['ok' => false, 'error' => 'method_not_allowed'], 405);
 }
 
-requireApiKey();
-
 $raw = file_get_contents('php://input');
 $data = json_decode($raw ?: '', true);
 if (!is_array($data)) jsonResponse(['ok' => false, 'error' => 'invalid_json'], 400);
 
 $trakId = trim((string) ($data['trak_id'] ?? ''));
 if ($trakId === '' || strlen($trakId) > 64 || !preg_match('/^[A-Za-z0-9._-]+$/', $trakId)) jsonResponse(['ok' => false, 'error' => 'invalid_trak_id'], 422);
+
+// The API key is now resolved server-side from the TRAK registry using trak_id.
+// A first contact enrolls the generated key; later requests must match it.
+requireApiKey($trakId);
 
 $latitude = filter_var($data['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $longitude = filter_var($data['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
@@ -58,7 +60,6 @@ $position = [
     'signal_percent' => $signalPercent === false ? null : ($signalPercent === null ? null : (int) $signalPercent),
     'hasFix' => true,
     'firmware_version' => $version !== '' ? $version : null,
-    // Motion comes exclusively from the TRAK LSM6DS3 gyro.
     'motionMode' => $motion,
     'motionReturnSeconds' => (int) ceil((int) $motionReturnMs / 1000),
 ];
