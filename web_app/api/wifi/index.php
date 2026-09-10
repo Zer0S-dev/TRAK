@@ -1,6 +1,27 @@
 <?php
 
 declare(strict_types=1);
+
+// Never let a PHP fatal error become an empty Apache 500 response.
+register_shutdown_function(static function (): void {
+    $error = error_get_last();
+    if ($error === null) return;
+    $fatalTypes = [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR];
+    if (!in_array($error['type'], $fatalTypes, true)) return;
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    }
+    echo json_encode([
+        'ok' => false,
+        'error' => 'php_fatal',
+        'message' => $error['message'],
+        'file' => basename($error['file']),
+        'line' => $error['line'],
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+});
+
 require_once dirname(__DIR__, 2) . '/config.php';
 
 const TRAK_WIFI_MAX_PROFILES = 3;
