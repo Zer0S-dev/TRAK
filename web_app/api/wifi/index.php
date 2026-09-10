@@ -22,7 +22,8 @@ register_shutdown_function(static function (): void {
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 });
 
-require_once dirname(__DIR__, 2) . '/config.php';
+// config.php lives in /api/, one level above /api/wifi/.
+require_once dirname(__DIR__) . '/config.php';
 
 const TRAK_WIFI_MAX_PROFILES = 3;
 
