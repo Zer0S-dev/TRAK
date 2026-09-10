@@ -26,21 +26,26 @@ extern void devLog(const String& message);
 enum class NetworkPath : uint8_t { None, WiFi, Cellular };
 static PositionBuffer positionBuffer;
 static bool bufferReady = false;
-static NetworkPath activeNetwork = NetworkPath::None;
+static volatile NetworkPath activeNetwork = NetworkPath::None;
 
 constexpr uint32_t GNSS_LOG_MS = 5000;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
 constexpr uint32_t BUFFER_RETRY_MS = 200;
 constexpr uint32_t WIFI_PROFILE_SYNC_MS = 30000;
 
+// Single source of truth for the currently selected transport.
+NetworkPath trakActiveNetwork() { return activeNetwork; }
+
 static int postBufferedPosition(const GnssPosition& position, int& httpStatus) {
   const String json = buildJson(position);
   if (wifiIsActive()) {
+    activeNetwork = NetworkPath::WiFi;
     const bool ok = wifiPostJson(json, httpStatus);
     if (ok) return 0;
     if (httpStatus == 0) return 2;
     return 1;
   }
+  if (cellularReady) activeNetwork = NetworkPath::Cellular;
   httpStatus = 0;
   return static_cast<int>(httpPostJson(json));
 }
@@ -144,9 +149,10 @@ void trakCommunicationTaskFixed(void*) {
   wifiManagerBegin();
   if (wifiConnectBestSaved()) {
     activeNetwork = NetworkPath::WiFi;
-    cellularReady = false;
   } else if (cellularReady) {
     activeNetwork = NetworkPath::Cellular;
+  } else {
+    activeNetwork = NetworkPath::None;
   }
 
   for (;;) {
@@ -154,7 +160,6 @@ void trakCommunicationTaskFixed(void*) {
     wifiNetworkTick(true);
     if (wifiIsActive()) {
       activeNetwork = NetworkPath::WiFi;
-      cellularReady = false;
     } else if (cellularReady) {
       activeNetwork = NetworkPath::Cellular;
     } else {
@@ -178,7 +183,7 @@ void trakCommunicationTaskFixed(void*) {
     if (now - lastGnssPoll >= GNSS_POLL_MS) {
       lastGnssPoll = now; GnssPosition next; gnssFix = readGnss(next);
       if (gnssFix) { position = next; if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.printf("[GNSS] Fix OK lat=%.6f lon=%.6f alt=%.1f m\n", position.latitude, position.longitude, position.altitude); } }
-      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix..."); }
+      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix...\"); }
     }
 
     if (motionReturnStarted && bufferReady && gnssFix) { lastRecord = now; if (positionBuffer.push(position)) centerBlinkUntil = now + 900; }
