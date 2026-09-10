@@ -26,16 +26,6 @@ function validTrakSensitivity(int $value): int
     return in_array($value, TRAK_SENSITIVITY_VALUES, true) ? $value : TRAK_DEFAULT_SENSITIVITY;
 }
 
-function requestHasValidApiKey(): bool
-{
-    $provided = (string) ($_GET['api_key'] ?? '');
-    if ($provided === '') {
-        $authorization = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (preg_match('/^Bearer\s+(.+)$/i', $authorization, $m)) $provided = trim($m[1]);
-    }
-    return $provided !== '' && hash_equals(TRAK_API_KEY, $provided);
-}
-
 function intervalResponse(): void
 {
     $settings = loadSettings();
@@ -50,15 +40,13 @@ function intervalResponse(): void
     ]);
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && requestHasValidApiKey()) {
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // The TRAK identifies itself through the position protocol's trak_id.
+    // Authentication will be added later with the database-backed version.
     intervalResponse();
 }
 
 requireDashboardAuth();
-
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    intervalResponse();
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: GET, POST');
@@ -75,15 +63,9 @@ $active = (int) ($data['active_interval_seconds'] ?? 0);
 $idle = (int) ($data['idle_interval_seconds'] ?? 0);
 $sensitivity = (int) ($data['sensitivity_level'] ?? 0);
 
-if (!in_array($active, TRAK_ACTIVE_INTERVAL_VALUES, true)) {
-    jsonResponse(['ok' => false, 'error' => 'invalid_active_interval', 'allowed' => TRAK_ACTIVE_INTERVAL_VALUES], 422);
-}
-if (!in_array($idle, TRAK_IDLE_INTERVAL_VALUES, true)) {
-    jsonResponse(['ok' => false, 'error' => 'invalid_idle_interval', 'allowed' => TRAK_IDLE_INTERVAL_VALUES], 422);
-}
-if (!in_array($sensitivity, TRAK_SENSITIVITY_VALUES, true)) {
-    jsonResponse(['ok' => false, 'error' => 'invalid_sensitivity', 'allowed' => TRAK_SENSITIVITY_VALUES], 422);
-}
+if (!in_array($active, TRAK_ACTIVE_INTERVAL_VALUES, true)) jsonResponse(['ok' => false, 'error' => 'invalid_active_interval', 'allowed' => TRAK_ACTIVE_INTERVAL_VALUES], 422);
+if (!in_array($idle, TRAK_IDLE_INTERVAL_VALUES, true)) jsonResponse(['ok' => false, 'error' => 'invalid_idle_interval', 'allowed' => TRAK_IDLE_INTERVAL_VALUES], 422);
+if (!in_array($sensitivity, TRAK_SENSITIVITY_VALUES, true)) jsonResponse(['ok' => false, 'error' => 'invalid_sensitivity', 'allowed' => TRAK_SENSITIVITY_VALUES], 422);
 
 $settings = loadSettings();
 $settings['active_interval'] = $active;
