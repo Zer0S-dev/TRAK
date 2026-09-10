@@ -29,6 +29,12 @@ String normalizePhoneLocal(String phone) {
   return out;
 }
 
+String normalizeSmsCommand(String message) {
+  message.trim();
+  message.toUpperCase();
+  return message;
+}
+
 String jsonEscape(const String& value) {
   String out;
   out.reserve(value.length() + 8);
@@ -172,8 +178,7 @@ bool sendSms(const String& destination, const String& text) {
 }
 
 bool processSmsBody(const String& sender, const String& body) {
-  String message = body;
-  message.trim();
+  const String message = normalizeSmsCommand(body);
   const String normalizedSender = normalizePhoneLocal(sender);
 
   if (message == "HELLO TRAK") {
@@ -248,8 +253,7 @@ void trakWizardSmsTick() {
 }
 
 void trakWizardCommand(const String& rawCommand) {
-  String command = rawCommand;
-  command.trim();
+  const String command = normalizeSmsCommand(rawCommand);
 
   if (command == "HELLO TRAK") {
     if (trakUserPhone().isEmpty()) {
