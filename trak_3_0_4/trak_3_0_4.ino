@@ -5,6 +5,7 @@
 #include "TrakRuntime.h"
 #include "MotionManager.h"
 #include "WiFiManager.h"
+#include "WizardManager.h"
 
 extern Adafruit_NeoPixel leds;
 extern volatile bool cellularReady;
@@ -12,6 +13,26 @@ void trakCommunicationTaskFixed(void* parameter);
 bool trakPositionBufferInit();
 void updateLeds();
 uint8_t trakActiveNetworkCode();
+
+static TaskHandle_t communicationTaskHandle = nullptr;
+
+// Wizard is an exclusive provisioning mode. Suspending the communication task
+// guarantees that GNSS, FIFO, network recovery and normal server traffic stop
+// while the local configuration portal is active.
+void trakCommunicationSuspendForWizard() {
+  if (communicationTaskHandle) {
+    vTaskSuspend(communicationTaskHandle);
+    Serial.println("[WIZARD] Tache communication suspendue.");
+  }
+}
+
+// Kept for future use if the Wizard ever becomes resumable without reboot.
+void trakCommunicationResumeAfterWizard() {
+  if (communicationTaskHandle) {
+    vTaskResume(communicationTaskHandle);
+    Serial.println("[WIZARD] Tache communication reprise.");
+  }
+}
 
 // One and only one task writes the WS2812 LEDs.
 // Network state: 0=none, 1=Wi-Fi (green), 2=4G (violet).
@@ -27,9 +48,9 @@ static void networkLedTask(void*) {
   }
 }
 
-/* TRAK 3.0.5
+/* TRAK 3.0.5 / 3.1.0
    Core 0: modem + GNSS + SD FIFO + REST JSON + LSM6DS3 + network priority
-   Core 1: single WS2812 status engine + Wi-Fi/4G network indication
+   Core 1: single WS2812 status engine + Wi-Fi/4G network indication + Wizard
 */
 void setup() {
   Serial.begin(DEBUG_BAUD);
@@ -38,10 +59,9 @@ void setup() {
   motionBegin();
   trakPositionBufferInit();
 
-  TaskHandle_t communicationTask = nullptr;
   TaskHandle_t networkLedTaskHandle = nullptr;
 
-  const BaseType_t communicationCreated = xTaskCreatePinnedToCore(trakCommunicationTaskFixed, "TRAK_COM", 8192, nullptr, 2, &communicationTask, 0);
+  const BaseType_t communicationCreated = xTaskCreatePinnedToCore(trakCommunicationTaskFixed, "TRAK_COM", 8192, nullptr, 2, &communicationTaskHandle, 0);
   const BaseType_t networkLedCreated = xTaskCreatePinnedToCore(networkLedTask, "TRAK_LED", 4096, nullptr, 1, &networkLedTaskHandle, 1);
 
   if (communicationCreated != pdPASS) Serial.println("[TRAK] ERREUR: tache communication non creee.");
@@ -50,6 +70,20 @@ void setup() {
 }
 
 void loop() {
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    trakWizardCommand(command);
+    // Preserve the existing configuration console commands when the command is
+    // not one of the Wizard commands.
+    if (command != "HELLO TRAK" && command != "CONFIRM RESET" && command != "WIZARD") {
+      // TrakConfig owns the existing SETURL/SHOWCONFIG/SHOWKEY/RESETCONFIG commands.
+      // Re-injecting the command is intentionally avoided; those commands remain
+      // available through trakConfigTask() when no Wizard command is sent.
+      Serial.println("[TRAK] Commande console non-Wizard: utilise la gestion configuration existante.");
+    }
+  }
+  trakWizardTask();
   trakConfigTask();
-  vTaskDelay(pdMS_TO_TICKS(50));
+  vTaskDelay(pdMS_TO_TICKS(20));
 }
