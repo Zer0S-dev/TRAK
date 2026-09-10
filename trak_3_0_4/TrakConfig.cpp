@@ -8,7 +8,6 @@ constexpr char KEY_URL[] = "server_url";
 constexpr char KEY_USER_PHONE[] = "user_phone";
 constexpr char KEY_TRAK_PHONE[] = "trak_phone";
 constexpr char KEY_PROVISIONED[] = "provisioned";
-constexpr char DEFAULT_WEB_APP_URL[] = "https://surlesreservoir.fr/trak/";
 Preferences prefs;
 String webUrl;
 String userPhone;
@@ -38,12 +37,12 @@ String normalizePhone(String phone) {
 
 void printConfig() {
   Serial.println("[CONFIG] TRAK configuration:");
-  Serial.print("[CONFIG] URL_WEB_APP = "); Serial.println(webUrl);
+  Serial.print("[CONFIG] URL_WEB_APP = "); Serial.println(webUrl.length() ? webUrl : "EMPTY");
   Serial.print("[CONFIG] USER_PHONE  = "); Serial.println(userPhone.length() ? userPhone : "EMPTY");
   Serial.print("[CONFIG] TRAK_PHONE  = "); Serial.println(storedTrakPhone.length() ? storedTrakPhone : "EMPTY");
   Serial.print("[CONFIG] PROVISIONED = "); Serial.println(provisioned ? "YES" : "NO");
   Serial.println("[CONFIG] NVS: trak_cfg | Wi-Fi: trak_wifi (independant)");
-  Serial.println("[CONFIG] Commandes: SETURL <url> | SHOWCONFIG | RESETCONFIG");
+  Serial.println("[CONFIG] URL serveur configuree uniquement par le Wizard.");
 }
 
 void resetConfig() {
@@ -59,12 +58,6 @@ void trakConfigBegin() {
   userPhone = normalizePhone(prefs.getString(KEY_USER_PHONE, ""));
   storedTrakPhone = normalizePhone(prefs.getString(KEY_TRAK_PHONE, ""));
   provisioned = prefs.getBool(KEY_PROVISIONED, false);
-
-  if (webUrl.length() == 0) {
-    webUrl = DEFAULT_WEB_APP_URL;
-    prefs.putString(KEY_URL, webUrl);
-    Serial.println("[CONFIG] Premiere utilisation: URL usine enregistree en NVS.");
-  }
   ready = true;
   printConfig();
 }
