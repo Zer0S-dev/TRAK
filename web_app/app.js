@@ -1,47 +1,462 @@
-/* TRAK 3.0.5 — dashboard runtime */
-let trackerMap = null, trackerMarker = null, mapFollow = true, lastTrackerPosition = null, lastData = null;
-let refreshBusy = false, consecutiveFailures = 0, csrf = '', motionReturnEndsAt = 0;
-const API_DATA='api/data/', API_SESSION='api/session/', API_TRACKSERVER='api/trackserver/', API_INTERVAL='api/trak/interval/', API_WIFI='api/wifi/';
-const REFRESH_INTERVAL_MS=5000, OFFLINE_AFTER_FAILURES=3;
-const ACTIVE_INTERVALS=[5,10,15,20], IDLE_INTERVALS=[30,60,900,1800,3600];
-const GYRO_SENSITIVITY_LEVELS=[1,2,3,4,5], GYRO_SENSITIVITY_LABELS=['2 °/s','4 °/s','6 °/s','10 °/s','15 °/s'];
-const $=id=>document.getElementById(id);
-function setText(id,value){const el=$(id);if(el)el.textContent=value;}
-function networkLabel(data){return data?.network||'Aucun';}
-function networkIconLabel(data){const n=networkLabel(data).toUpperCase();return n.includes('4G')||n.includes('CELL')?'4G':n;}
-function redirectToLogin(){window.location.replace('login.php');}
-function initTrackerMap(){if(trackerMap||typeof L==='undefined')return;const e=$('map');if(!e)return;trackerMap=L.map(e,{zoomControl:false,minZoom:2,maxZoom:19}).setView([46.6,1.89],6);L.control.zoom({position:'bottomright'}).addTo(trackerMap);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{minZoom:2,maxZoom:19,maxNativeZoom:19,tileSize:256,attribution:'&copy; OpenStreetMap'}).addTo(trackerMap);trackerMap.on('dragstart',()=>{mapFollow=false;updateFollowButton();});setTimeout(()=>trackerMap?.invalidateSize(),100);}
-function updateMapPosition(lat,lon){lat=Number(lat);lon=Number(lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;initTrackerMap();if(!trackerMap)return;const changed=!lastTrackerPosition||lastTrackerPosition[0]!==lat||lastTrackerPosition[1]!==lon;lastTrackerPosition=[lat,lon];if(!trackerMarker){trackerMarker=L.marker([lat,lon],{icon:L.divIcon({className:'trak-marker',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(trackerMap);trackerMap.setView([lat,lon],15);return;}trackerMarker.setLatLng([lat,lon]);if(mapFollow&&changed)trackerMap.panTo([lat,lon],{animate:true,duration:.35});}
-function toggleFollow(){mapFollow=!mapFollow;updateFollowButton();if(mapFollow&&lastTrackerPosition&&trackerMap)trackerMap.setView(lastTrackerPosition,Math.max(trackerMap.getZoom(),15),{animate:true});}
-function updateFollowButton(){$('followBtn')?.classList.toggle('active',mapFollow);}
-function toggleFullMap(){document.body.classList.toggle('full-map');$('fullMapBtn')?.classList.toggle('active',document.body.classList.contains('full-map'));setTimeout(()=>trackerMap?.invalidateSize(),100);}
-function showView(name,button){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));if(name!=='home')$('view-'+name)?.classList.add('active');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));button?.classList.add('active');document.body.classList.remove('full-map');$('fullMapBtn')?.classList.remove('active');if(name==='home')setTimeout(()=>trackerMap?.invalidateSize(),80);}
-function updateHome(data){const fix=data.hasFix===true&&Number.isFinite(Number(data.latitude))&&Number.isFinite(Number(data.longitude));const online=data.online===true;document.body.classList.toggle('state-gps-ok',fix);document.body.classList.toggle('state-gps-search',!fix&&online);document.body.classList.toggle('state-offline',!online);setText('topStatus',!online?'TRAK · OFFLINE':(fix?'GPS ok':'Acquisition GPS...'));setText('lat',fix?Number(data.latitude).toFixed(6)+'°':'—');setText('lon',fix?Number(data.longitude).toFixed(6)+'°':'—');setText('alt',Number.isFinite(Number(data.altitude))?`Alt: ${Number(data.altitude).toFixed(0)} m`:'—');const d=data?.lastUpdate?new Date(data.lastUpdate):null;setText('lastUpdate',d&&!Number.isNaN(d.getTime())?d.toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'medium'}):'');setText('networkIcon',networkIconLabel(data));setText('signalTop',Number.isFinite(Number(data.signalPercent))?Math.round(Number(data.signalPercent))+'%':'—');updateMapPosition(data.latitude,data.longitude);}
-function updateMotionCountdown(){const r=motionReturnEndsAt>Date.now()?Math.ceil((motionReturnEndsAt-Date.now())/1000):0;setText('statMotionReturn',r>0?`${r} s`:'—');}
-function updateStats(data){setText('statFix',data.hasFix?'OK':'Recherche');setText('statSats',Number.isFinite(Number(data.satellites))?data.satellites:'—');setText('statGpsGlo',data.gpsSatellites==null?'—':`${data.gpsSatellites} / ${data.glonassSatellites??0}`);setText('statBdsGal',data.beidouSatellites==null?'—':`${data.beidouSatellites} / ${data.galileoSatellites??0}`);setText('statNetwork',networkLabel(data));setText('statSignal',Number.isFinite(Number(data.signalPercent))?Math.round(Number(data.signalPercent))+' %':'—');setText('statInternet',data.internetAvailable?'OK':'OFF');setText('statTx',Number.isFinite(Number(data.txCount))?data.txCount:'—');setText('statMotion',data.motionMode==='MOBILE'?'MOBILE':'IMMOBILE');const rs=Number(data.motionReturnSeconds||0);motionReturnEndsAt=rs>0?Date.now()+rs*1000:0;updateMotionCountdown();setText('statWifi',data.wifiSsid||'—');setText('stat4G',data.network?.toUpperCase().includes('4G')?'OK':'—');setText('statTotal',data.txCount??'—');setText('statPlan','—');setText('firmwareVersion',data.firmwareVersion||'—');setText('serialNumber',data.serialNumber||'—');setText('networkMode',data.network||'Offline');setText('signalSetting',Number.isFinite(Number(data.signalPercent))?Math.round(Number(data.signalPercent))+' %':'—');setText('data4GSetting','—');setText('dataEstimatedSetting','—');}
-async function api(url,options={}){const r=await fetch(url,{cache:'no-store',...options});if(r.status===401){redirectToLogin();throw new Error('unauthorized');}if(!r.ok)throw new Error((await r.text().catch(()=>''))||`HTTP ${r.status}`);return r.json();}
-async function loadSession(){const d=await api(API_SESSION);if(!d||d.ok!==true||typeof d.csrf!=='string')throw new Error('Session API invalide');csrf=d.csrf;}
-async function refresh(){if(refreshBusy)return;refreshBusy=true;try{const d=await api(API_DATA);if(!d?.ok)throw new Error('Réponse API invalide');lastData=d;consecutiveFailures=0;updateHome(d);updateStats(d);}catch(e){if(e.message==='unauthorized')return;if(++consecutiveFailures>=OFFLINE_AFTER_FAILURES){document.body.classList.remove('state-gps-ok','state-gps-search');document.body.classList.add('state-offline');setText('topStatus','TRAK · OFFLINE');}console.warn('[TRAK] API:',e);}finally{refreshBusy=false;}}
-async function loadTrackserver(){try{const d=await api(API_TRACKSERVER);if($('trackserverUrl'))$('trackserverUrl').value=d.url||'';}catch(e){if(e.message!=='unauthorized')console.warn('[TRAK] Trackserver:',e);}}
-async function saveTrackserver(){const input=$('trackserverUrl');if(!input)return;if(!csrf){alert('Session de sécurité indisponible. Rechargez la page.');return;}try{await api(API_TRACKSERVER,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({url:input.value.trim()})});input.style.borderColor='var(--success)';setTimeout(()=>input.style.borderColor='',900);}catch(e){if(e.message!=='unauthorized'){input.style.borderColor='var(--danger)';alert(e.message);}}}
-function formatInterval(s){s=Number(s);if(s>=3600)return s/3600+' h';if(s>=60)return s/60+' min';return s+' s';}
-function activeFromSlider(l){return ACTIVE_INTERVALS[Math.max(1,Math.min(4,Number(l)))-1]||10;}function activeSliderFromSeconds(s){const i=ACTIVE_INTERVALS.indexOf(Number(s));return i>=0?i+1:2;}function idleFromSlider(l){return IDLE_INTERVALS[Math.max(1,Math.min(5,Number(l)))-1]||60;}function idleSliderFromSeconds(s){const i=IDLE_INTERVALS.indexOf(Number(s));return i>=0?i+1:2;}function sensitivityFromSlider(l){return GYRO_SENSITIVITY_LEVELS[Math.max(1,Math.min(5,Number(l)))-1]||3;}function sensitivitySliderFromLevel(l){const n=Number(l);return GYRO_SENSITIVITY_LEVELS.includes(n)?n:3;}
-function setActiveIntervalUi(s){const v=ACTIVE_INTERVALS.includes(Number(s))?Number(s):10;if($('recordIntervalSlider'))$('recordIntervalSlider').value=activeSliderFromSeconds(v);setText('recordIntervalValue',v+'s');}function setIdleIntervalUi(s){const v=IDLE_INTERVALS.includes(Number(s))?Number(s):60;if($('idleIntervalSlider'))$('idleIntervalSlider').value=idleSliderFromSeconds(v);setText('idleIntervalValue',formatInterval(v));}function setSensitivityUi(l){const v=sensitivitySliderFromLevel(l);if($('motionSensitivitySlider'))$('motionSensitivitySlider').value=v;setText('motionSensitivityValue',GYRO_SENSITIVITY_LABELS[v-1]);}
-async function loadRecordInterval(){try{const d=await api(API_INTERVAL);if(d?.ok){setActiveIntervalUi(d.active_interval_seconds);setIdleIntervalUi(d.idle_interval_seconds);setSensitivityUi(d.sensitivity_level);}}catch(e){if(e.message!=='unauthorized')console.warn('[TRAK] Reglages mouvement:',e);}}
-function previewRecordInterval(l){setActiveIntervalUi(activeFromSlider(l));}function previewIdleInterval(l){setIdleIntervalUi(idleFromSlider(l));}function previewMotionSensitivity(l){setSensitivityUi(sensitivityFromSlider(l));}
-async function saveMotionSettings(a,i,s){if(!csrf){alert('Session de sécurité indisponible. Rechargez la page.');return false;}try{const d=await api(API_INTERVAL,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({active_interval_seconds:a,idle_interval_seconds:i,sensitivity_level:s})});if(d?.ok){setActiveIntervalUi(d.active_interval_seconds);setIdleIntervalUi(d.idle_interval_seconds);setSensitivityUi(d.sensitivity_level);return true;}}catch(e){if(e.message!=='unauthorized')console.warn('[TRAK] Enregistrement mouvement:',e);}alert('Impossible d’enregistrer les réglages mouvement.');return false;}
-async function saveRecordInterval(l){await saveMotionSettings(activeFromSlider(l),Number($('idleIntervalSlider')?.value)?idleFromSlider($('idleIntervalSlider').value):60,Number($('motionSensitivitySlider')?.value)||3);}async function saveIdleInterval(l){await saveMotionSettings(Number($('recordIntervalSlider')?.value)?activeFromSlider($('recordIntervalSlider').value):10,idleFromSlider(l),Number($('motionSensitivitySlider')?.value)||3);}async function saveMotionSensitivity(l){await saveMotionSettings(Number($('recordIntervalSlider')?.value)?activeFromSlider($('recordIntervalSlider').value):10,Number($('idleIntervalSlider')?.value)?idleFromSlider($('idleIntervalSlider').value):60,sensitivityFromSlider(l||3));}
-function prototypeNotice(){alert('Cette fonction n’est pas active dans le firmware TRAK 3.0 prototype.');}function advanceSentinel(){prototypeNotice();}
-let wifiProfiles=[];
-async function loadWifiProfiles(){try{const d=await api(API_WIFI);if(d?.ok){wifiProfiles=d.profiles||[];renderWifiSlots();}}catch(e){if(e.message!=='unauthorized')console.warn('[TRAK] Wi-Fi:',e);}}
-function renderWifiSlots(){const box=$('wifiSlots');if(!box)return;box.innerHTML='';wifiProfiles.forEach(p=>{const row=document.createElement('div');row.className='wifi-slot';const state=p.configured?'Configuré':'Non configuré';row.innerHTML=`<div><strong>Wi-Fi ${Number(p.slot)+1}</strong><div>${p.ssid||'Aucun réseau'} · ${state}</div></div><button type="button" class="btn-secondary" onclick="editWifiProfile(${Number(p.slot)})">${p.configured?'Modifier':'Configurer'}</button>`;box.appendChild(row);});}
-function openWifiModal(){loadWifiProfiles();$('wifiModal')?.classList.add('active','open');clearWifiForm();}
-function closeWifiModal(){$('wifiModal')?.classList.remove('active','open');}
-function wifiModalBackdrop(e){if(e.target===$('wifiModal'))closeWifiModal();}
-function toggleWifiPassword(){const i=$('wifiPassword');if(i)i.type=i.type==='password'?'text':'password';}
-function editWifiProfile(slot){const p=wifiProfiles.find(x=>Number(x.slot)===Number(slot));$('wifiSlot').value=slot;$('wifiSsid').value=p?.ssid||'';$('wifiPassword').value='';$('wifiFormTitle').textContent=`Réseau Wi-Fi ${Number(slot)+1}`;$('wifiFormHint').textContent=p?.configured?'Laissez le mot de passe vide pour conserver celui déjà enregistré.':'Enregistrez le SSID et le mot de passe du réseau.';}
-async function saveWifiProfile(){if(!csrf){alert('Session de sécurité indisponible. Rechargez la page.');return;}const slot=Number($('wifiSlot')?.value);const ssid=$('wifiSsid')?.value.trim()||'';const password=$('wifiPassword')?.value||'';if(!Number.isInteger(slot)||slot<0||slot>2||!ssid){alert('SSID obligatoire.');return;}try{const body={slot,ssid};if(password)body.password=password;const d=await api(API_WIFI,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});if(d?.ok){wifiProfiles=d.profiles||[];renderWifiSlots();clearWifiForm();alert('Réseau Wi-Fi enregistré. Le TRAK le récupérera lors de sa prochaine synchronisation.');}}catch(e){if(e.message!=='unauthorized')alert(e.message);}}
-function clearWifiForm(){['wifiSlot','wifiSsid','wifiPassword'].forEach(id=>{const e=$(id);if(e)e.value='';});if($('wifiFormTitle'))$('wifiFormTitle').textContent='Enregistrer un réseau';if($('wifiFormHint'))$('wifiFormHint').textContent='Jusqu’à 3 réseaux peuvent être mémorisés dans le TRAK.';}
-function saveSentinelTrakPhone(){prototypeNotice();}function deleteSentinelTrakPhone(){prototypeNotice();}function saveDataPlan(){prototypeNotice();}
+/* TRAK 3.0 — dashboard runtime
+ * 3.0.4: active/idle recording intervals + LSM6DS3 sensitivity.
+ * Existing dashboard HTML/CSS remains the visual base.
+ */
 
-document.addEventListener('DOMContentLoaded',async()=>{initTrackerMap();updateFollowButton();try{await loadSession();await refresh();await loadTrackserver();await loadRecordInterval();await loadWifiProfiles();}catch(e){if(e.message!=='unauthorized')console.warn('[TRAK] Session:',e);}setInterval(refresh,REFRESH_INTERVAL_MS);setInterval(updateMotionCountdown,250);});
+let trackerMap = null;
+let trackerMarker = null;
+let mapFollow = true;
+let lastTrackerPosition = null;
+let lastData = null;
+let refreshBusy = false;
+let consecutiveFailures = 0;
+let csrf = '';
+let motionReturnEndsAt = 0;
+
+const API_DATA = 'api/data/';
+const API_SESSION = 'api/session/';
+const API_TRACKSERVER = 'api/trackserver/';
+const API_INTERVAL = 'api/trak/interval/';
+const REFRESH_INTERVAL_MS = 5000;
+const OFFLINE_AFTER_FAILURES = 3;
+const ACTIVE_INTERVALS = [5, 10, 15, 20];
+const IDLE_INTERVALS = [30, 60, 900, 1800, 3600];
+const GYRO_SENSITIVITY_LEVELS = [1, 2, 3, 4, 5];
+const GYRO_SENSITIVITY_LABELS = ['2 °/s', '4 °/s', '6 °/s', '10 °/s', '15 °/s'];
+const $ = id => document.getElementById(id);
+
+function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+}
+
+function formatBytes(bytes) {
+    if (!Number.isFinite(Number(bytes)) || Number(bytes) < 0) return '—';
+    bytes = Number(bytes);
+    if (bytes < 1000) return bytes + ' o';
+    if (bytes < 1000000) return (bytes / 1000).toFixed(1) + ' ko';
+    return (bytes / 1000000).toFixed(2) + ' Mo';
+}
+
+function networkLabel(data) {
+    return data?.network || 'Aucun';
+}
+
+function networkIconLabel(data) {
+    const network = networkLabel(data).toUpperCase();
+    return network.includes('4G') || network.includes('CELL') ? '4G' : network;
+}
+
+function redirectToLogin() {
+    window.location.replace('login.php');
+}
+
+function initTrackerMap() {
+    if (trackerMap || typeof L === 'undefined') return;
+    const mapElement = $('map');
+    if (!mapElement) return;
+    trackerMap = L.map(mapElement, {
+        zoomControl: false,
+        minZoom: 2,
+        maxZoom: 19
+    }).setView([46.6, 1.89], 6);
+    L.control.zoom({
+        position: 'bottomright'
+    }).addTo(trackerMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        minZoom: 2,
+        maxZoom: 19,
+        maxNativeZoom: 19,
+        tileSize: 256,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(trackerMap);
+    trackerMap.on('dragstart', () => {
+        mapFollow = false;
+        updateFollowButton();
+    });
+    window.setTimeout(() => trackerMap?.invalidateSize(), 100);
+}
+
+function updateMapPosition(lat, lon) {
+    lat = Number(lat);
+    lon = Number(lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    initTrackerMap();
+    if (!trackerMap) return;
+    const changed = !lastTrackerPosition || lastTrackerPosition[0] !== lat || lastTrackerPosition[1] !== lon;
+    lastTrackerPosition = [lat, lon];
+    if (!trackerMarker) {
+        trackerMarker = L.marker([lat, lon], {
+            icon: L.divIcon({
+                className: 'trak-marker',
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            })
+        }).addTo(trackerMap);
+        trackerMap.setView([lat, lon], 15);
+        return;
+    }
+    trackerMarker.setLatLng([lat, lon]);
+    if (mapFollow && changed) trackerMap.panTo([lat, lon], {
+        animate: true,
+        duration: 0.35
+    });
+}
+
+function toggleFollow() {
+    mapFollow = !mapFollow;
+    updateFollowButton();
+    if (mapFollow && lastTrackerPosition && trackerMap) trackerMap.setView(lastTrackerPosition, Math.max(trackerMap.getZoom(), 15), {
+        animate: true
+    });
+}
+
+function updateFollowButton() {
+    $('followBtn')?.classList.toggle('active', mapFollow);
+}
+
+function toggleFullMap() {
+    const full = document.body.classList.toggle('full-map');
+    $('fullMapBtn')?.classList.toggle('active', full);
+    window.setTimeout(() => trackerMap?.invalidateSize(), 100);
+}
+
+function showView(name, button) {
+    document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
+    if (name !== 'home') $('view-' + name)?.classList.add('active');
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    button?.classList.add('active');
+    document.body.classList.remove('full-map');
+    $('fullMapBtn')?.classList.remove('active');
+    if (name === 'home') window.setTimeout(() => trackerMap?.invalidateSize(), 80);
+}
+
+function updateHome(data) {
+    const hasFix = data.hasFix === true && Number.isFinite(Number(data.latitude)) && Number.isFinite(Number(data.longitude));
+    const online = data.online === true;
+    document.body.classList.toggle('state-gps-ok', hasFix);
+    document.body.classList.toggle('state-gps-search', !hasFix && online);
+    document.body.classList.toggle('state-offline', !online);
+    setText('topStatus', !online ? 'TRAK · OFFLINE' : (hasFix ? 'GPS ok' : 'Acquisition GPS...'));
+    setText('lat', hasFix ? Number(data.latitude).toFixed(6) + '°' : '—');
+    setText('lon', hasFix ? Number(data.longitude).toFixed(6) + '°' : '—');
+    setText('alt', Number.isFinite(Number(data.altitude)) ? `Alt: ${Number(data.altitude).toFixed(0)} m` : '—');
+    const lastUpdate = data && data.lastUpdate ? new Date(data.lastUpdate) : null;
+    setText('lastUpdate', lastUpdate && !Number.isNaN(lastUpdate.getTime()) ? '' + lastUpdate.toLocaleString('fr-FR', {
+        dateStyle: 'short',
+        timeStyle: 'medium'
+    }) : '');
+    setText('networkIcon', networkIconLabel(data));
+    setText('signalTop', Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + '%' : '—');
+    updateMapPosition(data.latitude, data.longitude);
+}
+
+function updateMotionCountdown() {
+    const remaining = motionReturnEndsAt > Date.now() ? Math.ceil((motionReturnEndsAt - Date.now()) / 1000) : 0;
+    setText('statMotionReturn', remaining > 0 ? `${remaining} s` : '—');
+}
+
+function updateStats(data) {
+    setText('statFix', data.hasFix ? 'OK' : 'Recherche');
+    setText('statSats', Number.isFinite(Number(data.satellites)) ? data.satellites : '—');
+    setText('statGpsGlo', data.gpsSatellites == null ? '—' : `${data.gpsSatellites} / ${data.glonassSatellites ?? 0}`);
+    setText('statBdsGal', data.beidouSatellites == null ? '—' : `${data.beidouSatellites} / ${data.galileoSatellites ?? 0}`);
+    setText('statNetwork', networkLabel(data));
+    setText('statSignal', Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + ' %' : '—');
+    setText('statInternet', data.internetAvailable ? 'OK' : 'OFF');
+    setText('statTx', Number.isFinite(Number(data.txCount)) ? data.txCount : '—');
+    setText('statMotion', data.motionMode === 'MOBILE' ? 'MOBILE' : 'IMMOBILE');
+    const returnSeconds = Number(data.motionReturnSeconds || 0);
+    motionReturnEndsAt = returnSeconds > 0 ? Date.now() + returnSeconds * 1000 : 0;
+    updateMotionCountdown();
+    setText('statWifi', '—');
+    setText('stat4G', '—');
+    setText('statTotal', '—');
+    setText('statPlan', '—');
+    setText('firmwareVersion', data.firmwareVersion || '—');
+    setText('serialNumber', data.serialNumber || '—');
+    setText('networkMode', data.online ? '4G' : 'Offline');
+    setText('signalSetting', Number.isFinite(Number(data.signalPercent)) ? Math.round(Number(data.signalPercent)) + ' %' : '—');
+    setText('data4GSetting', '—');
+    setText('dataEstimatedSetting', '—');
+}
+async function api(url, options = {}) {
+    const response = await fetch(url, {
+        cache: 'no-store',
+        ...options
+    });
+    if (response.status === 401) {
+        redirectToLogin();
+        throw new Error('unauthorized');
+    }
+    if (!response.ok) {
+        const message = await response.text().catch(() => '');
+        throw new Error(message || `HTTP ${response.status}`);
+    }
+    return response.json();
+}
+async function loadSession() {
+    const data = await api(API_SESSION);
+    if (!data || data.ok !== true || typeof data.csrf !== 'string' || data.csrf.length < 32) throw new Error('Session API invalide');
+    csrf = data.csrf;
+}
+async function refresh() {
+    if (refreshBusy) return;
+    refreshBusy = true;
+    try {
+        const data = await api(API_DATA);
+        if (!data || data.ok !== true) throw new Error('Réponse API invalide');
+        lastData = data;
+        consecutiveFailures = 0;
+        updateHome(data);
+        updateStats(data);
+    } catch (error) {
+        if (error.message === 'unauthorized') return;
+        consecutiveFailures++;
+        if (consecutiveFailures >= OFFLINE_AFTER_FAILURES) {
+            document.body.classList.remove('state-gps-ok', 'state-gps-search');
+            document.body.classList.add('state-offline');
+            setText('topStatus', 'TRAK · OFFLINE');
+        }
+        console.warn('[TRAK] API:', error);
+    } finally {
+        refreshBusy = false;
+    }
+}
+async function loadTrackserver() {
+    try {
+        const data = await api(API_TRACKSERVER);
+        const input = $('trackserverUrl');
+        if (input) input.value = data.url || '';
+    } catch (error) {
+        if (error.message !== 'unauthorized') console.warn('[TRAK] Trackserver:', error);
+    }
+}
+async function saveTrackserver() {
+    const input = $('trackserverUrl');
+    if (!input) return;
+    const url = input.value.trim();
+    if (!csrf) {
+        alert('Session de sécurité indisponible. Rechargez la page.');
+        return;
+    }
+    try {
+        await api(API_TRACKSERVER, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrf
+            },
+            body: JSON.stringify({
+                url
+            })
+        });
+        input.style.borderColor = 'var(--success)';
+        window.setTimeout(() => {
+            input.style.borderColor = '';
+        }, 900);
+    } catch (error) {
+        if (error.message !== 'unauthorized') {
+            input.style.borderColor = 'var(--danger)';
+            alert(error.message);
+        }
+    }
+}
+
+function formatInterval(seconds) {
+    seconds = Number(seconds);
+    if (seconds >= 3600) return (seconds / 3600) + ' h';
+    if (seconds >= 60) return (seconds / 60) + ' min';
+    return seconds + ' s';
+}
+
+function activeFromSlider(level) {
+    const i = Math.max(1, Math.min(4, Number(level))) - 1;
+    return ACTIVE_INTERVALS[i] || 10;
+}
+
+function activeSliderFromSeconds(seconds) {
+    const i = ACTIVE_INTERVALS.indexOf(Number(seconds));
+    return i >= 0 ? i + 1 : 2;
+}
+
+function idleFromSlider(level) {
+    const i = Math.max(1, Math.min(5, Number(level))) - 1;
+    return IDLE_INTERVALS[i] || 60;
+}
+
+function idleSliderFromSeconds(seconds) {
+    const i = IDLE_INTERVALS.indexOf(Number(seconds));
+    return i >= 0 ? i + 1 : 2;
+}
+
+function sensitivityFromSlider(level) {
+    const i = Math.max(1, Math.min(5, Number(level))) - 1;
+    return GYRO_SENSITIVITY_LEVELS[i] || 3;
+}
+
+function sensitivitySliderFromLevel(level) {
+    const n = Number(level);
+    return GYRO_SENSITIVITY_LEVELS.includes(n) ? n : 3;
+}
+
+function setActiveIntervalUi(seconds) {
+    const safe = ACTIVE_INTERVALS.includes(Number(seconds)) ? Number(seconds) : 10;
+    const slider = $('recordIntervalSlider');
+    if (slider) slider.value = String(activeSliderFromSeconds(safe));
+    setText('recordIntervalValue', safe + 's');
+}
+
+function setIdleIntervalUi(seconds) {
+    const safe = IDLE_INTERVALS.includes(Number(seconds)) ? Number(seconds) : 60;
+    const slider = $('idleIntervalSlider');
+    if (slider) slider.value = String(idleSliderFromSeconds(safe));
+    setText('idleIntervalValue', formatInterval(safe));
+}
+
+function setSensitivityUi(level) {
+    const safe = sensitivitySliderFromLevel(level);
+    const slider = $('motionSensitivitySlider');
+    if (slider) slider.value = String(safe);
+    setText('motionSensitivityValue', GYRO_SENSITIVITY_LABELS[safe - 1]);
+}
+async function loadRecordInterval() {
+    try {
+        const data = await api(API_INTERVAL);
+        if (data?.ok === true) {
+            setActiveIntervalUi(data.active_interval_seconds);
+            setIdleIntervalUi(data.idle_interval_seconds);
+            setSensitivityUi(data.sensitivity_level);
+        }
+    } catch (error) {
+        if (error.message !== 'unauthorized') console.warn('[TRAK] Reglages mouvement:', error);
+    }
+}
+
+function previewRecordInterval(level) {
+    setActiveIntervalUi(activeFromSlider(level));
+}
+
+function previewIdleInterval(level) {
+    setIdleIntervalUi(idleFromSlider(level));
+}
+
+function previewMotionSensitivity(level) {
+    setSensitivityUi(sensitivityFromSlider(level));
+}
+async function saveMotionSettings(activeSeconds, idleSeconds, sensitivityLevel) {
+    if (!csrf) {
+        alert('Session de sécurité indisponible. Rechargez la page.');
+        return false;
+    }
+    try {
+        const current = await api(API_INTERVAL);
+        const active = ACTIVE_INTERVALS.includes(Number(activeSeconds)) ? Number(activeSeconds) : Number(current.active_interval_seconds || 10);
+        const idle = IDLE_INTERVALS.includes(Number(idleSeconds)) ? Number(idleSeconds) : Number(current.idle_interval_seconds || 60);
+        const sensitivity = GYRO_SENSITIVITY_LEVELS.includes(Number(sensitivityLevel)) ? Number(sensitivityLevel) : Number(current.sensitivity_level || 3);
+        const data = await api(API_INTERVAL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrf
+            },
+            body: JSON.stringify({
+                active_interval_seconds: active,
+                idle_interval_seconds: idle,
+                sensitivity_level: sensitivity
+            })
+        });
+        if (data?.ok === true) {
+            setActiveIntervalUi(data.active_interval_seconds);
+            setIdleIntervalUi(data.idle_interval_seconds);
+            setSensitivityUi(data.sensitivity_level);
+            return true;
+        }
+    } catch (error) {
+        if (error.message !== 'unauthorized') console.warn('[TRAK] Enregistrement reglages mouvement:', error);
+    }
+    alert('Impossible d’enregistrer les réglages mouvement.');
+    await loadRecordInterval();
+    return false;
+}
+async function saveRecordInterval(level) {
+    const active = activeFromSlider(level);
+    const idle = Number($('idleIntervalSlider')?.value) ? idleFromSlider($('idleIntervalSlider').value) : 60;
+    const sensitivity = Number($('motionSensitivitySlider')?.value) || 3;
+    await saveMotionSettings(active, idle, sensitivity);
+}
+async function saveIdleInterval(level) {
+    const active = Number($('recordIntervalSlider')?.value) ? activeFromSlider($('recordIntervalSlider').value) : 10;
+    const idle = idleFromSlider(level);
+    const sensitivity = Number($('motionSensitivitySlider')?.value) || 3;
+    await saveMotionSettings(active, idle, sensitivity);
+}
+async function saveMotionSensitivity(level) {
+    const active = Number($('recordIntervalSlider')?.value) ? activeFromSlider($('recordIntervalSlider').value) : 10;
+    const idle = Number($('idleIntervalSlider')?.value) ? idleFromSlider($('idleIntervalSlider').value) : 60;
+    const sensitivity = sensitivityFromSlider(level || $('motionSensitivitySlider')?.value || 3);
+    await saveMotionSettings(active, idle, sensitivity);
+}
+
+function prototypeNotice() {
+    alert('Cette fonction n’est pas active dans le firmware TRAK 3.0 prototype.');
+}
+
+function advanceSentinel() {
+    prototypeNotice();
+}
+
+function openWifiModal() {
+    prototypeNotice();
+}
+
+function closeWifiModal() {
+    $('wifiModal')?.classList.remove('active', 'open');
+}
+
+function wifiModalBackdrop(event) {
+    if (event.target === $('wifiModal')) closeWifiModal();
+}
+
+function toggleWifiPassword() {
+    const input = $('wifiPassword');
+    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+function saveWifiProfile() {
+    prototypeNotice();
+}
+
+function clearWifiForm() {
+    ['wifiSlot', 'wifiSsid', 'wifiPassword'].forEach(id => {
+        const el = $(id);
+        if (el) el.value = '';
+    });
+}
+
+function saveSentinelTrakPhone() {
+    prototypeNotice();
+}
+
+function deleteSentinelTrakPhone() {
+    prototypeNotice();
+}
+
+function saveDataPlan() {
+    prototypeNotice();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    initTrackerMap();
+    updateFollowButton();
+    try {
+        await loadSession();
+        await refresh();
+        await loadTrackserver();
+        await loadRecordInterval();
+    } catch (error) {
+        if (error.message !== 'unauthorized') console.warn('[TRAK] Session:', error);
+    }
+    window.setInterval(refresh, REFRESH_INTERVAL_MS);
+    window.setInterval(updateMotionCountdown, 250);
+});
