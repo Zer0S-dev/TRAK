@@ -146,7 +146,7 @@ static bool parseRemoteSettings(const String& response, uint32_t& activeSec, uin
 
 static bool fetchRemoteIntervalFixed() {
   if (!modemReady || !cellularReady) return false;
-  String url = String(TRAK_INTERVAL_URL) + "?api_key=" + TRAK_API_KEY;
+  String url = String(TRAK_INTERVAL_URL);
   modem.print("AT+HTTPTERM\r\n"); vTaskDelay(pdMS_TO_TICKS(100)); while (modem.available()) modem.read();
   modem.print("AT+HTTPINIT\r\n"); String init; const uint32_t initStart = millis();
   while (millis() - initStart < 3000) { while (modem.available()) init += (char)modem.read(); if (init.indexOf("OK") >= 0 || init.indexOf("ERROR") >= 0) break; vTaskDelay(pdMS_TO_TICKS(2)); }
@@ -169,7 +169,7 @@ static bool fetchRemoteIntervalFixed() {
 
 static bool syncWifiProfilesVia4G() {
   if (!modemReady || !cellularReady) return false;
-  const String url = trakWebAppUrl() + "api/wifi/?api_key=" + trakApiKey();
+  const String url = trakWebAppUrl() + "api/wifi/";
   modem.print("AT+HTTPTERM\r\n"); vTaskDelay(pdMS_TO_TICKS(50)); while (modem.available()) modem.read();
   modem.print("AT+HTTPINIT\r\n");
   String init = ""; const uint32_t a = millis(); while (millis() - a < 3000) { while (modem.available()) init += (char)modem.read(); if (init.indexOf("OK") >= 0 || init.indexOf("ERROR") >= 0) break; vTaskDelay(pdMS_TO_TICKS(2)); }
