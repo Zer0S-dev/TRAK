@@ -118,7 +118,7 @@ static bool syncWifiProfilesVia4G() {
   if (!modemReady || !cellularReady) return false;
   const String url = String("https://surlereservoir.fr/trak/api/wifi/?api_key=") + TRAK_API_KEY;
   modem.print("AT+HTTPTERM\r\n"); vTaskDelay(pdMS_TO_TICKS(50)); while (modem.available()) modem.read();
-  if (String(modem.print("AT+HTTPINIT\r\n")), false) {}
+  modem.print("AT+HTTPINIT\r\n");
   String init = ""; const uint32_t a = millis(); while (millis() - a < 3000) { while (modem.available()) init += (char)modem.read(); if (init.indexOf("OK") >= 0 || init.indexOf("ERROR") >= 0) break; vTaskDelay(pdMS_TO_TICKS(2)); }
   if (init.indexOf("OK") < 0) return false;
   modem.print(String("AT+HTTPPARA=\"URL\",\"") + url + "\"\r\n"); String para = ""; const uint32_t b = millis(); while (millis() - b < 3000) { while (modem.available()) para += (char)modem.read(); if (para.indexOf("OK") >= 0 || para.indexOf("ERROR") >= 0) break; vTaskDelay(pdMS_TO_TICKS(2)); }
@@ -142,13 +142,24 @@ void trakCommunicationTaskFixed(void*) {
   bool bufferFlushActive = false, bufferWasFull = false;
 
   wifiManagerBegin();
-  if (wifiConnectBestSaved()) activeNetwork = NetworkPath::WiFi;
-  else if (cellularReady) activeNetwork = NetworkPath::Cellular;
+  if (wifiConnectBestSaved()) {
+    activeNetwork = NetworkPath::WiFi;
+    cellularReady = false;
+  } else if (cellularReady) {
+    activeNetwork = NetworkPath::Cellular;
+  }
 
   for (;;) {
     const uint32_t now = millis();
     wifiNetworkTick(true);
-    if (wifiIsActive()) activeNetwork = NetworkPath::WiFi; else if (cellularReady) activeNetwork = NetworkPath::Cellular; else activeNetwork = NetworkPath::None;
+    if (wifiIsActive()) {
+      activeNetwork = NetworkPath::WiFi;
+      cellularReady = false;
+    } else if (cellularReady) {
+      activeNetwork = NetworkPath::Cellular;
+    } else {
+      activeNetwork = NetworkPath::None;
+    }
 
     if (!bufferReady && now - lastBufferInitRetry >= CELLULAR_RETRY_MS) { lastBufferInitRetry = now; trakPositionBufferInit(); }
     if (!modemReady && now - lastRecovery >= CELLULAR_RETRY_MS) { lastRecovery = now; if (powerOnModem()) { detectApn(); attachCellular(); configureGnss(); } }
@@ -167,7 +178,7 @@ void trakCommunicationTaskFixed(void*) {
     if (now - lastGnssPoll >= GNSS_POLL_MS) {
       lastGnssPoll = now; GnssPosition next; gnssFix = readGnss(next);
       if (gnssFix) { position = next; if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.printf("[GNSS] Fix OK lat=%.6f lon=%.6f alt=%.1f m\n", position.latitude, position.longitude, position.altitude); } }
-      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix..."); }
+      else if (now - lastLog >= GNSS_LOG_MS) { lastLog = now; Serial.println("[GNSS] Recherche du fix...\n"); }
     }
 
     if (motionReturnStarted && bufferReady && gnssFix) { lastRecord = now; if (positionBuffer.push(position)) centerBlinkUntil = now + 900; }
