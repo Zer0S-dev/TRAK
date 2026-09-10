@@ -98,10 +98,8 @@ void trakConfigBegin() {
   printConfig();
 }
 
-void trakConfigTask() {
-  if (!ready || !Serial.available()) return;
-  String command = Serial.readStringUntil('\n');
-  command.trim();
+void trakConfigHandleCommand(const String& command) {
+  if (!ready) return;
   if (command.startsWith("SETURL ")) {
     String candidate = normalizeUrl(command.substring(7));
     if (candidate.length() == 0) {
@@ -119,6 +117,13 @@ void trakConfigTask() {
     resetConfig();
     printConfig();
   }
+}
+
+void trakConfigTask() {
+  if (!ready || !Serial.available()) return;
+  String command = Serial.readStringUntil('\n');
+  command.trim();
+  trakConfigHandleCommand(command);
 }
 
 String trakWebAppUrl() { return webUrl; }
@@ -157,7 +162,7 @@ bool trakConfigSetProvisioned(bool value) {
 bool trakConfigRegenerateApiKey() {
   if (!ready) return false;
   apiKey = generateApiKey();
-  if (prefs.putString(KEY_API, apiKey) != apiKey.length()) return false;
+  prefs.putString(KEY_API, apiKey);
   Serial.println("[CONFIG] Nouvelle API_KEY generee et stockee en NVS.");
   return true;
 }
