@@ -7,7 +7,8 @@ async function loadWifiProfiles() {
     try {
         const data = await api(WIFI_API);
         if (data?.ok === true) {
-            wifiProfiles = data.profiles || [];
+            wifiProfiles = Array.isArray(data.profiles) ? data.profiles : [];
+            renderWifiProfiles();
             renderWifiSlots();
         }
     } catch (error) {
@@ -15,20 +16,60 @@ async function loadWifiProfiles() {
     }
 }
 
+function renderWifiProfiles() {
+    const preview = $('wifiProfilesPreview');
+    const summary = $('wifiSummary');
+    const configured = wifiProfiles.filter(profile => profile?.configured === true || profile?.ssid);
+
+    if (summary) {
+        summary.textContent = configured.length === 0
+            ? 'Aucun réseau enregistré.'
+            : configured.length + ' réseau' + (configured.length > 1 ? 'x' : '') + ' enregistré' + (configured.length > 1 ? 's' : '') + '.';
+    }
+
+    if (!preview) return;
+    preview.innerHTML = '';
+
+    if (configured.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'wifi-profile-empty';
+        empty.textContent = 'Aucun réseau Wi-Fi configuré.';
+        preview.appendChild(empty);
+        return;
+    }
+
+    configured.forEach(profile => {
+        const row = document.createElement('div');
+        row.className = 'wifi-profile-row';
+        row.innerHTML = '<div><strong>Wi-Fi ' + (Number(profile.slot) + 1) + '</strong><div>' +
+            escapeWifiHtml(profile.ssid || '') + '</div></div>';
+        preview.appendChild(row);
+    });
+}
+
 function renderWifiSlots() {
     const box = $('wifiSlots');
     if (!box) return;
     box.innerHTML = '';
+
     wifiProfiles.forEach(profile => {
         const row = document.createElement('div');
         row.className = 'wifi-slot';
-        const configured = profile.configured === true;
+        const configured = profile.configured === true || !!profile.ssid;
         row.innerHTML = '<div><strong>Wi-Fi ' + (Number(profile.slot) + 1) + '</strong><div>' +
-            (profile.ssid || 'Aucun réseau') + ' · ' + (configured ? 'Configuré' : 'Non configuré') +
-            '</div></div><button type="button" class="btn-secondary" onclick="editWifiProfile(' + Number(profile.slot) + ')">' +
-            (configured ? 'Modifier' : 'Configurer') + '</button>';
+            escapeWifiHtml(profile.ssid || 'Aucun réseau') + ' · ' + (configured ? 'Configuré' : 'Non configuré') +
+            '</div></div><div class="wifi-slot-actions"><button type="button" class="btn-secondary" onclick="editWifiProfile(' + Number(profile.slot) + ')">' +
+            (configured ? 'Modifier' : 'Configurer') + '</button>' +
+            (configured ? '<button type="button" class="wifi-mini-btn danger" onclick="deleteWifiProfile(' + Number(profile.slot) + ')">Supprimer</button>' : '') +
+            '</div>';
         box.appendChild(row);
     });
+}
+
+function escapeWifiHtml(value) {
+    return String(value).replace(/[&<>'"]/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    })[char]);
 }
 
 async function openWifiModal() {
@@ -70,6 +111,7 @@ async function saveWifiProfile() {
         });
         if (data?.ok === true) {
             wifiProfiles = data.profiles || [];
+            renderWifiProfiles();
             renderWifiSlots();
             clearWifiForm();
             alert('Réseau Wi-Fi enregistré. Le TRAK le récupérera lors de sa prochaine synchronisation.');
@@ -78,6 +120,30 @@ async function saveWifiProfile() {
         if (error.message !== 'unauthorized') alert(error.message);
     }
 }
+
+async function deleteWifiProfile(slot) {
+    if (!csrf) { alert('Session de sécurité indisponible. Rechargez la page.'); return; }
+    const profile = wifiProfiles.find(x => Number(x.slot) === Number(slot));
+    if (!profile?.ssid) return;
+    if (!confirm('Supprimer le réseau « ' + profile.ssid + ' » ?')) return;
+
+    try {
+        const data = await api(WIFI_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify({ action: 'delete', slot: Number(slot) })
+        });
+        if (data?.ok === true) {
+            wifiProfiles = data.profiles || [];
+            renderWifiProfiles();
+            renderWifiSlots();
+            clearWifiForm();
+        }
+    } catch (error) {
+        if (error.message !== 'unauthorized') alert(error.message);
+    }
+}
+
 function clearWifiForm() {
     ['wifiSlot', 'wifiSsid', 'wifiPassword'].forEach(id => { const el = $(id); if (el) el.value = ''; });
     const title = $('wifiFormTitle');
