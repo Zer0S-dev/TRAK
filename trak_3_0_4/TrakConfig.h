@@ -14,12 +14,12 @@ String trakPhone();
 bool trakConfigProvisioned();
 bool trakConfigReady();
 
-// Update persistent provisioning values. These will be used by the Wizard
-// integration in phase 2; they are kept separate from Wi-Fi profiles.
+// Update persistent provisioning values. These will be used by the Wizard.
 bool trakConfigSetServerUrl(const String& url);
 bool trakConfigSetUserPhone(const String& phone);
 bool trakConfigSetTrakPhone(const String& phone);
 bool trakConfigSetProvisioned(bool value);
+bool trakConfigRegenerateApiKey();
 
 // Erase only server/personal provisioning data. Never touches "trak_wifi".
 void trakConfigResetProvisioning();
