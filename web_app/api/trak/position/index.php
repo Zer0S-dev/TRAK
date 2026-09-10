@@ -16,10 +16,6 @@ if (!is_array($data)) jsonResponse(['ok' => false, 'error' => 'invalid_json'], 4
 $trakId = trim((string) ($data['trak_id'] ?? ''));
 if ($trakId === '' || strlen($trakId) > 64 || !preg_match('/^[A-Za-z0-9._-]+$/', $trakId)) jsonResponse(['ok' => false, 'error' => 'invalid_trak_id'], 422);
 
-// The API key is now resolved server-side from the TRAK registry using trak_id.
-// A first contact enrolls the generated key; later requests must match it.
-requireApiKey($trakId);
-
 $latitude = filter_var($data['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $longitude = filter_var($data['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $altitude = filter_var($data['altitude'] ?? 0, FILTER_VALIDATE_FLOAT);
@@ -31,12 +27,8 @@ $motionReturnMs = filter_var($data['motion_return_ms'] ?? 0, FILTER_VALIDATE_INT
 $network = trim((string) ($data['network'] ?? '4G'));
 $signalPercent = filter_var($data['signal_percent'] ?? null, FILTER_VALIDATE_INT);
 
-if ($version !== '' && (strlen($version) > 32 || !preg_match('/^[A-Za-z0-9._-]+$/', $version))) {
-    jsonResponse(['ok' => false, 'error' => 'invalid_version'], 422);
-}
-if ($motion !== 'MOBILE' && $motion !== 'IMMOBILE') {
-    jsonResponse(['ok' => false, 'error' => 'invalid_motion'], 422);
-}
+if ($version !== '' && (strlen($version) > 32 || !preg_match('/^[A-Za-z0-9._-]+$/', $version))) jsonResponse(['ok' => false, 'error' => 'invalid_version'], 422);
+if ($motion !== 'MOBILE' && $motion !== 'IMMOBILE') jsonResponse(['ok' => false, 'error' => 'invalid_motion'], 422);
 if ($motionReturnMs === false || $motionReturnMs < 0 || $motionReturnMs > 8000) $motionReturnMs = 0;
 if ($network !== 'WiFi' && $network !== '4G') $network = '4G';
 if ($network === 'WiFi') $signalPercent = null;
