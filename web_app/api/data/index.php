@@ -24,7 +24,7 @@ if ($trakId !== '' && isset($positions[$trakId])) {
 
 if ($position === null) {
     jsonResponse([
-        'ok' => true, 'online' => false, 'hasFix' => false, 'network' => '4G', 'internetAvailable' => false,
+        'ok' => true, 'online' => false, 'hasFix' => false, 'network' => 'None', 'internetAvailable' => false,
         'signalPercent' => null, 'satellites' => null, 'serialNumber' => null, 'firmwareVersion' => null,
         'txCount' => 0, 'timestamp' => null, 'lastUpdate' => null, 'ageSeconds' => null,
         'latitude' => null, 'longitude' => null, 'altitude' => null,
@@ -53,6 +53,11 @@ if ($motionMode === 'MOBILE' && $motionReturnSeconds > 0) {
     }
 }
 
+$network = (string) ($position['network'] ?? 'None');
+if ($network !== 'WiFi' && $network !== '4G') {
+    $network = 'None';
+}
+
 jsonResponse([
     'ok' => true,
     'online' => $online,
@@ -65,7 +70,7 @@ jsonResponse([
     'timestamp' => $position['timestamp'] ?? null,
     'lastUpdate' => $receivedAt,
     'ageSeconds' => $age,
-    'network' => '4G',
+    'network' => $network,
     'internetAvailable' => $online,
     'signalPercent' => null,
     'satellites' => null,
