@@ -40,8 +40,8 @@ $online = $age <= 30;
 // Motion is produced exclusively by the TRAK LSM6DS3 gyro.
 // When the firmware starts the fixed 8 s return-to-idle confirmation, it sends
 // an immediate position. The server keeps that event as the latest state and
-// computes the remaining time from received_at, so the dashboard never gets a
-// stale "8 seconds" value while waiting for the next GPS position.
+// computes the remaining time from received_at, so the dashboard never gets
+// a stale "8 seconds" value while waiting for the next GPS position.
 $motionMode = (($position['motionMode'] ?? '') === 'MOBILE') ? 'MOBILE' : 'IMMOBILE';
 $motionReturnSeconds = ($motionMode === 'MOBILE') ? max(0, (int) ($position['motionReturnSeconds'] ?? 0)) : 0;
 
@@ -58,6 +58,12 @@ if ($network !== 'WiFi' && $network !== '4G') {
     $network = 'None';
 }
 
+$signalPercent = null;
+if ($network === '4G' && isset($position['signal_percent']) && is_numeric($position['signal_percent'])) {
+    $value = (int) $position['signal_percent'];
+    if ($value >= 0 && $value <= 100) $signalPercent = $value;
+}
+
 jsonResponse([
     'ok' => true,
     'online' => $online,
@@ -72,7 +78,7 @@ jsonResponse([
     'ageSeconds' => $age,
     'network' => $network,
     'internetAvailable' => $online,
-    'signalPercent' => null,
+    'signalPercent' => $signalPercent,
     'satellites' => null,
     'gpsSatellites' => null,
     'glonassSatellites' => null,
