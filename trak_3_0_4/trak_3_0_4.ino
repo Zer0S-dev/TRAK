@@ -30,8 +30,35 @@ void trakCommunicationResumeAfterWizard() {
   }
 }
 
+static uint32_t wizardWheel(uint8_t position) {
+  position = 255 - position;
+  if (position < 85) {
+    return leds.Color(255 - position * 3, 0, position * 3);
+  }
+  if (position < 170) {
+    position -= 85;
+    return leds.Color(0, position * 3, 255 - position * 3);
+  }
+  position -= 170;
+  return leds.Color(position * 3, 255 - position * 3, 0);
+}
+
 static void networkLedTask(void*) {
+  uint8_t rainbowOffset = 0;
   for (;;) {
+    if (trakWizardActive()) {
+      // Pixel 0 remains the center; the six surrounding pixels form the animated ring.
+      leds.setPixelColor(0, 0);
+      for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) {
+        const uint8_t hue = rainbowOffset + (uint8_t)((i * 256UL) / WS2812_RING_COUNT);
+        leds.setPixelColor(WS2812_CENTER_COUNT + i, wizardWheel(hue));
+      }
+      leds.show();
+      rainbowOffset += 4;
+      vTaskDelay(pdMS_TO_TICKS(30));
+      continue;
+    }
+
     updateLeds();
     const uint8_t network = trakActiveNetworkCode();
     if (network == 1) leds.setPixelColor(0, leds.Color(0, 80, 0));
