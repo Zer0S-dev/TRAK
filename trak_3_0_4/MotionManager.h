@@ -37,3 +37,6 @@ bool setMotionIntervals(uint32_t activeSeconds, uint32_t idleSeconds);
 // External telemetry is deliberately reduced to the two user-visible states.
 // The actual state is produced exclusively by the LSM6DS3 logic in MotionManager.cpp.
 const char* motionModeName();
+
+// Compatibility helper used by the runtime diagnostic log.
+bool motionIsMobile();
