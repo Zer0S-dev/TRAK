@@ -1,0 +1,87 @@
+/* TRAK 3.0.5 — Wi-Fi dashboard module */
+
+const WIFI_API = 'api/wifi/';
+let wifiProfiles = [];
+
+async function loadWifiProfiles() {
+    try {
+        const data = await api(WIFI_API);
+        if (data?.ok === true) {
+            wifiProfiles = data.profiles || [];
+            renderWifiSlots();
+        }
+    } catch (error) {
+        if (error.message !== 'unauthorized') console.warn('[TRAK] Wi-Fi:', error);
+    }
+}
+
+function renderWifiSlots() {
+    const box = $('wifiSlots');
+    if (!box) return;
+    box.innerHTML = '';
+    wifiProfiles.forEach(profile => {
+        const row = document.createElement('div');
+        row.className = 'wifi-slot';
+        const configured = profile.configured === true;
+        row.innerHTML = '<div><strong>Wi-Fi ' + (Number(profile.slot) + 1) + '</strong><div>' +
+            (profile.ssid || 'Aucun réseau') + ' · ' + (configured ? 'Configuré' : 'Non configuré') +
+            '</div></div><button type="button" class="btn-secondary" onclick="editWifiProfile(' + Number(profile.slot) + ')">' +
+            (configured ? 'Modifier' : 'Configurer') + '</button>';
+        box.appendChild(row);
+    });
+}
+
+async function openWifiModal() {
+    $('wifiModal')?.classList.add('active', 'open');
+    clearWifiForm();
+    await loadWifiProfiles();
+}
+function closeWifiModal() { $('wifiModal')?.classList.remove('active', 'open'); }
+function wifiModalBackdrop(event) { if (event.target === $('wifiModal')) closeWifiModal(); }
+function toggleWifiPassword() {
+    const input = $('wifiPassword');
+    if (input) input.type = input.type === 'password' ? 'text' : 'password';
+}
+function editWifiProfile(slot) {
+    const p = wifiProfiles.find(x => Number(x.slot) === Number(slot));
+    $('wifiSlot').value = String(slot);
+    $('wifiSsid').value = p?.ssid || '';
+    $('wifiPassword').value = '';
+    const title = $('wifiFormTitle');
+    if (title) title.textContent = 'Réseau Wi-Fi ' + (Number(slot) + 1);
+    const hint = $('wifiFormHint');
+    if (hint) hint.textContent = p?.configured ?
+        'Laissez le mot de passe vide pour conserver celui déjà enregistré.' :
+        'Enregistrez le SSID et le mot de passe du réseau.';
+}
+async function saveWifiProfile() {
+    if (!csrf) { alert('Session de sécurité indisponible. Rechargez la page.'); return; }
+    const slot = Number($('wifiSlot')?.value);
+    const ssid = $('wifiSsid')?.value.trim() || '';
+    const password = $('wifiPassword')?.value || '';
+    if (!Number.isInteger(slot) || slot < 0 || slot > 2 || !ssid) { alert('SSID obligatoire.'); return; }
+    try {
+        const body = { slot, ssid };
+        if (password) body.password = password;
+        const data = await api(WIFI_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+            body: JSON.stringify(body)
+        });
+        if (data?.ok === true) {
+            wifiProfiles = data.profiles || [];
+            renderWifiSlots();
+            clearWifiForm();
+            alert('Réseau Wi-Fi enregistré. Le TRAK le récupérera lors de sa prochaine synchronisation.');
+        }
+    } catch (error) {
+        if (error.message !== 'unauthorized') alert(error.message);
+    }
+}
+function clearWifiForm() {
+    ['wifiSlot', 'wifiSsid', 'wifiPassword'].forEach(id => { const el = $(id); if (el) el.value = ''; });
+    const title = $('wifiFormTitle');
+    if (title) title.textContent = 'Enregistrer un réseau';
+    const hint = $('wifiFormHint');
+    if (hint) hint.textContent = 'Jusqu’à 3 réseaux peuvent être mémorisés dans le TRAK.';
+}
