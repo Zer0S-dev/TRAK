@@ -6,6 +6,7 @@
 // Wi-Fi profiles remain independent in "trak_wifi".
 void trakConfigBegin();
 void trakConfigTask();
+void trakConfigHandleCommand(const String& command);
 
 String trakWebAppUrl();
 String trakApiKey();
