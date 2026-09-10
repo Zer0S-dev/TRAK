@@ -14,6 +14,22 @@
 HardwareSerial modem(1);
 Adafruit_NeoPixel leds(WS2812_RING_COUNT + WS2812_CENTER_COUNT, WS2812_PIN, NEO_GRB + NEO_KHZ800);
 
+struct NetworkAPN {
+  const char* mccmnc;
+  const char* apn;
+};
+
+static const NetworkAPN apnDatabase[] = {
+  {"20810", "sl2sfr"},
+  {"20809", "sl2sfr"},
+  {"20815", "free"},
+  {"20801", "orange"},
+  {"20802", "orange"},
+  {"20820", "ebouygtel.com"}
+};
+
+static constexpr size_t apnDatabaseSize = sizeof(apnDatabase) / sizeof(apnDatabase[0]);
+
 String detectedApn = DEFAULT_APN;
 String trakId;
 volatile bool modemReady = false;
@@ -157,10 +173,20 @@ void detectApn() {
   if (marker >= 0) imsi = imsi.substring(marker + 6);
   imsi.trim();
   Serial.print("[AUTO-APN] IMSI : "); Serial.println(imsi);
-  if (imsi.length() >= 5) {
-    const String mnc = imsi.substring(0, 5);
-    Serial.print("[AUTO-APN] MCC/MNC : "); Serial.println(mnc);
-    if (mnc == "20801" || mnc == "20802" || mnc == "20810") detectedApn = "orange";
+  if (imsi.length() < 5) {
+    detectedApn = DEFAULT_APN;
+    Serial.print("[AUTO-APN] MCC/MNC introuvable -> APN defaut : "); Serial.println(detectedApn);
+    return;
+  }
+
+  const String mccmnc = imsi.substring(0, 5);
+  Serial.print("[AUTO-APN] MCC/MNC : "); Serial.println(mccmnc);
+  detectedApn = DEFAULT_APN;
+  for (size_t i = 0; i < apnDatabaseSize; ++i) {
+    if (mccmnc.equals(apnDatabase[i].mccmnc)) {
+      detectedApn = apnDatabase[i].apn;
+      break;
+    }
   }
   Serial.print("[AUTO-APN] APN : "); Serial.println(detectedApn);
 }
