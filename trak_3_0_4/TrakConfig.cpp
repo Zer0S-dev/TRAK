@@ -14,7 +14,7 @@ constexpr size_t API_KEY_BYTES = 24;
 Preferences prefs;
 String webUrl;
 String userPhone;
-String trakPhone;
+String storedTrakPhone;
 String apiKey;
 bool provisioned = false;
 bool ready = false;
@@ -59,7 +59,7 @@ String generateApiKey() {
 void saveConfig() {
   prefs.putString(KEY_URL, webUrl);
   prefs.putString(KEY_USER_PHONE, userPhone);
-  prefs.putString(KEY_TRAK_PHONE, trakPhone);
+  prefs.putString(KEY_TRAK_PHONE, storedTrakPhone);
   prefs.putString(KEY_API, apiKey);
   prefs.putBool(KEY_PROVISIONED, provisioned);
 }
@@ -68,7 +68,7 @@ void printConfig() {
   Serial.println("[CONFIG] TRAK configuration:");
   Serial.print("[CONFIG] URL_WEB_APP = "); Serial.println(webUrl);
   Serial.print("[CONFIG] USER_PHONE  = "); Serial.println(userPhone.length() ? userPhone : "EMPTY");
-  Serial.print("[CONFIG] TRAK_PHONE  = "); Serial.println(trakPhone.length() ? trakPhone : "EMPTY");
+  Serial.print("[CONFIG] TRAK_PHONE  = "); Serial.println(storedTrakPhone.length() ? storedTrakPhone : "EMPTY");
   Serial.print("[CONFIG] PROVISIONED = "); Serial.println(provisioned ? "YES" : "NO");
   Serial.println("[CONFIG] API_KEY     = ******** (SHOWKEY pour l'afficher)");
   Serial.println("[CONFIG] NVS: trak_cfg | Wi-Fi: trak_wifi (independant)");
@@ -78,7 +78,7 @@ void printConfig() {
 void resetConfig() {
   trakConfigResetProvisioning();
   Serial.println("[CONFIG] Provisioning efface; les profils Wi-Fi sont conserves.");
-  Serial.print("[CONFIG] Nouvelle API_KEY = "); Serial.println(apiKey);
+  Serial.print("[CONFIG] API_KEY apres reset = "); Serial.println(apiKey.length() ? apiKey : "EMPTY");
 }
 }
 
@@ -87,7 +87,7 @@ void trakConfigBegin() {
   prefs.begin(PREF_NS, false);
   webUrl = normalizeUrl(prefs.getString(KEY_URL, ""));
   userPhone = normalizePhone(prefs.getString(KEY_USER_PHONE, ""));
-  trakPhone = normalizePhone(prefs.getString(KEY_TRAK_PHONE, ""));
+  storedTrakPhone = normalizePhone(prefs.getString(KEY_TRAK_PHONE, ""));
   apiKey = prefs.getString(KEY_API, "");
   provisioned = prefs.getBool(KEY_PROVISIONED, false);
 
@@ -132,7 +132,7 @@ void trakConfigTask() {
 String trakWebAppUrl() { return webUrl; }
 String trakApiKey() { return apiKey; }
 String trakUserPhone() { return userPhone; }
-String trakPhone() { return trakPhone; }
+String trakPhone() { return storedTrakPhone; }
 bool trakConfigProvisioned() { return provisioned; }
 bool trakConfigReady() { return ready; }
 
@@ -151,8 +151,8 @@ bool trakConfigSetUserPhone(const String& phone) {
 }
 
 bool trakConfigSetTrakPhone(const String& phone) {
-  trakPhone = normalizePhone(phone);
-  prefs.putString(KEY_TRAK_PHONE, trakPhone);
+  storedTrakPhone = normalizePhone(phone);
+  prefs.putString(KEY_TRAK_PHONE, storedTrakPhone);
   return true;
 }
 
@@ -165,7 +165,7 @@ bool trakConfigSetProvisioned(bool value) {
 void trakConfigResetProvisioning() {
   webUrl = "";
   userPhone = "";
-  trakPhone = "";
+  storedTrakPhone = "";
   apiKey = "";
   provisioned = false;
   prefs.remove(KEY_URL);
