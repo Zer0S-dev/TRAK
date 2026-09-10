@@ -18,6 +18,7 @@ extern bool attachCellular();
 extern bool configureGnss();
 extern bool readGnss(GnssPosition& p);
 extern String buildJson(const GnssPosition& p);
+extern String at(const String& command, uint32_t timeoutMs);
 extern String waitForHttpAction(uint8_t method, uint32_t timeoutMs);
 enum class HttpPostResult : uint8_t;
 extern HttpPostResult httpPostJson(const String& json);
@@ -32,6 +33,9 @@ constexpr uint32_t GNSS_LOG_MS = 5000;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
 constexpr uint32_t BUFFER_RETRY_MS = 200;
 constexpr uint32_t WIFI_PROFILE_SYNC_MS = 30000;
+constexpr uint32_t CELLULAR_SIGNAL_POLL_MS = 10000;
+static int cachedCellularSignalPercent = -1;
+static uint32_t lastCellularSignalPoll = 0;
 
 // 0=None, 1=WiFi, 2=4G. Used by the single LED task.
 uint8_t trakActiveNetworkCode() {
@@ -42,13 +46,48 @@ uint8_t trakActiveNetworkCode() {
   }
 }
 
+static int readCellularSignalPercent() {
+  const uint32_t now = millis();
+  if (cachedCellularSignalPercent >= 0 && now - lastCellularSignalPoll < CELLULAR_SIGNAL_POLL_MS) {
+    return cachedCellularSignalPercent;
+  }
+  if (!modemReady || !cellularReady) return -1;
+
+  lastCellularSignalPoll = now;
+  const String response = at("AT+CSQ", 1500);
+  const int marker = response.indexOf("+CSQ:");
+  if (marker < 0) return cachedCellularSignalPercent;
+
+  int cursor = marker + 5;
+  while (cursor < (int)response.length() && (response[cursor] == ' ' || response[cursor] == '\t')) ++cursor;
+  int end = cursor;
+  while (end < (int)response.length() && response[end] >= '0' && response[end] <= '9') ++end;
+  if (end == cursor) return cachedCellularSignalPercent;
+
+  const int rssi = response.substring(cursor, end).toInt();
+  if (rssi == 99 || rssi < 0 || rssi > 31) return -1;
+
+  cachedCellularSignalPercent = (rssi * 100 + 15) / 31;
+  Serial.printf("[4G] Signal CSQ=%d -> %d%%\n", rssi, cachedCellularSignalPercent);
+  devLog(String("4G signal: CSQ=") + String(rssi) + " -> " + String(cachedCellularSignalPercent) + "%");
+  return cachedCellularSignalPercent;
+}
+
 static String addTransportToJson(String json, NetworkPath path) {
   const int end = json.lastIndexOf('}');
   if (end < 0) return json;
   json.remove(end);
   json += ",\"network\":\"";
   json += path == NetworkPath::WiFi ? "WiFi" : "4G";
-  json += "\"}";
+  json += "\"";
+  if (path == NetworkPath::Cellular) {
+    const int signalPercent = readCellularSignalPercent();
+    if (signalPercent >= 0) {
+      json += ",\"signal_percent\":";
+      json += String(signalPercent);
+    }
+  }
+  json += "}";
   return json;
 }
 
