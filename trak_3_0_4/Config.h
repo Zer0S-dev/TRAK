@@ -55,7 +55,14 @@ static inline String trackerSerialNumber() {
   snprintf(serial, sizeof(serial), "TRACK-%06X", (unsigned int)(chipId & 0xFFFFFFULL));
   return String(serial);
 }
-// Web App URL and API key are provisioned once and stored in ESP32 NVS.
+
+// Persistent Web App configuration is loaded from ESP32 NVS at startup.
+#include "TrakConfig.h"
+#define TRAK_CONNECT_URL (trakWebAppUrl() + String("api/trak/position/"))
+#define TRAK_INTERVAL_URL (trakWebAppUrl() + String("api/trak/interval/"))
+#define TRAK_API_KEY trakApiKey()
+
+// APN fallback. detectApn() may replace it after reading the SIM IMSI.
 static constexpr const char* DEFAULT_APN = "orange";
 static constexpr uint32_t GNSS_POLL_MS = 1000;
 static constexpr uint32_t SEND_INTERVAL_MS = 5000;
