@@ -95,6 +95,21 @@ if (!validWifiSlot($slot)) {
     jsonResponse(['ok' => false, 'error' => 'invalid_slot'], 422);
 }
 
+$settings = loadSettings();
+$profiles = is_array($settings['wifi_profiles'] ?? null) ? $settings['wifi_profiles'] : [];
+for ($i = 0; $i < TRAK_WIFI_MAX_PROFILES; ++$i) {
+    if (!isset($profiles[$i]) || !is_array($profiles[$i])) {
+        $profiles[$i] = ['ssid' => '', 'password' => ''];
+    }
+}
+
+if (($data['action'] ?? '') === 'delete') {
+    $profiles[$slot] = ['ssid' => '', 'password' => ''];
+    $settings['wifi_profiles'] = array_values($profiles);
+    saveSettings($settings);
+    wifiResponse(false);
+}
+
 $ssid = cleanWifiString($data['ssid'] ?? '', 64);
 $passwordProvided = array_key_exists('password', $data);
 $password = cleanWifiString($data['password'] ?? '', 128);
@@ -104,14 +119,6 @@ if ($ssid === '') {
 }
 if ($passwordProvided && $password !== '' && strlen($password) < 8) {
     jsonResponse(['ok' => false, 'error' => 'password_too_short'], 422);
-}
-
-$settings = loadSettings();
-$profiles = is_array($settings['wifi_profiles'] ?? null) ? $settings['wifi_profiles'] : [];
-for ($i = 0; $i < TRAK_WIFI_MAX_PROFILES; ++$i) {
-    if (!isset($profiles[$i]) || !is_array($profiles[$i])) {
-        $profiles[$i] = ['ssid' => '', 'password' => ''];
-    }
 }
 
 $oldPassword = (string) ($profiles[$slot]['password'] ?? '');
