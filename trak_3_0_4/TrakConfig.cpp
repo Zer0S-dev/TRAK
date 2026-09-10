@@ -47,8 +47,8 @@ void saveConfig() {
 void printConfig() {
   Serial.println("[CONFIG] TRAK configuration:");
   Serial.print("[CONFIG] URL_WEB_APP = "); Serial.println(webUrl);
-  Serial.print("[CONFIG] API_KEY     = "); Serial.println(apiKey);
-  Serial.println("[CONFIG] Commandes: SETURL <url> | SHOWCONFIG | RESETCONFIG");
+  Serial.println("[CONFIG] API_KEY     = ******** (SHOWKEY pour l'afficher)");
+  Serial.println("[CONFIG] Commandes: SETURL <url> | SHOWCONFIG | SHOWKEY | RESETCONFIG");
 }
 
 void resetConfig() {
@@ -57,6 +57,7 @@ void resetConfig() {
   apiKey = generateApiKey();
   saveConfig();
   Serial.println("[CONFIG] Configuration reinitialisee; nouvelle API key generee.");
+  Serial.print("[CONFIG] Nouvelle API_KEY = "); Serial.println(apiKey);
 }
 }
 
@@ -68,12 +69,14 @@ void trakConfigBegin() {
 
   if (webUrl.length() == 0) {
     webUrl = DEFAULT_WEB_APP_URL;
-    Serial.println("[CONFIG] URL absente -> URL usine utilisee. SETURL permet de la modifier.");
+    prefs.putString(KEY_URL, webUrl);
+    Serial.println("[CONFIG] Premiere utilisation: URL usine enregistree en NVS.");
   }
   if (apiKey.length() < 32) {
     apiKey = generateApiKey();
     prefs.putString(KEY_API, apiKey);
-    Serial.println("[CONFIG] Nouvelle API key generee et stockee en NVS.");
+    Serial.println("[CONFIG] Premiere utilisation: API key generee et stockee en NVS.");
+    Serial.print("[CONFIG] API_KEY a enregistrer cote serveur = "); Serial.println(apiKey);
   }
   ready = true;
   printConfig();
@@ -94,6 +97,8 @@ void trakConfigTask() {
     Serial.print("[CONFIG] URL_WEB_APP enregistree: "); Serial.println(webUrl);
   } else if (command == "SHOWCONFIG") {
     printConfig();
+  } else if (command == "SHOWKEY") {
+    Serial.print("[CONFIG] API_KEY = "); Serial.println(apiKey);
   } else if (command == "RESETCONFIG") {
     resetConfig();
     printConfig();
