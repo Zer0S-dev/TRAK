@@ -50,11 +50,10 @@ String jsonEscape(const String& value) {
 
 String configJson() {
   String json;
-  json.reserve(360);
+  json.reserve(300);
   json += "{\"server_url\":\""; json += jsonEscape(trakWebAppUrl());
   json += "\",\"user_phone\":\""; json += jsonEscape(trakUserPhone());
   json += "\",\"trak_phone\":\""; json += jsonEscape(trakPhone());
-  json += "\",\"api_key\":\""; json += jsonEscape(trakApiKey());
   json += "\",\"provisioned\":"; json += trakConfigProvisioned() ? "true" : "false";
   json += "}";
   return json;
@@ -129,13 +128,7 @@ void startServer() {
 
 void enterWizard(bool resetProvisioning) {
   if (active) return;
-  if (resetProvisioning) {
-    trakConfigResetProvisioning();
-    if (!trakConfigRegenerateApiKey()) {
-      Serial.println("[WIZARD] ERREUR: generation API key impossible.");
-      return;
-    }
-  }
+  if (resetProvisioning) trakConfigResetProvisioning();
   active = true;
   pendingResetConfirmation = false;
   startServer();
