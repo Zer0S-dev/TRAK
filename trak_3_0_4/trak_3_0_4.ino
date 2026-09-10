@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include "Config.h"
+#include "TrakConfig.h"
 #include "TrakRuntime.h"
 #include "MotionManager.h"
 #include "WiFiManager.h"
@@ -31,6 +32,8 @@ static void networkLedTask(void*) {
    Core 1: single WS2812 status engine + Wi-Fi/4G network indication
 */
 void setup() {
+  Serial.begin(DEBUG_BAUD);
+  trakConfigBegin();
   trakRuntimeInit();
   motionBegin();
   trakPositionBufferInit();
@@ -46,4 +49,7 @@ void setup() {
   if (communicationCreated == pdPASS && networkLedCreated == pdPASS) Serial.println("[TRAK] Dual-core runtime pret.");
 }
 
-void loop() { vTaskDelay(pdMS_TO_TICKS(1000)); }
+void loop() {
+  trakConfigTask();
+  vTaskDelay(pdMS_TO_TICKS(50));
+}
