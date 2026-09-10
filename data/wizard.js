@@ -12,7 +12,7 @@ async function loadConfig() {
     $('server_url').value = data.server_url || '';
     $('user_phone').value = data.user_phone || '';
     $('trak_phone').value = data.trak_phone || '';
-    show('Configuration actuelle chargée.\nAPI key : ' + (data.api_key || '—') + '\nProvisionné : ' + (data.provisioned ? 'oui' : 'non'));
+    show('Configuration actuelle chargée.\nProvisionné : ' + (data.provisioned ? 'oui' : 'non'));
   } catch (error) {
     show('Impossible de lire la configuration : ' + error.message);
   }
@@ -31,7 +31,7 @@ $('form').addEventListener('submit', async (event) => {
     const response = await fetch('/api/config', { method: 'POST', body });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || ('HTTP ' + response.status));
-    show('Configuration écrite dans NVS.\nAPI key : ' + data.api_key + '\nProvisionné : ' + (data.provisioned ? 'oui' : 'non'));
+    show('Configuration écrite dans NVS.\nProvisionné : ' + (data.provisioned ? 'oui' : 'non'));
   } catch (error) {
     show('Erreur : ' + error.message);
   }
