@@ -60,7 +60,6 @@ static inline String trackerSerialNumber() {
 #include "TrakConfig.h"
 #define TRAK_CONNECT_URL (trakWebAppUrl() + String("api/trak/position/")).c_str()
 #define TRAK_INTERVAL_URL (trakWebAppUrl() + String("api/trak/interval/")).c_str()
-#define TRAK_API_KEY trakApiKey().c_str()
 
 // APN fallback. detectApn() selects the operator-specific APN from the IMSI table.
 static constexpr const char* DEFAULT_APN = "orange";
