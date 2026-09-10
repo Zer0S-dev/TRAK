@@ -61,10 +61,6 @@ static inline String trackerSerialNumber() {
 #define TRAK_CONNECT_URL (trakWebAppUrl() + String("api/trak/position/")).c_str()
 #define TRAK_INTERVAL_URL (trakWebAppUrl() + String("api/trak/interval/")).c_str()
 
-// Legacy source compatibility: no API key is generated, stored or transmitted.
-#define TRAK_API_KEY ""
-static inline String trakApiKey() { return String(); }
-
 static constexpr const char* DEFAULT_APN = "orange";
 static constexpr uint32_t GNSS_POLL_MS = 1000;
 static constexpr uint32_t SEND_INTERVAL_MS = 5000;
