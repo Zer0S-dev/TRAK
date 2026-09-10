@@ -5,6 +5,7 @@
 #include "PositionBuffer.h"
 #include "MotionManager.h"
 #include "WiFiManager.h"
+#include "TrakConfig.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -37,7 +38,6 @@ constexpr uint32_t CELLULAR_SIGNAL_POLL_MS = 10000;
 static int cachedCellularSignalPercent = -1;
 static uint32_t lastCellularSignalPoll = 0;
 
-// 0=None, 1=WiFi, 2=4G. Used by the single LED task.
 uint8_t trakActiveNetworkCode() {
   switch (activeNetwork) {
     case NetworkPath::WiFi: return 1;
@@ -48,25 +48,19 @@ uint8_t trakActiveNetworkCode() {
 
 static int readCellularSignalPercent() {
   const uint32_t now = millis();
-  if (cachedCellularSignalPercent >= 0 && now - lastCellularSignalPoll < CELLULAR_SIGNAL_POLL_MS) {
-    return cachedCellularSignalPercent;
-  }
+  if (cachedCellularSignalPercent >= 0 && now - lastCellularSignalPoll < CELLULAR_SIGNAL_POLL_MS) return cachedCellularSignalPercent;
   if (!modemReady || !cellularReady) return -1;
-
   lastCellularSignalPoll = now;
   const String response = at("AT+CSQ", 1500);
   const int marker = response.indexOf("+CSQ:");
   if (marker < 0) return cachedCellularSignalPercent;
-
   int cursor = marker + 5;
   while (cursor < (int)response.length() && (response[cursor] == ' ' || response[cursor] == '\t')) ++cursor;
   int end = cursor;
   while (end < (int)response.length() && response[end] >= '0' && response[end] <= '9') ++end;
   if (end == cursor) return cachedCellularSignalPercent;
-
   const int rssi = response.substring(cursor, end).toInt();
   if (rssi == 99 || rssi < 0 || rssi > 31) return -1;
-
   cachedCellularSignalPercent = (rssi * 100 + 15) / 31;
   Serial.printf("[4G] Signal CSQ=%d -> %d%%\n", rssi, cachedCellularSignalPercent);
   devLog(String("4G signal: CSQ=") + String(rssi) + " -> " + String(cachedCellularSignalPercent) + "%");
@@ -82,10 +76,7 @@ static String addTransportToJson(String json, NetworkPath path) {
   json += "\"";
   if (path == NetworkPath::Cellular) {
     const int signalPercent = readCellularSignalPercent();
-    if (signalPercent >= 0) {
-      json += ",\"signal_percent\":";
-      json += String(signalPercent);
-    }
+    if (signalPercent >= 0) { json += ",\"signal_percent\":"; json += String(signalPercent); }
   }
   json += "}";
   return json;
@@ -93,19 +84,9 @@ static String addTransportToJson(String json, NetworkPath path) {
 
 static int postBufferedPosition(const GnssPosition& position, int& httpStatus) {
   NetworkPath transport = NetworkPath::None;
-  if (wifiIsActive()) {
-    activeNetwork = NetworkPath::WiFi;
-    transport = NetworkPath::WiFi;
-  } else if (cellularReady) {
-    activeNetwork = NetworkPath::Cellular;
-    transport = NetworkPath::Cellular;
-  }
-
-  if (transport == NetworkPath::None) {
-    httpStatus = 0;
-    return 2;
-  }
-
+  if (wifiIsActive()) { activeNetwork = NetworkPath::WiFi; transport = NetworkPath::WiFi; }
+  else if (cellularReady) { activeNetwork = NetworkPath::Cellular; transport = NetworkPath::Cellular; }
+  if (transport == NetworkPath::None) { httpStatus = 0; return 2; }
   String json = addTransportToJson(buildJson(position), transport);
   if (transport == NetworkPath::WiFi) {
     const bool ok = wifiPostJson(json, httpStatus);
@@ -113,7 +94,6 @@ static int postBufferedPosition(const GnssPosition& position, int& httpStatus) {
     if (httpStatus == 0) return 2;
     return 1;
   }
-
   httpStatus = 0;
   return static_cast<int>(httpPostJson(json));
 }
@@ -131,8 +111,7 @@ bool trakPositionBufferInit() {
 static String readHttpBody(uint32_t timeoutMs) {
   while (modem.available()) modem.read();
   modem.print("AT+HTTPREAD=0,2048\r\n");
-  String response; response.reserve(2200);
-  const uint32_t start = millis(); bool started = false;
+  String response; response.reserve(2200); const uint32_t start = millis(); bool started = false;
   while (millis() - start < timeoutMs) {
     while (modem.available()) {
       response += static_cast<char>(modem.read());
@@ -189,7 +168,7 @@ static bool fetchRemoteIntervalFixed() {
 
 static bool syncWifiProfilesVia4G() {
   if (!modemReady || !cellularReady) return false;
-  const String url = String("https://surlereservoir.fr/trak/api/wifi/?api_key=") + TRAK_API_KEY;
+  const String url = trakWebAppUrl() + "api/wifi/?api_key=" + trakApiKey();
   modem.print("AT+HTTPTERM\r\n"); vTaskDelay(pdMS_TO_TICKS(50)); while (modem.available()) modem.read();
   modem.print("AT+HTTPINIT\r\n");
   String init = ""; const uint32_t a = millis(); while (millis() - a < 3000) { while (modem.available()) init += (char)modem.read(); if (init.indexOf("OK") >= 0 || init.indexOf("ERROR") >= 0) break; vTaskDelay(pdMS_TO_TICKS(2)); }
@@ -215,24 +194,16 @@ void trakCommunicationTaskFixed(void*) {
   bool bufferFlushActive = false, bufferWasFull = false;
 
   wifiManagerBegin();
-  if (wifiConnectBestSaved()) {
-    activeNetwork = NetworkPath::WiFi;
-  } else if (cellularReady) {
-    activeNetwork = NetworkPath::Cellular;
-  } else {
-    activeNetwork = NetworkPath::None;
-  }
+  if (wifiConnectBestSaved()) activeNetwork = NetworkPath::WiFi;
+  else if (cellularReady) activeNetwork = NetworkPath::Cellular;
+  else activeNetwork = NetworkPath::None;
 
   for (;;) {
     const uint32_t now = millis();
     wifiNetworkTick(true);
-    if (wifiIsActive()) {
-      activeNetwork = NetworkPath::WiFi;
-    } else if (cellularReady) {
-      activeNetwork = NetworkPath::Cellular;
-    } else {
-      activeNetwork = NetworkPath::None;
-    }
+    if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
+    else if (cellularReady) activeNetwork = NetworkPath::Cellular;
+    else activeNetwork = NetworkPath::None;
 
     if (!bufferReady && now - lastBufferInitRetry >= CELLULAR_RETRY_MS) { lastBufferInitRetry = now; trakPositionBufferInit(); }
     if (!modemReady && now - lastRecovery >= CELLULAR_RETRY_MS) { lastRecovery = now; if (powerOnModem()) { detectApn(); attachCellular(); configureGnss(); } }
@@ -270,7 +241,6 @@ void trakCommunicationTaskFixed(void*) {
       }
       if (positionBuffer.empty()) { if (bufferFlushActive) devLog("Buffer flush completed"); bufferFlushActive = false; bufferWasFull = false; }
     }
-
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
