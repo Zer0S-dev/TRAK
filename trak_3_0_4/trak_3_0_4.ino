@@ -16,9 +16,6 @@ uint8_t trakActiveNetworkCode();
 
 static TaskHandle_t communicationTaskHandle = nullptr;
 
-// Wizard is an exclusive provisioning mode. Suspending the communication task
-// guarantees that GNSS, FIFO, network recovery and normal server traffic stop
-// while the local configuration portal is active.
 void trakCommunicationSuspendForWizard() {
   if (communicationTaskHandle) {
     vTaskSuspend(communicationTaskHandle);
@@ -26,7 +23,6 @@ void trakCommunicationSuspendForWizard() {
   }
 }
 
-// Kept for future use if the Wizard ever becomes resumable without reboot.
 void trakCommunicationResumeAfterWizard() {
   if (communicationTaskHandle) {
     vTaskResume(communicationTaskHandle);
@@ -34,8 +30,6 @@ void trakCommunicationResumeAfterWizard() {
   }
 }
 
-// One and only one task writes the WS2812 LEDs.
-// Network state: 0=none, 1=Wi-Fi (green), 2=4G (violet).
 static void networkLedTask(void*) {
   for (;;) {
     updateLeds();
@@ -60,7 +54,6 @@ void setup() {
   trakPositionBufferInit();
 
   TaskHandle_t networkLedTaskHandle = nullptr;
-
   const BaseType_t communicationCreated = xTaskCreatePinnedToCore(trakCommunicationTaskFixed, "TRAK_COM", 8192, nullptr, 2, &communicationTaskHandle, 0);
   const BaseType_t networkLedCreated = xTaskCreatePinnedToCore(networkLedTask, "TRAK_LED", 4096, nullptr, 1, &networkLedTaskHandle, 1);
 
@@ -74,16 +67,8 @@ void loop() {
     String command = Serial.readStringUntil('\n');
     command.trim();
     trakWizardCommand(command);
-    // Preserve the existing configuration console commands when the command is
-    // not one of the Wizard commands.
-    if (command != "HELLO TRAK" && command != "CONFIRM RESET" && command != "WIZARD") {
-      // TrakConfig owns the existing SETURL/SHOWCONFIG/SHOWKEY/RESETCONFIG commands.
-      // Re-injecting the command is intentionally avoided; those commands remain
-      // available through trakConfigTask() when no Wizard command is sent.
-      Serial.println("[TRAK] Commande console non-Wizard: utilise la gestion configuration existante.");
-    }
+    trakConfigHandleCommand(command);
   }
   trakWizardTask();
-  trakConfigTask();
   vTaskDelay(pdMS_TO_TICKS(20));
 }
