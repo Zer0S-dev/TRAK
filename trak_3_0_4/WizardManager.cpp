@@ -5,6 +5,8 @@
 #include "TrakConfig.h"
 #include "WizardManager.h"
 
+extern void trakCommunicationSuspendForWizard();
+
 namespace {
 WebServer server(80);
 volatile bool active = false;
@@ -104,6 +106,9 @@ void startServer() {
 }
 
 void enterWizard(bool resetProvisioning) {
+  if (active) return;
+  trakCommunicationSuspendForWizard();
+
   if (resetProvisioning) {
     trakConfigResetProvisioning();
     if (!trakConfigRegenerateApiKey()) {
@@ -115,7 +120,6 @@ void enterWizard(bool resetProvisioning) {
   pendingResetConfirmation = false;
   startServer();
   Serial.println("[WIZARD] MODE EXCLUSIF ACTIF. Les traitements TRAK normaux sont suspendus.");
-}
 }
 
 void trakWizardCommand(const String& rawCommand) {
