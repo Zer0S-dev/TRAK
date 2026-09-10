@@ -8,7 +8,6 @@ const TRAK_STORAGE_DIR = __DIR__ . '/storage';
 const TRAK_STORAGE_FILE = TRAK_STORAGE_DIR . '/positions.json';
 const TRAK_SETTINGS_FILE = TRAK_STORAGE_DIR . '/settings.json';
 
-// Prototype defaults. Environment variables can override these values on the server.
 const TRAK_DEFAULT_USER = 'admin';
 const TRAK_DEFAULT_PASSWORD_HASH = '$2y$12$28IUwE4iobC3xgsrTj8aG.XBJRDrydy9afa00NGA5Dop8uM5gpony';
 
@@ -44,9 +43,32 @@ function requireCsrf(): void
 
 function ensureTrakStorage(): void
 {
-    if (!is_dir(TRAK_STORAGE_DIR)) mkdir(TRAK_STORAGE_DIR, 0775, true);
-    if (!is_file(TRAK_STORAGE_FILE)) file_put_contents(TRAK_STORAGE_FILE, "{}", LOCK_EX);
-    if (!is_file(TRAK_SETTINGS_FILE)) file_put_contents(TRAK_SETTINGS_FILE, json_encode(['trackserver_url' => TRACKSERVER_OSMAND_URL, 'record_interval' => 15], JSON_UNESCAPED_SLASHES), LOCK_EX);
+    if (!is_dir(TRAK_STORAGE_DIR)) {
+        if (!@mkdir(TRAK_STORAGE_DIR, 0775, true) && !is_dir(TRAK_STORAGE_DIR)) {
+            jsonResponse(['ok' => false, 'error' => 'storage_dir_unavailable'], 503);
+        }
+    }
+
+    if (!is_file(TRAK_STORAGE_FILE)) {
+        if (@file_put_contents(TRAK_STORAGE_FILE, "{}", LOCK_EX) === false) {
+            jsonResponse(['ok' => false, 'error' => 'storage_init_failed'], 503);
+        }
+    }
+
+    if (!is_file(TRAK_SETTINGS_FILE)) {
+        $defaults = [
+            'trackserver_url' => TRACKSERVER_OSMAND_URL,
+            'record_interval' => 15,
+            'wifi_profiles' => [
+                ['ssid' => '', 'password' => ''],
+                ['ssid' => '', 'password' => ''],
+                ['ssid' => '', 'password' => ''],
+            ],
+        ];
+        if (@file_put_contents(TRAK_SETTINGS_FILE, json_encode($defaults, JSON_UNESCAPED_SLASHES), LOCK_EX) === false) {
+            jsonResponse(['ok' => false, 'error' => 'settings_init_failed'], 503);
+        }
+    }
 }
 
 function jsonResponse(array $payload, int $status = 200): never
@@ -83,7 +105,7 @@ function savePositions(array $positions): void
     $json = json_encode($positions, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($json === false) jsonResponse(['ok' => false, 'error' => 'storage_encode_failed'], 500);
     $tmp = TRAK_STORAGE_FILE . '.' . bin2hex(random_bytes(8)) . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false || !rename($tmp, TRAK_STORAGE_FILE)) {
+    if (@file_put_contents($tmp, $json, LOCK_EX) === false || !@rename($tmp, TRAK_STORAGE_FILE)) {
         @unlink($tmp);
         jsonResponse(['ok' => false, 'error' => 'storage_write_failed'], 500);
     }
@@ -93,7 +115,7 @@ function storePosition(string $trakId, array $position): array
 {
     ensureTrakStorage();
     $lockPath = TRAK_STORAGE_FILE . '.lock';
-    $lock = fopen($lockPath, 'c');
+    $lock = @fopen($lockPath, 'c');
     if ($lock === false || !flock($lock, LOCK_EX)) {
         if (is_resource($lock)) fclose($lock);
         jsonResponse(['ok' => false, 'error' => 'storage_lock_failed'], 503);
@@ -115,9 +137,25 @@ function loadSettings(): array
 {
     ensureTrakStorage();
     $raw = file_get_contents(TRAK_SETTINGS_FILE);
-    if ($raw === false || trim($raw) === '') return ['trackserver_url' => TRACKSERVER_OSMAND_URL, 'record_interval' => 15];
+    if ($raw === false || trim($raw) === '') return [
+        'trackserver_url' => TRACKSERVER_OSMAND_URL,
+        'record_interval' => 15,
+        'wifi_profiles' => [
+            ['ssid' => '', 'password' => ''],
+            ['ssid' => '', 'password' => ''],
+            ['ssid' => '', 'password' => ''],
+        ],
+    ];
     $data = json_decode($raw, true);
-    return is_array($data) ? $data : ['trackserver_url' => TRACKSERVER_OSMAND_URL, 'record_interval' => 15];
+    return is_array($data) ? $data : [
+        'trackserver_url' => TRACKSERVER_OSMAND_URL,
+        'record_interval' => 15,
+        'wifi_profiles' => [
+            ['ssid' => '', 'password' => ''],
+            ['ssid' => '', 'password' => ''],
+            ['ssid' => '', 'password' => ''],
+        ],
+    ];
 }
 
 function saveSettings(array $settings): void
@@ -126,7 +164,7 @@ function saveSettings(array $settings): void
     $json = json_encode($settings, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     if ($json === false) jsonResponse(['ok' => false, 'error' => 'settings_encode_failed'], 500);
     $tmp = TRAK_SETTINGS_FILE . '.' . bin2hex(random_bytes(8)) . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false || !rename($tmp, TRAK_SETTINGS_FILE)) {
+    if (@file_put_contents($tmp, $json, LOCK_EX) === false || !@rename($tmp, TRAK_SETTINGS_FILE)) {
         @unlink($tmp);
         jsonResponse(['ok' => false, 'error' => 'settings_write_failed'], 500);
     }
@@ -150,11 +188,8 @@ function trackserverUrl(array $position): string
 {
     $template = getTrackserverConfiguredUrl();
     if ($template === '') return '';
-
-    // OsmAnd/Trackserver expects {2} as Unix epoch time, not an ISO-8601 string.
     $timestamp = strtotime((string) $position['timestamp']);
     if ($timestamp === false) $timestamp = time();
-
     $values = [
         rawurlencode((string) $position['latitude']),
         rawurlencode((string) $position['longitude']),
@@ -164,22 +199,11 @@ function trackserverUrl(array $position): string
         rawurlencode((string) ($position['speed_kmh'] ?? 0)),
         rawurlencode((string) ($position['bearing'] ?? 0)),
     ];
-
     return strtr($template, [
-        '{0}' => $values[0],
-        '{1}' => $values[1],
-        '{2}' => $values[2],
-        '{3}' => $values[3],
-        '{4}' => $values[4],
-        '{5}' => $values[5],
-        '{6}' => $values[6],
-        '{id}' => $values[3],
-        '{lat}' => $values[0],
-        '{lon}' => $values[1],
-        '{timestamp}' => $values[2],
-        '{altitude}' => $values[4],
-        '{speed}' => $values[5],
-        '{bearing}' => $values[6],
+        '{0}' => $values[0], '{1}' => $values[1], '{2}' => $values[2], '{3}' => $values[3],
+        '{4}' => $values[4], '{5}' => $values[5], '{6}' => $values[6], '{id}' => $values[3],
+        '{lat}' => $values[0], '{lon}' => $values[1], '{timestamp}' => $values[2],
+        '{altitude}' => $values[4], '{speed}' => $values[5], '{bearing}' => $values[6],
     ]);
 }
 
