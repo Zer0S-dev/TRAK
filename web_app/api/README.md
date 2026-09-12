@@ -4,7 +4,7 @@ TRAK Connect 3.2.0 no longer stores TRAK positions or settings in public JSON fi
 
 ## Database
 
-The API uses PHP PDO with SQLite. `PDO_SQLITE` must be available on the server. urlPHP PDO SQLite documentationhttps://www.php.net/manual/en/ref.pdo-sqlite.php
+The API uses PHP PDO with SQLite. `PDO_SQLITE` must be available on the server.
 
 The database file must be stored **outside the public web root**.
 
