@@ -1,9 +1,0 @@
-{
-    "trackserver_url": "https://surlereservoir.fr/trackserver/surledoud/eb5a96a7/?lat={0}&lon={1}&timestamp={2}&altitude={4}&speed={5}&bearing={6}",
-    "record_interval": 15,
-    "wifi_profiles": [
-        { "ssid": "", "password": "" },
-        { "ssid": "", "password": "" },
-        { "ssid": "", "password": "" }
-    ]
-}
