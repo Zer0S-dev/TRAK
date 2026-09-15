@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TRAK Wizard</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:0 20px;background:#f6f9fc;color:#222}
+    main{background:#fff;padding:24px;border-radius:14px;box-shadow:0 12px 30px rgba(10,37,64,.08),0 2px 6px rgba(10,37,64,.05);}
+    h1{margin-top:20px} label{display:block;margin:16px 0 6px;font-weight:600}
+    input{box-sizing:border-box;width:100%;padding:11px;border:1px solid #bbb;border-radius:8px;font-size:16px}
+    button{margin-top:22px;width:100%;cursor:pointer;border:0;padding: 12px 18px;
+  border-radius: 22px;
+  color: #b1d600;
+  background: #183029;
+  font-size: .78rem;
+  font-weight: 700;
+  box-shadow: 0 6px 14px rgba(99,91,255,.18);}
+    .primary{background:#222;color:#fff}
+    .status{margin-top:16px;padding:10px;border-radius:8px;background:#eef0f2;white-space:pre-wrap}
+    .key{font-family:monospace;font-size:13px;word-break:break-all}
+    .hide{display:none;}
+    #logo {
+  margin-left: auto;
+  margin-right: auto;
+  width: 180px;
+  display: block;
+}
+  </style>
+</head>
+<body>
+<main>
+  <div id="logo">
+  <img src="/logo_light_web.png">
+  <h1>🧙‍♂️ Wizard</h1>
+</div>
+  <p>Configuration initiale du TRAK.</p>
+  <form id="form">
+    <label for="server_url">URL serveur</label>
+    <input id="server_url" name="server_url" type="url" required placeholder="https://serveur.fr/dossier-trak/">
+
+    <label for="user_phone">Téléphone utilisateur</label>
+    <input id="user_phone" name="user_phone" type="tel" required placeholder="+33612345678">
+
+    <label for="trak_phone">Téléphone TRAK</label>
+    <input id="trak_phone" name="trak_phone" type="tel" required placeholder="+33612345679">
+
+    <button class="primary hide" type="submit">Enregistrer la configuration</button>
+  </form>
+
+  <div class="status" id="status">Lecture de la configuration...</div>
+
+  <button class="secondary" id="reboot" type="button">Enregistrer</button>
+</main>
+<script src="/wizard.js"></script>
+</body>
+</html>
