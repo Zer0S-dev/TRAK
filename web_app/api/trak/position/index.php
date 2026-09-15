@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/config.php';
+require_once dirname(__DIR__) . '/crypto.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST');
@@ -10,22 +11,30 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $raw = file_get_contents('php://input');
-$data = json_decode($raw ?: '', true);
-if (!is_array($data)) jsonResponse(['ok' => false, 'error' => 'invalid_json'], 400);
+$envelope = json_decode($raw ?: '', true);
+if (!is_array($envelope)) jsonResponse(['ok' => false, 'error' => 'invalid_json'], 400);
 
-$trakId = trim((string) ($data['trak_id'] ?? ''));
+$trakId = trim((string) ($envelope['trak_id'] ?? ''));
 if ($trakId === '' || strlen($trakId) > 64 || !preg_match('/^[A-Za-z0-9._-]+$/', $trakId)) jsonResponse(['ok' => false, 'error' => 'invalid_trak_id'], 422);
+
+try {
+    $data = decryptTrakJson($envelope, $trakId);
+} catch (Throwable $e) {
+    $error = $e->getMessage();
+    $status = $error === 'encryption_key_not_found' ? 404 : 422;
+    jsonResponse(['ok' => false, 'error' => 'encrypted_payload_rejected'], $status);
+}
 
 $latitude = filter_var($data['latitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $longitude = filter_var($data['longitude'] ?? null, FILTER_VALIDATE_FLOAT);
 $altitude = filter_var($data['altitude'] ?? 0, FILTER_VALIDATE_FLOAT);
-$speed = filter_var($data['speed'] ?? $data['speed_kmh'] ?? 0, FILTER_VALIDATE_FLOAT);
-$bearing = filter_var($data['bearing'] ?? 0, FILTER_VALIDATE_FLOAT);
 $version = trim((string) ($data['version'] ?? ''));
 $motion = strtoupper(trim((string) ($data['motion'] ?? 'IMMOBILE')));
 $motionReturnMs = filter_var($data['motion_return_ms'] ?? 0, FILTER_VALIDATE_INT);
 $network = trim((string) ($data['network'] ?? '4G'));
 $signalPercent = filter_var($data['signal_percent'] ?? null, FILTER_VALIDATE_INT);
+$speed = filter_var($data['speed'] ?? $data['speed_kmh'] ?? 0, FILTER_VALIDATE_FLOAT);
+$bearing = filter_var($data['bearing'] ?? $data['course_deg'] ?? 0, FILTER_VALIDATE_FLOAT);
 
 if ($version !== '' && (strlen($version) > 32 || !preg_match('/^[A-Za-z0-9._-]+$/', $version))) jsonResponse(['ok' => false, 'error' => 'invalid_version'], 422);
 if ($motion !== 'MOBILE' && $motion !== 'IMMOBILE') jsonResponse(['ok' => false, 'error' => 'invalid_motion'], 422);
@@ -33,7 +42,6 @@ if ($motionReturnMs === false || $motionReturnMs < 0 || $motionReturnMs > 8000) 
 if ($network !== 'WiFi' && $network !== '4G') $network = '4G';
 if ($network === 'WiFi') $signalPercent = null;
 if ($signalPercent !== false && ($signalPercent < 0 || $signalPercent > 100)) $signalPercent = false;
-
 if ($latitude === false || $longitude === false || $altitude === false || !is_finite((float) $latitude) || !is_finite((float) $longitude) || !is_finite((float) $altitude)) jsonResponse(['ok' => false, 'error' => 'invalid_position'], 422);
 if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) jsonResponse(['ok' => false, 'error' => 'coordinates_out_of_range'], 422);
 if ($speed !== false && !is_finite((float) $speed)) $speed = false;
