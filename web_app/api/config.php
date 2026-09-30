@@ -13,13 +13,30 @@ function startTrakSession(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) return;
     session_name('trak_session');
-    session_set_cookie_params(['lifetime' => 0, 'path' => '/trak/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+    $isHttps = (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off')
+        || ((int) ($_SERVER['SERVER_PORT'] ?? 0) === 443);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/trak/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ]);
     session_start();
 }
 
 function userDatabase(): PDO
 {
     ensureTrakStorage();
+
+    if (!extension_loaded('pdo_sqlite')) {
+        throw new RuntimeException('PDO SQLite est indisponible sur ce serveur PHP.');
+    }
+
+    if (!is_dir(TRAK_STORAGE_DIR) || !is_writable(TRAK_STORAGE_DIR)) {
+        throw new RuntimeException('Le dossier web_app/storage doit être accessible en écriture par PHP.');
+    }
+
     $pdo = new PDO('sqlite:' . TRAK_USER_DB_FILE, null, null, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
