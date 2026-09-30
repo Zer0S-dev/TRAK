@@ -56,17 +56,11 @@ static inline String trackerSerialNumber() {
   return String(serial);
 }
 
-// Persistent Web App configuration is loaded from ESP32 NVS at startup.
-#include "TrakConfig.h"
-#define TRAK_CONNECT_URL (trakWebAppUrl() + String("api/trak/position/")).c_str()
-#define TRAK_INTERVAL_URL (trakWebAppUrl() + String("api/trak/interval/")).c_str()
-
 static constexpr const char* DEFAULT_APN = "orange";
 static constexpr uint32_t GNSS_POLL_MS = 1000;
 static constexpr uint32_t SEND_INTERVAL_MS = 5000;
 static constexpr uint32_t REMOTE_INTERVAL_POLL_MS = 30000;
 static constexpr uint32_t MODEM_TIMEOUT_MS = 2500;
-static constexpr uint32_t HTTP_TIMEOUT_MS = 30000;
 static constexpr uint32_t DEBUG_BAUD = 115200;
 #if !DEV_LOG
 class TrakNullSerial { public: void begin(unsigned long) {} template <typename T> void print(const T&) {} template <typename T> void println(const T&) {} template <typename T, typename U> void print(const T&, U) {} template <typename T, typename U> void println(const T&, U) {} template <typename... Args> void printf(const char*, Args...) {} };
