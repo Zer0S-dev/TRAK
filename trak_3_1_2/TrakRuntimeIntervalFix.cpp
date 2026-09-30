@@ -18,6 +18,7 @@ extern bool attachCellular();
 extern bool configureGnss();
 extern bool readGnss(GnssPosition& p);
 extern void devLog(const String& message);
+extern String at(const String& command, uint32_t timeoutMs);
 
 enum class NetworkPath : uint8_t { None, WiFi, Cellular };
 static PositionBuffer positionBuffer;
