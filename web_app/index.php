@@ -29,7 +29,7 @@ if (empty($_SESSION['trak_authenticated']) || $_SESSION['trak_authenticated'] !=
     <div class="map-bottom-fade"></div>
     <header class="top-hud">
       <div class="brand"><img src="logo_light_web.png" alt="TRAK"></div>
-      <div class="network-hud"><span class="status-dot"></span><span id="topStatus">TRAK · CONNECTING</span><span class="network-icon" id="networkIcon">—</span>
+      <div class="network-hud"><a href="user_settings.php" title="Paramètre utilisateur" style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;margin-right:8px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(255,255,255,.08);color:inherit;text-decoration:none;font-weight:800">👤</a><span class="status-dot"></span><span id="topStatus">TRAK · CONNECTING</span><span class="network-icon" id="networkIcon">—</span>
         <div class="network-signal"><i></i><i></i><i></i><i></i></div><span id="signalTop">—</span>
       </div>
     </header>
