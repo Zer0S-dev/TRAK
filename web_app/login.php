@@ -16,21 +16,18 @@ $username = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim((string) ($_POST['username'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
-    $configuredUser = dashboardUser();
-    $passwordHash = dashboardPasswordHash();
+    $user = findUserByUsername($username);
 
-    if ($configuredUser === '' || $passwordHash === '') {
-        $error = 'Authentification non configurée sur le serveur.';
-    } elseif (hash_equals($configuredUser, $username) && password_verify($password, $passwordHash)) {
+    if ($user === null || !password_verify($password, (string) $user['password_hash'])) {
+        usleep(250000);
+        $error = 'Identifiant ou mot de passe incorrect.';
+    } else {
         session_regenerate_id(true);
         $_SESSION['trak_authenticated'] = true;
-        $_SESSION['trak_user'] = $configuredUser;
+        $_SESSION['trak_user'] = (string) $user['username'];
         $_SESSION['trak_csrf'] = bin2hex(random_bytes(32));
         header('Location: index.php', true, 303);
         exit;
-    } else {
-        usleep(250000);
-        $error = 'Identifiant ou mot de passe incorrect.';
     }
 }
 ?>
