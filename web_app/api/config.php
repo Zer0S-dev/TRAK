@@ -7,8 +7,7 @@ const TRAK_STORAGE_DIR = __DIR__ . '/storage';
 const TRAK_STORAGE_FILE = TRAK_STORAGE_DIR . '/positions.json';
 const TRAK_SETTINGS_FILE = TRAK_STORAGE_DIR . '/settings.json';
 
-const TRAK_DEFAULT_USER = 'admin';
-const TRAK_DEFAULT_PASSWORD_HASH = '$2y$12$28IUwE4iobC3xgsrTj8aG.XBJRDrydy9afa00NGA5Dop8uM5gpony';
+const TRAK_USER_DB_FILE = TRAK_STORAGE_DIR . '/users.sqlite';
 
 function startTrakSession(): void
 {
@@ -18,13 +17,94 @@ function startTrakSession(): void
     session_start();
 }
 
-function dashboardUser(): string { return trim((string) (getenv('TRAK_CONNECT_USER') ?: TRAK_DEFAULT_USER)); }
-function dashboardPasswordHash(): string { return trim((string) (getenv('TRAK_CONNECT_PASSWORD_HASH') ?: TRAK_DEFAULT_PASSWORD_HASH)); }
+function userDatabase(): PDO
+{
+    ensureTrakStorage();
+    $pdo = new PDO('sqlite:' . TRAK_USER_DB_FILE, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL DEFAULT "",
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )');
+    return $pdo;
+}
+
+function userCount(): int
+{
+    return (int) userDatabase()->query('SELECT COUNT(*) FROM users')->fetchColumn();
+}
+
+function findUserByUsername(string $username): ?array
+{
+    $stmt = userDatabase()->prepare('SELECT id, username, email, password_hash FROM users WHERE username = :username LIMIT 1');
+    $stmt->execute(['username' => $username]);
+    $user = $stmt->fetch();
+    return is_array($user) ? $user : null;
+}
+
+function currentUser(): ?array
+{
+    startTrakSession();
+    $username = trim((string) ($_SESSION['trak_user'] ?? ''));
+    return $username === '' ? null : findUserByUsername($username);
+}
+
+function createFirstUser(string $username, string $email, string $password): void
+{
+    $username = trim($username);
+    $email = trim($email);
+    if ($username === '' || strlen($username) < 3) jsonResponse(['ok' => false, 'error' => 'invalid_username'], 422);
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) jsonResponse(['ok' => false, 'error' => 'invalid_email'], 422);
+    if (strlen($password) < 8) jsonResponse(['ok' => false, 'error' => 'password_too_short'], 422);
+    $pdo = userDatabase();
+    if ((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0) {
+        jsonResponse(['ok' => false, 'error' => 'setup_already_done'], 409);
+    }
+    $now = gmdate('c');
+    $stmt = $pdo->prepare('INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:username, :email, :password_hash, :created_at, :updated_at)');
+    try {
+        $stmt->execute([
+            'username' => $username,
+            'email' => $email,
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    } catch (PDOException $e) {
+        jsonResponse(['ok' => false, 'error' => 'user_create_failed'], 500);
+    }
+}
+
+function dashboardUser(): string
+{
+    $user = currentUser();
+    return $user ? (string) $user['username'] : '';
+}
+
+function dashboardPasswordHash(): string
+{
+    $user = currentUser();
+    return $user ? (string) $user['password_hash'] : '';
+}
 
 function requireDashboardAuth(): void
 {
     startTrakSession();
-    if (empty($_SESSION['trak_authenticated']) || $_SESSION['trak_authenticated'] !== true) jsonResponse(['ok' => false, 'error' => 'unauthorized'], 401);
+    if (empty($_SESSION['trak_authenticated']) || $_SESSION['trak_authenticated'] !== true) {
+        jsonResponse(['ok' => false, 'error' => 'unauthorized'], 401);
+    }
+    if (currentUser() === null) {
+        $_SESSION = [];
+        session_destroy();
+        jsonResponse(['ok' => false, 'error' => 'unauthorized'], 401);
+    }
 }
 
 function csrfToken(): string
