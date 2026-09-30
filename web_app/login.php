@@ -5,6 +5,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/api/config.php';
 startTrakSession();
 
+if (userCount() === 0) {
+    header('Location: setup.php', true, 303);
+    exit;
+}
+
 if (!empty($_SESSION['trak_authenticated']) && $_SESSION['trak_authenticated'] === true) {
     header('Location: index.php', true, 303);
     exit;
