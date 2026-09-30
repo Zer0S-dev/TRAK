@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: login.php?created=1', true, 303);
             exit;
         } catch (Throwable $e) {
-            $error = 'Impossible de créer le compte.';
+            $error = 'Impossible de créer le compte. Vérifiez que SQLite est activé et que web_app/storage est accessible en écriture par PHP.';
         }
     }
 }
