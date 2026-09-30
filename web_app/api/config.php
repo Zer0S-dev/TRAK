@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 const TRACKSERVER_OSMAND_URL = 'https://surlereservoir.fr/trackserver/surledoud/eb5a96a7/?lat={0}&lon={1}&timestamp={2}&altitude={4}&speed={5}&bearing={6}';
-const TRAK_STORAGE_DIR = __DIR__ . '/storage';
+const TRAK_STORAGE_DIR = dirname(__DIR__) . '/storage';
 const TRAK_STORAGE_FILE = TRAK_STORAGE_DIR . '/positions.json';
 const TRAK_SETTINGS_FILE = TRAK_STORAGE_DIR . '/settings.json';
 
