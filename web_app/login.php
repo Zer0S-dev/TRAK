@@ -6,7 +6,7 @@ require_once __DIR__ . '/api/config.php';
 startTrakSession();
 
 if (userCount() === 0) {
-    header('Location: setup.php', true, 303);
+    header('Location: register.php', true, 303);
     exit;
 }
 
