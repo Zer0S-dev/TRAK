@@ -4,12 +4,20 @@ declare(strict_types=1);
 require_once __DIR__ . '/api/config.php';
 startTrakSession();
 
-if (userCount() > 0) {
+try {
+    $existingUsers = userCount();
+} catch (Throwable $e) {
+    http_response_code(500);
+    $existingUsers = 0;
+    $error = 'Erreur SQLite : ' . $e->getMessage();
+}
+
+if ($existingUsers > 0) {
     header('Location: login.php', true, 303);
     exit;
 }
 
-$error = '';
+$error = $error ?? '';
 $username = '';
 $email = '';
 
