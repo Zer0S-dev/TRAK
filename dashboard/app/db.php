@@ -20,8 +20,15 @@ function db(): PDO {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN (\'admin\', \'user\')),
+        email TEXT,
+        phone TEXT,
+        role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )');
+
+    $columns = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('email', $columns, true)) $pdo->exec('ALTER TABLE users ADD COLUMN email TEXT');
+    if (!in_array('phone', $columns, true)) $pdo->exec('ALTER TABLE users ADD COLUMN phone TEXT');
+
     return $pdo;
 }
