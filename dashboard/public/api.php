@@ -240,4 +240,3 @@ async function copyText(value, statusElement, emptyMessage) {
     setTimeout(() => statusElement.textContent = '', 1800);
 }
 
->
