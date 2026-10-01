@@ -16,6 +16,8 @@ if ($user['role'] === 'admin') {
     $stmt->execute([(int)$user['id']]);
     $traks = $stmt->fetchAll();
 }
+
+page_header('API', $user);
 ?>
 <div class="api-page">
 
