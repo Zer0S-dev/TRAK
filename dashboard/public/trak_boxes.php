@@ -8,6 +8,8 @@ $message = '';
 $error = '';
 $editId = isset($_GET['edit']) ? (int)$_GET['edit'] : 0;
 
+$users = $pdo->query('SELECT id, username FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
@@ -15,11 +17,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'save') {
             $id = (int)($_POST['id'] ?? 0);
+            $userId = (int)($_POST['user_id'] ?? 0);
             $trakId = strtoupper(trim((string)($_POST['trak_id'] ?? '')));
             $phone = trim((string)($_POST['phone'] ?? ''));
             $apiKey = trim((string)($_POST['api_key'] ?? ''));
             $osmandUrl = trim((string)($_POST['osmand_url'] ?? ''));
 
+            if ($userId <= 0) throw new RuntimeException('Veuillez sélectionner un User ID.');
+            $checkUser = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ?');
+            $checkUser->execute([$userId]);
+            if ((int)$checkUser->fetchColumn() !== 1) throw new RuntimeException('User ID invalide.');
             if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,31}$/', $trakId)) {
                 throw new RuntimeException('ID TRAK invalide. Utilisez 1 à 32 caractères : A-Z, 0-9, _ ou -.');
             }
@@ -29,21 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($osmandUrl === '' || !filter_var($osmandUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $osmandUrl)) {
                 throw new RuntimeException('URL OsmAnd/Trakserver invalide. Utilisez une URL HTTPS.');
             }
-            if ($apiKey === '') {
-                $apiKey = bin2hex(random_bytes(32));
-            }
-            if (strlen($apiKey) < 32 || strlen($apiKey) > 128) {
-                throw new RuntimeException('Clé API invalide.');
-            }
+            if ($apiKey === '') $apiKey = bin2hex(random_bytes(32));
+            if (strlen($apiKey) < 32 || strlen($apiKey) > 128) throw new RuntimeException('Clé API invalide.');
 
             if ($id > 0) {
-                $stmt = $pdo->prepare('UPDATE trak_boxes SET trak_id = ?, phone = ?, api_key = ?, osmand_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-                $stmt->execute([$trakId, $phone, $apiKey, $osmandUrl, $id]);
+                $stmt = $pdo->prepare('UPDATE trak_boxes SET user_id = ?, trak_id = ?, phone = ?, api_key = ?, osmand_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+                $stmt->execute([$userId, $trakId, $phone, $apiKey, $osmandUrl, $id]);
                 $message = 'TRAK Box modifiée avec succès.';
                 $editId = $id;
             } else {
-                $stmt = $pdo->prepare('INSERT INTO trak_boxes (trak_id, phone, api_key, osmand_url) VALUES (?, ?, ?, ?)');
-                $stmt->execute([$trakId, $phone, $apiKey, $osmandUrl]);
+                $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, osmand_url) VALUES (?, ?, ?, ?, ?)');
+                $stmt->execute([$userId, $trakId, $phone, $apiKey, $osmandUrl]);
                 $message = 'TRAK Box enregistrée avec succès.';
                 $editId = (int)$pdo->lastInsertId();
             }
@@ -73,7 +76,7 @@ if ($editId > 0) {
     $edit = $stmt->fetch() ?: null;
     if (!$edit && $error === '') $error = 'TRAK Box introuvable.';
 }
-$boxes = $pdo->query('SELECT * FROM trak_boxes ORDER BY trak_id COLLATE NOCASE')->fetchAll();
+$boxes = $pdo->query('SELECT tb.*, u.username FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
 
 page_header('TRAK Box', $user);
 ?>
@@ -86,6 +89,14 @@ page_header('TRAK Box', $user);
 <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
 <input type="hidden" name="action" value="save">
 <input type="hidden" name="id" value="<?= (int)($edit['id'] ?? 0) ?>">
+<label>User ID propriétaire
+<select name="user_id" required>
+<option value="">Sélectionner un utilisateur</option>
+<?php foreach ($users as $u): ?>
+<option value="<?= (int)$u['id'] ?>" <?= ((int)($edit['user_id'] ?? 0) === (int)$u['id']) ? 'selected' : '' ?>><?= (int)$u['id'] ?> — <?=htmlspecialchars($u['username'])?></option>
+<?php endforeach; ?>
+</select>
+</label>
 <label>ID TRAK
 <input type="text" name="trak_id" maxlength="32" required value="<?=htmlspecialchars($edit['trak_id'] ?? '')?>" placeholder="TRK-001">
 </label>
@@ -109,10 +120,11 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table">
-<thead><tr><th>ID</th><th>Téléphone</th><th>Clé API</th><th>OsmAnd / Trakserver</th><th>Actions</th></tr></thead>
+<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>OsmAnd / Trakserver</th><th>Actions</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
+<td><strong><?= $box['user_id'] !== null ? (int)$box['user_id'] : '—' ?></strong></td>
 <td><strong><?=htmlspecialchars($box['trak_id'])?></strong></td>
 <td><?=htmlspecialchars($box['phone'])?></td>
 <td><code><?=htmlspecialchars($box['api_key'])?></code></td>
