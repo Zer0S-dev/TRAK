@@ -12,7 +12,7 @@ function current_user(): ?array {
     if ($loaded) return $user;
     $loaded = true;
     if (empty($_SESSION['user_id'])) return null;
-    $stmt = db()->prepare('SELECT id, username, role, created_at FROM users WHERE id = ?');
+    $stmt = db()->prepare('SELECT id, username, email, phone, role, created_at FROM users WHERE id = ?');
     $stmt->execute([(int) $_SESSION['user_id']]);
     $user = $stmt->fetch() ?: null;
     if (!$user) unset($_SESSION['user_id']);
