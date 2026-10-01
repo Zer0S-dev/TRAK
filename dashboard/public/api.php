@@ -70,7 +70,7 @@ page_header('API', $user);
                     </div>
                     <span class="status-pill neutral">Format TRAKCFG v1</span>
                 </div>
-                <p class="muted">SMS généré automatiquement pour configurer le TRAK avec son identité, le téléphone autorisé, l'API et sa clé d'authentification.</p>
+                <p class="muted">SMS généré automatiquement avec la configuration minimale nécessaire à la communication entre le TRAK et le Dashboard.</p>
                 <textarea id="configSms" class="sms-config" rows="6" placeholder="Sélectionnez un TRAK pour générer le SMS."></textarea>
                 <div class="sms-actions">
                     <button type="button" id="copySms" class="copy-button">Copier le SMS</button>
@@ -89,7 +89,7 @@ const apiTraks = <?= json_encode($traks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED
 const userSelect = document.getElementById('apiUserSelect');
 const trakSelect = document.getElementById('apiTrakSelect');
 const selection = document.getElementById('apiSelection');
-const emptyHint = document.getElementById('emptyTrakHint');
+const emptyHint = document.getElementById('emptyTrakHint);
 
 function resetSelection() {
     selection.hidden = true;
@@ -145,15 +145,23 @@ function displaySelection() {
     ];
     document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
-    const configSms = [
+    const configId = 'CFG-' + trak.trak_id + '-' + Date.now();
+    const nonce = crypto.getRandomValues(new Uint32Array(2))
+        .reduce((value, part) => value + part.toString(16).padStart(8, '0'), '');
+
+    const signatureInput = [
         'TRAKCFG',
         '1',
         trak.trak_id,
         trak.phone || '',
         selectedUser.phone || '',
         trak.trakserver_url,
-        trak.api_key
+        trak.api_key,
+        configId,
+        nonce
     ].join('|');
+
+    const configSms = signatureInput + '|SIGNATURE';
 
     document.getElementById('configSms').value = configSms;
     document.getElementById('copyStatus').textContent = '';
