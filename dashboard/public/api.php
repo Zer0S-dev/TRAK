@@ -63,9 +63,9 @@ page_header('API', $user);
         <div id="emptyTrakHint" class="selector-empty">Sélectionnez un User ID pour afficher ses TRAK.</div>
     </section>
 
-    <section id="apiSelection" class="api-selection" hidden>
+    <section id="apiSelection" class="api-selection" hidden aria-hidden="true">
 
-        <div class="api-identity">
+        <div id="apiIdentity" class="api-identity" hidden>
             <div class="api-identity-main">
                 <span class="section-kicker">TRAK SÉLECTIONNÉ</span>
                 <h2 id="selectedTrakId"></h2>
@@ -77,7 +77,7 @@ page_header('API', $user);
             </div>
         </div>
 
-        <div class="api-info-grid">
+        <div id="apiInfoGrid" class="api-info-grid" hidden>
             <div class="card api-info-card">
                 <div class="card-icon">U</div>
                 <div>
@@ -168,6 +168,9 @@ const emptyHint = document.getElementById('emptyTrakHint');
 
 function resetSelection() {
     selection.hidden = true;
+    selection.setAttribute('aria-hidden', 'true');
+    document.getElementById('apiIdentity').hidden = true;
+    document.getElementById('apiInfoGrid').hidden = true;
     emptyHint.textContent = userSelect.value
         ? 'Sélectionnez un TRAK ID pour afficher sa configuration.'
         : 'Sélectionnez un User ID pour afficher ses TRAK.';
@@ -225,6 +228,9 @@ function displaySelection() {
     document.getElementById('copyStatus').textContent = '';
     emptyHint.textContent = '';
     selection.hidden = false;
+    selection.setAttribute('aria-hidden', 'false');
+    document.getElementById('apiIdentity').hidden = false;
+    document.getElementById('apiInfoGrid').hidden = false;
 }
 
 userSelect.addEventListener('change', fillTraks);
