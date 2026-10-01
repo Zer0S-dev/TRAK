@@ -71,11 +71,7 @@ page_header('API', $user);
                     <span class="status-pill neutral">Format TRAKCFG v1</span>
                 </div>
                 <p class="muted">SMS généré automatiquement avec la configuration minimale nécessaire à la communication entre le TRAK et le Dashboard.</p>
-                <textarea id="configSms" class="sms-config" rows="6" placeholder="Sélectionnez un TRAK pour générer le SMS."></textarea>
-                <div class="sms-actions">
-                    <button type="button" id="copySms" class="copy-button">Copier le SMS</button>
-                    <span id="copyStatus" class="copy-status"></span>
-                </div>
+                <div id="configSmsList" class="sms-config-list"><div class="muted">Sélectionnez un TRAK pour générer les SMS.</div></div>
             </div>
 
         </div>
@@ -98,8 +94,7 @@ function resetSelection() {
     emptyHint.textContent = userSelect.value
         ? 'Sélectionnez un TRAK ID pour afficher sa configuration.'
         : 'Sélectionnez un User ID pour afficher ses TRAK.';
-    document.getElementById('configSms').value = '';
-    document.getElementById('copyStatus').textContent = '';
+    document.getElementById('configSmsList').innerHTML = '<div class="muted">Sélectionnez un TRAK pour générer les SMS.</div>';
 }
 
 function fillTraks() {
@@ -176,8 +171,45 @@ async function displaySelection() {
         nonce
     ].join('|');
 
-    document.getElementById('configSms').value = signatureInput + '|' + await hmacSha256(trak.api_key, signatureInput);
-    document.getElementById('copyStatus').textContent = '';
+    const signedMessage = signatureInput + '|' + await hmacSha256(trak.api_key, signatureInput);
+    const chunkSize = 110;
+    const total = Math.ceil(signedMessage.length / chunkSize);
+    const smsList = document.getElementById('configSmsList');
+    smsList.innerHTML = '';
+
+    for (let i = 0; i < total; i++) {
+        const chunk = signedMessage.slice(i * chunkSize, (i + 1) * chunkSize);
+        const sms = ['TRAKCFGP', '1', configId, String(i + 1), String(total), chunk].join('|');
+
+        const row = document.createElement('div');
+        row.className = 'sms-config-item';
+
+        const label = document.createElement('div');
+        label.className = 'sms-config-label';
+        label.textContent = 'SMS ' + (i + 1) + '/' + total;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'sms-config';
+        textarea.rows = 4;
+        textarea.readOnly = true;
+        textarea.value = sms;
+
+        const actions = document.createElement('div');
+        actions.className = 'sms-actions';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'copy-button';
+        button.textContent = 'Copier SMS ' + (i + 1);
+        button.addEventListener('click', () => copyText(textarea.value, button, 'SMS vide.'));
+
+        actions.appendChild(button);
+        row.appendChild(label);
+        row.appendChild(textarea);
+        row.appendChild(actions);
+        smsList.appendChild(row);
+    }
+
     emptyHint.textContent = '';
     selection.hidden = false;
     selection.setAttribute('aria-hidden', 'false');
@@ -208,13 +240,4 @@ async function copyText(value, statusElement, emptyMessage) {
     setTimeout(() => statusElement.textContent = '', 1800);
 }
 
-document.getElementById('copySms').addEventListener('click', () => {
-    copyText(
-        document.getElementById('configSms').value,
-        document.getElementById('copyStatus'),
-        'Le champ SMS est vide pour le moment.'
-    );
-});
-
-</script>
-<?php page_footer(); ?>
+>
