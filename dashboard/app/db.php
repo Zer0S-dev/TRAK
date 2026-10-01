@@ -56,7 +56,7 @@ function db(): PDO {
         trak_id TEXT NOT NULL UNIQUE,
         phone TEXT NOT NULL,
         api_key TEXT NOT NULL,
-        osmand_url TEXT NOT NULL,
+        trakserver_url TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -64,6 +64,13 @@ function db(): PDO {
     $trakColumns = $pdo->query('PRAGMA table_info(trak_boxes)')->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('user_id', $trakColumns, true)) {
         $pdo->exec('ALTER TABLE trak_boxes ADD COLUMN user_id INTEGER');
+    }
+    if (!in_array('trakserver_url', $trakColumns, true) && in_array('osmand_url', $trakColumns, true)) {
+        $pdo->exec('ALTER TABLE trak_boxes RENAME COLUMN osmand_url TO trakserver_url');
+        $trakColumns = $pdo->query('PRAGMA table_info(trak_boxes)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    }
+    if (!in_array('trakserver_url', $trakColumns, true)) {
+        $pdo->exec("ALTER TABLE trak_boxes ADD COLUMN trakserver_url TEXT NOT NULL DEFAULT ''");
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
