@@ -1,6 +1,11 @@
 #pragma once
 #define TRAK_VERSION "3.n"
 #define DEV_LOG 1
+
+// Persistent SD FIFO capacity (number of position records).
+#ifndef POSITION_BUFFER_CAPACITY
+#define POSITION_BUFFER_CAPACITY 8192
+#endif
 #ifndef MODEM_RX_PIN
 #define MODEM_RX_PIN 25
 #endif
