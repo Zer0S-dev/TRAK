@@ -230,4 +230,3 @@ void trakCommunicationTaskFixed(void*) {
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
-}
