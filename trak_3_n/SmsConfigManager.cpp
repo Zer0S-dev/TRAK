@@ -167,3 +167,12 @@ void smsConfigTick() {
   const uint32_t now = millis(); if (now - lastPoll < SMS_POLL_MS) return;
   lastPoll = now; pollSms();
 }
+
+
+bool smsConfigIsConfigured() {
+  return prefs.getString("api_key", "").length() > 0 && prefs.getString("api_url", "").length() > 0 && prefs.getString("trak_id", "").length() > 0;
+}
+String smsConfigUserPhone() { return prefs.getString("user_phone", ""); }
+String smsConfigApiUrl() { return prefs.getString("api_url", ""); }
+String smsConfigApiKey() { return prefs.getString("api_key", ""); }
+String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
