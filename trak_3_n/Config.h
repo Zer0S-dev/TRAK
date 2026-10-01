@@ -1,5 +1,5 @@
 #pragma once
-#define TRAK_VERSION "3.1.2"
+#define TRAK_VERSION "3.n"
 #define DEV_LOG 1
 #ifndef MODEM_RX_PIN
 #define MODEM_RX_PIN 25
@@ -45,9 +45,6 @@
 #endif
 #ifndef LSM6DS3_SCL_PIN
 #define LSM6DS3_SCL_PIN 22
-#endif
-#ifndef POSITION_BUFFER_CAPACITY
-#define POSITION_BUFFER_CAPACITY 8192
 #endif
 static inline String trackerSerialNumber() {
   const uint64_t chipId = ESP.getEfuseMac();
