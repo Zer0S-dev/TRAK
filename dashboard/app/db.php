@@ -24,7 +24,7 @@ function db(): PDO {
         pending_email TEXT,
         email_token_hash TEXT,
         email_token_expires INTEGER,
-        role TEXT NOT NULL CHECK(role IN (''admin'', ''user'')),
+        role TEXT NOT NULL CHECK(role IN (\'admin\', \'user\')),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )');
     $columns = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_COLUMN, 1);
