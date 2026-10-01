@@ -50,7 +50,22 @@ function db(): PDO {
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token_hash)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id)');
-    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_boxes (id INTEGER PRIMARY KEY AUTOINCREMENT, trak_id TEXT NOT NULL UNIQUE, phone TEXT NOT NULL, api_key TEXT NOT NULL, osmand_url TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_boxes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        trak_id TEXT NOT NULL UNIQUE,
+        phone TEXT NOT NULL,
+        api_key TEXT NOT NULL,
+        osmand_url TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+    )');
+    $trakColumns = $pdo->query('PRAGMA table_info(trak_boxes)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('user_id', $trakColumns, true)) {
+        $pdo->exec('ALTER TABLE trak_boxes ADD COLUMN user_id INTEGER');
+    }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
     return $pdo;
 }
