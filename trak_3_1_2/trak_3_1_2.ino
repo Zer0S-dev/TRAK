@@ -4,6 +4,7 @@
 #include "TrakRuntime.h"
 #include "MotionManager.h"
 #include "WiFiManager.h"
+#include "SmsConfigManager.h"
 
 extern Adafruit_NeoPixel leds;
 extern volatile bool cellularReady;
@@ -28,12 +29,13 @@ static void networkLedTask(void*) {
 }
 
 /* TRAK 3.0.5 / 3.1.0
-   Core 0: modem + GNSS + SD FIFO + REST JSON + LSM6DS3 + network priority
+   Core 0: modem + GNSS + SD FIFO + LSM6DS3 + network priority
    Core 1: single WS2812 status engine + Wi-Fi/4G network indication
 */
 void setup() {
   Serial.begin(DEBUG_BAUD);
   trakRuntimeInit();
+  smsConfigBegin();
   motionBegin();
   trakPositionBufferInit();
 
