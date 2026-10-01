@@ -38,6 +38,15 @@ bool validTrakId(const String& value) {
   }
   return true;
 }
+bool validConfigId(const String& value) {
+  if (value.isEmpty() || value.length() > 64) return false;
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+          (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
 bool hexString(const String& value) {
   if (value.isEmpty()) return false;
   for (size_t i = 0; i < value.length(); ++i) {
@@ -84,7 +93,7 @@ void sendSms(const String& phone, const String& text) {
   if (!modemReady || phone.isEmpty()) return;
   Serial.printf("[SMS] Envoi notification -> %s\n", phone.c_str());
   while (modem.available()) modem.read();
-  modem.print("AT+CMGS=\""); modem.print(phone); modem.print("\"\r\n");
+  modem.print("AT+CMGS=""); modem.print(phone); modem.print(""\r\n");
   const uint32_t promptStart = millis(); bool prompt = false;
   while (millis() - promptStart < 5000) {
     while (modem.available()) { if (static_cast<char>(modem.read()) == '>') { prompt = true; break; } }
@@ -159,7 +168,7 @@ bool processMultipartSms(int index, const String& sender, const String& body) {
   deleteSms(index);
 
   const uint16_t expectedMask = static_cast<uint16_t>((1U << total) - 1U);
-  Serial.printf("[SMS] Fragment %d/%d recu | CONFIG_ID=%s\\n", part, total, fields[2].c_str());
+  Serial.printf("[SMS] Fragment %d/%d recu | CONFIG_ID=%s\n", part, total, fields[2].c_str());
 
   if (multipart.receivedMask != expectedMask) return true;
 
@@ -191,7 +200,7 @@ bool processCompleteConfigSms(const String& sender, const String& body) {
   // Il peut donc etre TRK-001 ou tout autre ID valide du Dashboard.
   // L'authentification du message repose sur USER_PHONE + HMAC(API_KEY).
   if (!validTrakId(fields[2])) {
-    Serial.printf("[SMS] TRAK ID invalide: %s\\n", fields[2].c_str());
+    Serial.printf("[SMS] TRAK ID invalide: %s\n", fields[2].c_str());
     sendSms(sender, "TRAK: erreur configuration - ID TRAK invalide.");
     return false;
   }
@@ -200,8 +209,11 @@ bool processCompleteConfigSms(const String& sender, const String& body) {
     sendSms(sender, "TRAK: erreur configuration - expediteur non autorise.");
     return false;
   }
-  if (!hexString(fields[7]) || !hexString(fields[8]) || fields[8].length() != 16 || fields[9].length() != 64 || !hexString(fields[9])) {
-    Serial.println("[SMS] Parametres de securite invalides.");
+  // fields[7] est le CONFIG_ID genere par le Dashboard (ex: CFG-TRK-001-...).
+  // Ce n'est pas une valeur hexadecimale : seule la signature et le nonce sont hex.
+  if (!validConfigId(fields[7]) || !hexString(fields[8]) || fields[8].length() != 16 || fields[9].length() != 64 || !hexString(fields[9])) {
+    Serial.printf("[SMS] Parametres de securite invalides | config_id=%s | nonce_len=%u | sig_len=%u\n",
+                  fields[7].c_str(), (unsigned)fields[8].length(), (unsigned)fields[9].length());
     sendSms(sender, "TRAK: erreur configuration - signature ou nonce invalide.");
     return false;
   }
@@ -221,14 +233,14 @@ bool processCompleteConfigSms(const String& sender, const String& body) {
   }
   prefs.putString("trak_id", fields[2]); prefs.putString("trak_phone", fields[3]); prefs.putString("user_phone", fields[4]);
   prefs.putString("api_url", fields[5]); prefs.putString("api_key", fields[6]); prefs.putString("config_id", fields[7]); prefs.putString("nonce", fields[8]);
-  Serial.printf("[SMS] Configuration acceptee | ID=%s | URL=%s\\n", fields[7].c_str(), fields[5].c_str());
+  Serial.printf("[SMS] Configuration acceptee | ID=%s | URL=%s\n", fields[7].c_str(), fields[5].c_str());
   devLog(String("SMS | config OK | config_id=") + fields[7]);
   sendSms(fields[4], String("TRAK ") + fields[2] + ": configuration recue et valide. CONFIG_ID=" + fields[7]);
   return true;
 }
 
 void pollSms() {
-  const String response = at("AT+CMGL=\"REC UNREAD\"", 5000);
+  const String response = at("AT+CMGL="REC UNREAD"", 5000);
   if (response.indexOf("+CMGL:") < 0) return;
   int cursor = 0;
   while (cursor < (int)response.length()) {
@@ -247,7 +259,7 @@ void smsConfigBegin() {
   prefs.begin(PREF_NS, false);
   if (!modemReady) return;
   at("AT+CMGF=1", 3000);
-  at("AT+CSCS=\"GSM\"", 3000);
+  at("AT+CSCS="GSM"", 3000);
   at("AT+CNMI=2,1,0,0,0", 3000);
   ready = true; lastPoll = millis() - SMS_POLL_MS;
   Serial.println("[SMS] Configuration SMS active."); devLog("SMS | configuration listener active");
