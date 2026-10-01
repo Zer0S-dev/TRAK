@@ -116,8 +116,18 @@ void resetMultipart() {
 bool processCompleteConfigSms(const String& sender, const String& body);
 
 bool processMultipartSms(int index, const String& sender, const String& body) {
-  String fields[6]; size_t count = 0;
-  if (!splitPipe(body, fields, 6, count) || count != 6 || fields[0] != "TRAKCFGP" || fields[1] != "1") {
+  String fields[6];
+  int cursor = 0;
+  bool valid = true;
+  for (int i = 0; i < 5; ++i) {
+    const int sep = body.indexOf('|', cursor);
+    if (sep < 0) { valid = false; break; }
+    fields[i] = body.substring(cursor, sep);
+    cursor = sep + 1;
+  }
+  if (valid) fields[5] = body.substring(cursor);
+
+  if (!valid || fields[0] != "TRAKCFGP" || fields[1] != "1") {
     return false;
   }
 
