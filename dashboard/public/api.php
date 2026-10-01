@@ -57,21 +57,21 @@ page_header('API', $user);
     <section id="apiSelection" class="api-selection" hidden aria-hidden="true">
 
         <div id="apiDataCard" class="card api-data-card" hidden>
-<div class="section-heading compact"><div><span class="section-kicker">PAYLOAD</span><h3>Données TRAK</h3></div></div>
-<pre id="apiDataCode" class="api-data-code"><code></code></pre>
-</div>
+            <div class="section-heading compact"><div><span class="section-kicker">PAYLOAD</span><h3>Données TRAK</h3></div></div>
+            <pre id="apiDataCode" class="api-data-code"><code></code></pre>
+        </div>
 
-<div class="api-two-columns">
+        <div class="api-two-columns">
             <div class="card api-sms-card">
                 <div class="section-heading compact">
                     <div>
                         <span class="section-kicker">PROVISIONING</span>
                         <h3>SMS de configuration</h3>
                     </div>
-                    <span class="status-pill neutral">À définir</span>
+                    <span class="status-pill neutral">Format TRAKCFG v1</span>
                 </div>
-                <p class="muted">Le format SMS sera défini avant l'activation du provisioning. Le champ reste volontairement vide.</p>
-                <textarea id="configSms" class="sms-config" rows="6" placeholder=""></textarea>
+                <p class="muted">SMS généré automatiquement pour configurer le TRAK avec son identité, le téléphone autorisé, l'API et sa clé d'authentification.</p>
+                <textarea id="configSms" class="sms-config" rows="6" placeholder="Sélectionnez un TRAK pour générer le SMS."></textarea>
                 <div class="sms-actions">
                     <button type="button" id="copySms" class="copy-button">Copier le SMS</button>
                     <span id="copyStatus" class="copy-status"></span>
@@ -145,7 +145,17 @@ function displaySelection() {
     ];
     document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
-    document.getElementById('configSms').value = '';
+    const configSms = [
+        'TRAKCFG',
+        '1',
+        trak.trak_id,
+        trak.phone || '',
+        selectedUser.phone || '',
+        trak.trakserver_url,
+        trak.api_key
+    ].join('|');
+
+    document.getElementById('configSms').value = configSms;
     document.getElementById('copyStatus').textContent = '';
     emptyHint.textContent = '';
     selection.hidden = false;
