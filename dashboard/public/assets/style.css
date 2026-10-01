@@ -29,3 +29,5 @@
 @media(max-width:760px){.api-hero,.api-identity{align-items:flex-start;flex-direction:column}.api-hero-badge{display:none}.api-identity-meta{width:100%;justify-content:space-between;gap:15px}.api-identity-meta div{text-align:left}.api-info-grid{grid-template-columns:1fr}.api-two-columns{grid-template-columns:1fr}.section-heading{align-items:flex-start;flex-direction:column}.selection-hint{display:none}}
 
 #apiDataCode{background:#EEE;padding:10px;border-radius:12px;color:#092328;}
+
+#show-register-password{width:20%;float:right}.password-toggle{text-align:right}
