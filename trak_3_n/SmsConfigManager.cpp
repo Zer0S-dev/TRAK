@@ -30,6 +30,14 @@ bool phonesMatch(const String& a, const String& b) {
   const String na = normalizePhone(a), nb = normalizePhone(b);
   return na.length() >= 8 && nb.length() >= 8 && na == nb;
 }
+bool validTrakId(const String& value) {
+  if (value.isEmpty() || value.length() > 32) return false;
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
+  }
+  return true;
+}
 bool hexString(const String& value) {
   if (value.isEmpty()) return false;
   for (size_t i = 0; i < value.length(); ++i) {
@@ -179,10 +187,12 @@ bool processCompleteConfigSms(const String& sender, const String& body) {
     Serial.println("[SMS] Message ignore: format TRAKCFG invalide.");
     return false;
   }
-  const String expectedTrakId = trackerSerialNumber();
-  if (fields[2] != expectedTrakId) {
+  // Le TRAK_ID est l'identifiant attribue dans le Dashboard.
+  // Il peut donc etre TRK-001 ou tout autre ID valide du Dashboard.
+  // L'authentification du message repose sur USER_PHONE + HMAC(API_KEY).
+  if (!validTrakId(fields[2])) {
     Serial.printf("[SMS] TRAK ID invalide: %s\\n", fields[2].c_str());
-    sendSms(sender, String("TRAK: erreur configuration - ID TRAK invalide (attendu ") + expectedTrakId + ")");
+    sendSms(sender, "TRAK: erreur configuration - ID TRAK invalide.");
     return false;
   }
   if (!phonesMatch(sender, fields[4])) {
