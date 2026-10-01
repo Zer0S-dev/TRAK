@@ -65,18 +65,6 @@ page_header('API', $user);
 
     <section id="apiSelection" class="api-selection" hidden aria-hidden="true">
 
-        <div id="apiIdentity" class="api-identity" hidden>
-            <div class="api-identity-main">
-                <span class="section-kicker">TRAK SÉLECTIONNÉ</span>
-                <h2 id="selectedTrakId"></h2>
-                <p id="selectedUsername"></p>
-            </div>
-            <div class="api-identity-meta">
-                <div><span>User ID</span><strong id="selectedUserId"></strong></div>
-                <div><span>Téléphone TRAK</span><strong id="selectedTrakPhone"></strong></div>
-            </div>
-        </div>
-
         <div id="apiDataCard" class="card api-data-card" hidden>
 <div class="section-heading compact"><div><span class="section-kicker">PAYLOAD</span><h3>Données TRAK</h3></div></div>
 <pre id="apiDataCode" class="api-data-code"><code></code></pre>
@@ -133,7 +121,6 @@ const emptyHint = document.getElementById('emptyTrakHint');
 function resetSelection() {
     selection.hidden = true;
     selection.setAttribute('aria-hidden', 'true');
-    document.getElementById('apiIdentity').hidden = true;
     document.getElementById('apiDataCard').hidden = true;
     emptyHint.textContent = userSelect.value
         ? 'Sélectionnez un TRAK ID pour afficher sa configuration.'
@@ -170,11 +157,6 @@ function displaySelection() {
         return;
     }
 
-    document.getElementById('selectedTrakId').textContent = trak.trak_id;
-    document.getElementById('selectedUsername').textContent = selectedUser.username;
-    document.getElementById('selectedUserId').textContent = selectedUser.id;
-    document.getElementById('selectedTrakPhone').textContent = trak.phone;
-
     const lines = [
         '// USER',
         'user_id : ' + selectedUser.id,
@@ -195,7 +177,6 @@ function displaySelection() {
     emptyHint.textContent = '';
     selection.hidden = false;
     selection.setAttribute('aria-hidden', 'false');
-    document.getElementById('apiIdentity').hidden = false;
     document.getElementById('apiDataCard').hidden = false;
 }
 
@@ -231,13 +212,5 @@ document.getElementById('copySms').addEventListener('click', () => {
     );
 });
 
-document.getElementById('copyApiKey').addEventListener('click', (event) => {
-    const button = event.currentTarget;
-    const value = document.getElementById('selectedApiKey').textContent;
-    copyText(value, button, 'Aucune API key.');
-    const old = button.textContent;
-    button.textContent = 'Copié';
-    setTimeout(() => button.textContent = old, 1400);
-});
 </script>
 <?php page_footer(); ?>
