@@ -175,18 +175,20 @@ function displaySelection() {
     document.getElementById('selectedUserId').textContent = selectedUser.id;
     document.getElementById('selectedTrakPhone').textContent = trak.phone;
 
-    document.getElementById('selectedUserNameCard').textContent = selectedUser.username;
-    document.getElementById('selectedEmail').textContent = selectedUser.email || 'Email non renseigné';
-    document.getElementById('selectedUserPhone').textContent = selectedUser.phone || 'Téléphone non renseigné';
-
-    document.getElementById('selectedTrakPhoneCard').textContent = trak.phone || 'Téléphone non renseigné';
-    document.getElementById('selectedTrakIdCard').textContent = trak.trak_id;
-    document.getElementById('selectedUserIdCard').textContent = selectedUser.id;
-
-    document.getElementById('selectedApiKey').textContent = trak.api_key;
-    const osmand = document.getElementById('selectedOsmand');
-    osmand.textContent = trak.osmand_url;
-    osmand.href = trak.osmand_url;
+    const lines = [
+        '// USER',
+        'user_id : ' + selectedUser.id,
+        'user_name : ' + selectedUser.username,
+        'user_email : ' + (selectedUser.email || ''),
+        'user_phone : ' + (selectedUser.phone || ''),
+        '',
+        '// TRAK BOX',
+        'trak_id : ' + trak.trak_id,
+        'trak_phone : ' + (trak.phone || ''),
+        'api_key : ' + trak.api_key,
+        'osmand_url : ' + trak.osmand_url
+    ];
+    document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
     document.getElementById('configSms').value = '';
     document.getElementById('copyStatus').textContent = '';
