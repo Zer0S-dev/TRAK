@@ -27,3 +27,5 @@
 .contract-list{display:grid}.contract-list div{display:grid;grid-template-columns:105px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid #edf0f2;font-size:12px}.contract-list div:last-child{border-bottom:0}.contract-list strong{font-size:12px}.contract-list span{color:#69727d}
 @media(max-width:1050px){.api-info-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.api-two-columns{grid-template-columns:1fr}}
 @media(max-width:760px){.api-hero,.api-identity{align-items:flex-start;flex-direction:column}.api-hero-badge{display:none}.api-identity-meta{width:100%;justify-content:space-between;gap:15px}.api-identity-meta div{text-align:left}.api-info-grid{grid-template-columns:1fr}.api-two-columns{grid-template-columns:1fr}.section-heading{align-items:flex-start;flex-direction:column}.selection-hint{display:none}}
+
+#apiDataCode{background:#EEE;padding:10px;border-radius:12px;color:#092328;}
