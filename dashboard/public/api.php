@@ -21,15 +21,6 @@ page_header('API', $user);
 ?>
 <div class="api-page">
 
-    <section class="api-hero">
-        <div>
-            <div class="eyebrow">API / PROVISIONING</div>
-            <h2>Configuration TRAK</h2>
-            <p>Sélectionnez un utilisateur puis son TRAK pour afficher uniquement les informations associées.</p>
-        </div>
-        <div class="api-hero-badge">TRAK Connect</div>
-    </section>
-
     <section class="card api-selector-card">
         <div class="section-heading">
             <div>
