@@ -1,0 +1,1 @@
+<?php require_once __DIR__.'/partials.php'; $user=require_login(); page_header('API',$user); ?><div class="card placeholder"><h2>API</h2><p>Structure prête — API à venir.</p></div><?php page_footer(); ?>
