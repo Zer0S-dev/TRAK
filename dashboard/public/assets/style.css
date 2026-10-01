@@ -31,3 +31,5 @@
 #apiDataCode{background:#EEE;padding:10px;border-radius:12px;color:#092328;}
 
 #show-register-password{width:20%;float:right}.password-toggle{text-align:right}
+
+.sidebar nav a{position:relative;transition:background .18s ease,color .18s ease,transform .18s ease}.sidebar nav a.active{background:#26323e;color:#fff;font-weight:700}.sidebar nav a.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:#fff}.sidebar nav a.active:hover{transform:translateX(2px)}
