@@ -89,7 +89,7 @@ const apiTraks = <?= json_encode($traks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED
 const userSelect = document.getElementById('apiUserSelect');
 const trakSelect = document.getElementById('apiTrakSelect');
 const selection = document.getElementById('apiSelection');
-const emptyHint = document.getElementById('emptyTrakHint);
+const emptyHint = document.getElementById('emptyTrakHint');
 
 function resetSelection() {
     selection.hidden = true;
@@ -120,7 +120,22 @@ function fillTraks() {
     resetSelection();
 }
 
-function displaySelection() {
+async function hmacSha256(secret, message) {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+    return Array.from(new Uint8Array(signature))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+async function displaySelection() {
     const userId = Number(userSelect.value);
     const trak = apiTraks.find(t => Number(t.id) === Number(trakSelect.value));
     const selectedUser = apiUsers.find(u => Number(u.id) === userId);
@@ -161,9 +176,7 @@ function displaySelection() {
         nonce
     ].join('|');
 
-    const configSms = signatureInput + '|SIGNATURE';
-
-    document.getElementById('configSms').value = configSms;
+    document.getElementById('configSms').value = signatureInput + '|' + await hmacSha256(trak.api_key, signatureInput);
     document.getElementById('copyStatus').textContent = '';
     emptyHint.textContent = '';
     selection.hidden = false;
