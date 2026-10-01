@@ -7,12 +7,12 @@ $pdo = db();
 
 if ($user['role'] === 'admin') {
     $users = $pdo->query('SELECT id, username, email, phone FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
-    $traks = $pdo->query('SELECT id, user_id, trak_id, phone, api_key, osmand_url FROM trak_boxes ORDER BY trak_id COLLATE NOCASE')->fetchAll();
+    $traks = $pdo->query('SELECT id, user_id, trak_id, phone, api_key, trakserver_url FROM trak_boxes ORDER BY trak_id COLLATE NOCASE')->fetchAll();
 } else {
     $stmt = $pdo->prepare('SELECT id, username, email, phone FROM users WHERE id = ?');
     $stmt->execute([(int)$user['id']]);
     $users = $stmt->fetchAll();
-    $stmt = $pdo->prepare('SELECT id, user_id, trak_id, phone, api_key, osmand_url FROM trak_boxes WHERE user_id = ? ORDER BY trak_id COLLATE NOCASE');
+    $stmt = $pdo->prepare('SELECT id, user_id, trak_id, phone, api_key, trakserver_url FROM trak_boxes WHERE user_id = ? ORDER BY trak_id COLLATE NOCASE');
     $stmt->execute([(int)$user['id']]);
     $traks = $stmt->fetchAll();
 }
@@ -168,7 +168,7 @@ function displaySelection() {
         'trak_id : ' + trak.trak_id,
         'trak_phone : ' + (trak.phone || ''),
         'api_key : ' + trak.api_key,
-        'osmand_url : ' + trak.osmand_url
+        'trakserver_url : ' + trak.trakserver_url
     ];
     document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
