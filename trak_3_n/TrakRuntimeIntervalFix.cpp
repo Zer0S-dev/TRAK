@@ -207,7 +207,9 @@ void trakCommunicationTaskFixed(void*) {
       if (backlog > 1 && !bufferFlushActive) { bufferFlushActive = true; devLog(String("Buffer flush started: ") + String((unsigned)backlog)); }
       for (uint8_t n = 0; n < budget && !positionBuffer.empty(); ++n) {
         GnssPosition buffered; if (!positionBuffer.peek(buffered)) break;
-        // Naked branch: no server/API transport. Keep the FIFO on SD for the future API layer.\n        break;\n      }
+        // No server/API transport on this branch yet. Keep the FIFO on SD.
+        break;
+      }
       if (positionBuffer.empty() && bufferFlushActive) { bufferFlushActive = false; devLog("Buffer flush complete"); }
       if (positionBuffer.size() >= POSITION_BUFFER_CAPACITY && !bufferWasFull) { bufferWasFull = true; Serial.println("[BUFFER] FIFO pleine."); devLog("Buffer full"); }
       if (positionBuffer.size() < POSITION_BUFFER_CAPACITY) bufferWasFull = false;
