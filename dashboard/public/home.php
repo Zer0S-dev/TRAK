@@ -1,0 +1,1 @@
+<?php require_once __DIR__.'/partials.php'; $user=require_login(); page_header('Home',$user); ?><div class="card"><h2>TRAK Connect</h2><p>Dashboard initialisé. Les fonctions métier seront ajoutées progressivement.</p></div><?php page_footer(); ?>
