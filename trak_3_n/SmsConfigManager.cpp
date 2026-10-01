@@ -96,47 +96,117 @@ void sendSms(const String& phone, const String& text) {
 }
 void deleteSms(int index) { if (index >= 0) at(String("AT+CMGD=") + String(index), 3000); }
 
+struct MultipartSms {
+  String configId;
+  String sender;
+  uint8_t total = 0;
+  uint16_t receivedMask = 0;
+  String parts[12];
+};
+MultipartSms multipart;
+
+void resetMultipart() {
+  multipart.configId = "";
+  multipart.sender = "";
+  multipart.total = 0;
+  multipart.receivedMask = 0;
+  for (auto& part : multipart.parts) part = "";
+}
+
+bool processCompleteConfigSms(const String& sender, const String& body);
+
+bool processMultipartSms(int index, const String& sender, const String& body) {
+  String fields[6]; size_t count = 0;
+  if (!splitPipe(body, fields, 6, count) || count != 6 || fields[0] != "TRAKCFGP" || fields[1] != "1") {
+    return false;
+  }
+
+  const int part = fields[3].toInt();
+  const int total = fields[4].toInt();
+  if (fields[2].isEmpty() || total < 2 || total > 12 || part < 1 || part > total) {
+    Serial.println("[SMS] Fragment TRAKCFGP invalide.");
+    deleteSms(index);
+    return true;
+  }
+
+  if (multipart.configId != fields[2] || multipart.sender != sender || multipart.total != total) {
+    resetMultipart();
+    multipart.configId = fields[2];
+    multipart.sender = sender;
+    multipart.total = static_cast<uint8_t>(total);
+  }
+
+  multipart.parts[part - 1] = fields[5];
+  multipart.receivedMask |= static_cast<uint16_t>(1U << (part - 1));
+  deleteSms(index);
+
+  const uint16_t expectedMask = static_cast<uint16_t>((1U << total) - 1U);
+  Serial.printf("[SMS] Fragment %d/%d recu | CONFIG_ID=%s\\n", part, total, fields[2].c_str());
+
+  if (multipart.receivedMask != expectedMask) return true;
+
+  String complete;
+  for (int i = 0; i < total; ++i) complete += multipart.parts[i];
+  const String completeSender = multipart.sender;
+  resetMultipart();
+  processCompleteConfigSms(completeSender, complete);
+  return true;
+}
+
 void processSms(int index, const String& sender, const String& body) {
+  String cleanBody = body; cleanBody.trim();
+  if (cleanBody.startsWith("TRAKCFGP|")) {
+    processMultipartSms(index, sender, cleanBody);
+    return;
+  }
+  processCompleteConfigSms(sender, cleanBody);
+  deleteSms(index);
+}
+
+bool processCompleteConfigSms(const String& sender, const String& body) {
   String fields[10]; size_t count = 0; String cleanBody = body; cleanBody.trim();
   if (!splitPipe(cleanBody, fields, 10, count) || count != 10 || fields[0] != "TRAKCFG" || fields[1] != "1") {
-    Serial.println("[SMS] Message ignore: format TRAKCFG invalide."); deleteSms(index); return;
+    Serial.println("[SMS] Message ignore: format TRAKCFG invalide.");
+    return false;
   }
   const String expectedTrakId = trackerSerialNumber();
   if (fields[2] != expectedTrakId) {
-    Serial.printf("[SMS] TRAK ID invalide: %s\n", fields[2].c_str());
+    Serial.printf("[SMS] TRAK ID invalide: %s\\n", fields[2].c_str());
     sendSms(sender, String("TRAK: erreur configuration - ID TRAK invalide (attendu ") + expectedTrakId + ")");
-    deleteSms(index); return;
+    return false;
   }
   if (!phonesMatch(sender, fields[4])) {
     Serial.println("[SMS] Expediteur different du USER_PHONE du message.");
     sendSms(sender, "TRAK: erreur configuration - expediteur non autorise.");
-    deleteSms(index); return;
+    return false;
   }
   if (!hexString(fields[7]) || !hexString(fields[8]) || fields[8].length() != 16 || fields[9].length() != 64 || !hexString(fields[9])) {
     Serial.println("[SMS] Parametres de securite invalides.");
     sendSms(sender, "TRAK: erreur configuration - signature ou nonce invalide.");
-    deleteSms(index); return;
+    return false;
   }
   const String savedNonce = prefs.getString("nonce", "");
   if (savedNonce.length() && savedNonce == fields[8]) {
     Serial.println("[SMS] Rejeu detecte: nonce deja utilise.");
     sendSms(sender, "TRAK: erreur configuration - message deja utilise.");
-    deleteSms(index); return;
+    return false;
   }
   const String signedPart = fields[0] + "|" + fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + fields[5] + "|" + fields[6] + "|" + fields[7] + "|" + fields[8];
   const String expectedSignature = hmacSha256Hex(fields[6], signedPart);
   String receivedSignature = fields[9]; receivedSignature.toLowerCase();
   if (expectedSignature.length() != 64 || receivedSignature != expectedSignature) {
     Serial.println("[SMS] HMAC invalide."); devLog("SMS | config ERROR | HMAC invalide");
-    sendSms(sender, "TRAK: erreur configuration - signature HMAC invalide."); deleteSms(index); return;
+    sendSms(sender, "TRAK: erreur configuration - signature HMAC invalide.");
+    return false;
   }
   prefs.putString("trak_id", fields[2]); prefs.putString("trak_phone", fields[3]); prefs.putString("user_phone", fields[4]);
   prefs.putString("api_url", fields[5]); prefs.putString("api_key", fields[6]); prefs.putString("config_id", fields[7]); prefs.putString("nonce", fields[8]);
-  Serial.printf("[SMS] Configuration acceptee | ID=%s | URL=%s\n", fields[7].c_str(), fields[5].c_str());
+  Serial.printf("[SMS] Configuration acceptee | ID=%s | URL=%s\\n", fields[7].c_str(), fields[5].c_str());
   devLog(String("SMS | config OK | config_id=") + fields[7]);
   sendSms(fields[4], String("TRAK ") + fields[2] + ": configuration recue et valide. CONFIG_ID=" + fields[7]);
-  deleteSms(index);
+  return true;
 }
+
 void pollSms() {
   const String response = at("AT+CMGL=\"REC UNREAD\"", 5000);
   if (response.indexOf("+CMGL:") < 0) return;
