@@ -8,7 +8,6 @@
 extern HardwareSerial modem;
 extern volatile bool modemReady;
 extern String at(const String& command, uint32_t timeoutMs);
-extern String trackerSerialNumber();
 extern void devLog(const String& message);
 
 namespace {
@@ -69,7 +68,7 @@ String smsSenderFromHeader(const String& header) {
 int smsIndexFromHeader(const String& header) {
   const int colon = header.indexOf(':'); if (colon < 0) return -1;
   int cursor = colon + 1; while (cursor < (int)header.length() && header[cursor] == ' ') ++cursor;
-  int end = cursor; while (end < (int)header.length() && isDigit(header[end])) ++end;
+  int end = cursor; while (end < (int)header.length() && header[end] >= '0' && header[end] <= '9') ++end;
   if (end == cursor) return -1;
   return header.substring(cursor, end).toInt();
 }
