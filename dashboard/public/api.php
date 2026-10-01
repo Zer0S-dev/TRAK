@@ -16,105 +16,177 @@ if ($user['role'] === 'admin') {
     $stmt->execute([(int)$user['id']]);
     $traks = $stmt->fetchAll();
 }
-
-function api_value(string $value): string {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
-}
 ?>
-<div class="card">
-    <h2>Sélection API</h2>
-    <p class="muted">Sélectionnez d'abord le <strong>User ID</strong>, puis le <strong>TRAK ID</strong>. Les informations affichées dessous correspondent uniquement à la sélection.</p>
-    <div class="api-select-grid">
-        <label>User ID
-            <select id="apiUserSelect">
-                <option value="">Sélectionner un User ID</option>
-                <?php foreach ($users as $u): ?>
-                    <option value="<?= (int)$u['id'] ?>"><?= (int)$u['id'] ?> — <?=api_value((string)$u['username'])?></option>
-                <?php endforeach; ?>
-            </select>
-        </label>
-        <label>TRAK ID
-            <select id="apiTrakSelect" disabled>
-                <option value="">Sélectionner un TRAK ID</option>
-            </select>
-        </label>
-    </div>
-</div>
+<div class="api-page">
 
-<div id="apiSelection" class="api-selection" hidden>
-    <div class="card">
-        <h2>Identifiants sélectionnés</h2>
-        <div class="api-details-grid">
-            <div><span class="detail-label">User ID</span><code id="selectedUserId"></code></div>
-            <div><span class="detail-label">Utilisateur</span><code id="selectedUsername"></code></div>
-            <div><span class="detail-label">Email</span><span id="selectedEmail"></span></div>
-            <div><span class="detail-label">Téléphone utilisateur</span><span id="selectedUserPhone"></span></div>
-            <div><span class="detail-label">TRAK ID</span><code id="selectedTrakId"></code></div>
-            <div><span class="detail-label">Téléphone TRAK</span><span id="selectedTrakPhone"></span></div>
-            <div><span class="detail-label">API key</span><code id="selectedApiKey"></code></div>
-            <div><span class="detail-label">OsmAnd / Trakserver</span><code id="selectedOsmand"></code></div>
+    <section class="api-hero">
+        <div>
+            <div class="eyebrow">API / PROVISIONING</div>
+            <h2>Configuration TRAK</h2>
+            <p>Sélectionnez un utilisateur puis son TRAK pour afficher uniquement les informations associées.</p>
         </div>
-    </div>
+        <div class="api-hero-badge">TRAK Connect</div>
+    </section>
 
-    <div class="card api-card">
-        <h2>SMS de configuration</h2>
-        <p class="muted">Format volontairement laissé vide pour le moment. Il sera défini avant la mise en place du provisioning.</p>
-        <textarea id="configSms" class="sms-config" rows="7" placeholder=""></textarea>
-        <button type="button" id="copySms" class="copy-button">Copier</button>
-        <div id="copyStatus" class="muted copy-status"></div>
-    </div>
-
-    <div class="card api-card">
-        <h2>Données servies / utilisables par l'API</h2>
-        <p class="muted">Ces données constituent le contrat prévu pour le TRAK sélectionné.</p>
-        <div class="table-wrap">
-            <table class="data-table">
-                <thead><tr><th>Domaine</th><th>Donnée</th><th>Type</th><th>Accès</th></tr></thead>
-                <tbody>
-                    <tr><td>Identité</td><td>User ID</td><td>entier</td><td>lecture</td></tr>
-                    <tr><td>Identité</td><td>TRAK ID</td><td>texte</td><td>lecture / ciblage</td></tr>
-                    <tr><td>Identité</td><td>Téléphone TRAK</td><td>texte</td><td>lecture</td></tr>
-                    <tr><td>Authentification</td><td>API key</td><td>secret</td><td>authentification</td></tr>
-                    <tr><td>Position</td><td>latitude / longitude</td><td>nombre</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Position</td><td>altitude / vitesse / cap</td><td>nombre</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>GNSS</td><td>satellites visibles / utilisés</td><td>entier</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>GNSS</td><td>GPS / GLONASS / Galileo / BeiDou</td><td>entiers</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Réseau</td><td>Wi-Fi / 4G / SSID / opérateur / IP</td><td>texte / état</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>État</td><td>motion / sentinel</td><td>état</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Télémétrie</td><td>batterie / alimentation / température</td><td>nombre / état</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Événements</td><td>événement + horodatage</td><td>texte + date</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Commandes</td><td>commande dashboard → TRAK</td><td>texte</td><td>écriture dashboard / lecture TRAK</td></tr>
-                    <tr><td>Commandes</td><td>ACK / résultat</td><td>texte / état</td><td>lecture / écriture TRAK</td></tr>
-                    <tr><td>Configuration</td><td>configuration TRAK</td><td>paramètres</td><td>lecture / écriture selon droit</td></tr>
-                </tbody>
-            </table>
+    <section class="card api-selector-card">
+        <div class="section-heading">
+            <div>
+                <span class="section-kicker">CIBLE</span>
+                <h3>Sélectionner un TRAK</h3>
+            </div>
+            <span class="selection-hint">1. Utilisateur &nbsp;→&nbsp; 2. TRAK ID</span>
         </div>
-    </div>
+
+        <div class="api-select-grid">
+            <label>
+                <span>User ID</span>
+                <select id="apiUserSelect">
+                    <option value="">Sélectionner un utilisateur</option>
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>">
+                            <?= (int)$u['id'] ?> — <?= htmlspecialchars((string)$u['username'], ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+
+            <label>
+                <span>TRAK ID</span>
+                <select id="apiTrakSelect" disabled>
+                    <option value="">Sélectionner un TRAK</option>
+                </select>
+            </label>
+        </div>
+
+        <div id="emptyTrakHint" class="selector-empty">Sélectionnez un User ID pour afficher ses TRAK.</div>
+    </section>
+
+    <section id="apiSelection" class="api-selection" hidden>
+
+        <div class="api-identity">
+            <div class="api-identity-main">
+                <span class="section-kicker">TRAK SÉLECTIONNÉ</span>
+                <h2 id="selectedTrakId"></h2>
+                <p id="selectedUsername"></p>
+            </div>
+            <div class="api-identity-meta">
+                <div><span>User ID</span><strong id="selectedUserId"></strong></div>
+                <div><span>Téléphone TRAK</span><strong id="selectedTrakPhone"></strong></div>
+            </div>
+        </div>
+
+        <div class="api-info-grid">
+            <div class="card api-info-card">
+                <div class="card-icon">U</div>
+                <div>
+                    <span class="detail-label">Utilisateur</span>
+                    <strong id="selectedUserNameCard"></strong>
+                    <small id="selectedEmail"></small>
+                    <small id="selectedUserPhone"></small>
+                </div>
+            </div>
+
+            <div class="card api-info-card">
+                <div class="card-icon">T</div>
+                <div>
+                    <span class="detail-label">TRAK</span>
+                    <strong id="selectedTrakPhoneCard"></strong>
+                    <small>TRAK ID : <code id="selectedTrakIdCard"></code></small>
+                    <small>User ID : <code id="selectedUserIdCard"></code></small>
+                </div>
+            </div>
+
+            <div class="card api-info-card api-secret-card">
+                <div class="card-icon">K</div>
+                <div class="secret-content">
+                    <span class="detail-label">API key</span>
+                    <div class="secret-row">
+                        <code id="selectedApiKey"></code>
+                        <button type="button" class="mini-copy" id="copyApiKey">Copier</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card api-info-card">
+                <div class="card-icon">↗</div>
+                <div>
+                    <span class="detail-label">OsmAnd / Trakserver</span>
+                    <a id="selectedOsmand" href="#" target="_blank" rel="noopener"></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="api-two-columns">
+            <div class="card api-sms-card">
+                <div class="section-heading compact">
+                    <div>
+                        <span class="section-kicker">PROVISIONING</span>
+                        <h3>SMS de configuration</h3>
+                    </div>
+                    <span class="status-pill neutral">À définir</span>
+                </div>
+                <p class="muted">Le format SMS sera défini avant l'activation du provisioning. Le champ reste volontairement vide.</p>
+                <textarea id="configSms" class="sms-config" rows="6" placeholder=""></textarea>
+                <div class="sms-actions">
+                    <button type="button" id="copySms" class="copy-button">Copier le SMS</button>
+                    <span id="copyStatus" class="copy-status"></span>
+                </div>
+            </div>
+
+            <div class="card api-contract-card">
+                <div class="section-heading compact">
+                    <div>
+                        <span class="section-kicker">CONTRAT API</span>
+                        <h3>Données prévues</h3>
+                    </div>
+                </div>
+                <div class="contract-list">
+                    <div><strong>Position</strong><span>GPS, altitude, vitesse, cap</span></div>
+                    <div><strong>GNSS</strong><span>Satellites visibles / utilisés + constellations</span></div>
+                    <div><strong>Réseau</strong><span>Wi-Fi, 4G, SSID, opérateur, IP</span></div>
+                    <div><strong>État</strong><span>Motion, sentinel, statut TRAK</span></div>
+                    <div><strong>Télémétrie</strong><span>Batterie, alimentation, température</span></div>
+                    <div><strong>Événements</strong><span>Événement + horodatage</span></div>
+                    <div><strong>Commandes</strong><span>Dashboard → TRAK + ACK / résultat</span></div>
+                    <div><strong>Configuration</strong><span>Paramètres TRAK selon les droits</span></div>
+                </div>
+            </div>
+        </div>
+    </section>
 </div>
 
 <script>
-const apiUsers = <?=json_encode($users, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)?>;
-const apiTraks = <?=json_encode($traks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)?>;
+const apiUsers = <?= json_encode($users, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const apiTraks = <?= json_encode($traks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
 const userSelect = document.getElementById('apiUserSelect');
 const trakSelect = document.getElementById('apiTrakSelect');
 const selection = document.getElementById('apiSelection');
+const emptyHint = document.getElementById('emptyTrakHint');
 
 function resetSelection() {
     selection.hidden = true;
+    emptyHint.textContent = userSelect.value
+        ? 'Sélectionnez un TRAK ID pour afficher sa configuration.'
+        : 'Sélectionnez un User ID pour afficher ses TRAK.';
     document.getElementById('configSms').value = '';
     document.getElementById('copyStatus').textContent = '';
 }
 
 function fillTraks() {
     const userId = Number(userSelect.value);
-    trakSelect.innerHTML = '<option value="">Sélectionner un TRAK ID</option>';
-    apiTraks.filter(t => Number(t.user_id) === userId).forEach(t => {
-        const option = document.createElement('option');
-        option.value = t.id;
-        option.textContent = t.trak_id;
-        trakSelect.appendChild(option);
-    });
+
+    trakSelect.innerHTML = '<option value="">Sélectionner un TRAK</option>';
+
+    apiTraks
+        .filter(t => Number(t.user_id) === userId)
+        .forEach(t => {
+            const option = document.createElement('option');
+            option.value = t.id;
+            option.textContent = t.trak_id;
+            trakSelect.appendChild(option);
+        });
+
     trakSelect.disabled = !userId || trakSelect.options.length === 1;
     resetSelection();
 }
@@ -123,40 +195,75 @@ function displaySelection() {
     const userId = Number(userSelect.value);
     const trak = apiTraks.find(t => Number(t.id) === Number(trakSelect.value));
     const selectedUser = apiUsers.find(u => Number(u.id) === userId);
+
     if (!selectedUser || !trak) {
         resetSelection();
         return;
     }
-    document.getElementById('selectedUserId').textContent = selectedUser.id;
-    document.getElementById('selectedUsername').textContent = selectedUser.username;
-    document.getElementById('selectedEmail').textContent = selectedUser.email || 'non renseigné';
-    document.getElementById('selectedUserPhone').textContent = selectedUser.phone || 'non renseigné';
+
     document.getElementById('selectedTrakId').textContent = trak.trak_id;
+    document.getElementById('selectedUsername').textContent = selectedUser.username;
+    document.getElementById('selectedUserId').textContent = selectedUser.id;
     document.getElementById('selectedTrakPhone').textContent = trak.phone;
+
+    document.getElementById('selectedUserNameCard').textContent = selectedUser.username;
+    document.getElementById('selectedEmail').textContent = selectedUser.email || 'Email non renseigné';
+    document.getElementById('selectedUserPhone').textContent = selectedUser.phone || 'Téléphone non renseigné';
+
+    document.getElementById('selectedTrakPhoneCard').textContent = trak.phone || 'Téléphone non renseigné';
+    document.getElementById('selectedTrakIdCard').textContent = trak.trak_id;
+    document.getElementById('selectedUserIdCard').textContent = selectedUser.id;
+
     document.getElementById('selectedApiKey').textContent = trak.api_key;
-    document.getElementById('selectedOsmand').textContent = trak.osmand_url;
+    const osmand = document.getElementById('selectedOsmand');
+    osmand.textContent = trak.osmand_url;
+    osmand.href = trak.osmand_url;
+
     document.getElementById('configSms').value = '';
     document.getElementById('copyStatus').textContent = '';
+    emptyHint.textContent = '';
     selection.hidden = false;
 }
 
 userSelect.addEventListener('change', fillTraks);
 trakSelect.addEventListener('change', displaySelection);
 
-document.getElementById('copySms').addEventListener('click', async () => {
-    const sms = document.getElementById('configSms').value;
-    if (!sms) {
-        document.getElementById('copyStatus').textContent = 'Le champ SMS est vide pour le moment.';
+async function copyText(value, statusElement, emptyMessage) {
+    if (!value) {
+        statusElement.textContent = emptyMessage;
         return;
     }
+
     try {
-        await navigator.clipboard.writeText(sms);
-        document.getElementById('copyStatus').textContent = 'SMS copié.';
+        await navigator.clipboard.writeText(value);
     } catch (e) {
-        document.getElementById('configSms').select();
+        const helper = document.createElement('textarea');
+        helper.value = value;
+        document.body.appendChild(helper);
+        helper.select();
         document.execCommand('copy');
-        document.getElementById('copyStatus').textContent = 'SMS copié.';
+        helper.remove();
     }
+
+    statusElement.textContent = 'Copié.';
+    setTimeout(() => statusElement.textContent = '', 1800);
+}
+
+document.getElementById('copySms').addEventListener('click', () => {
+    copyText(
+        document.getElementById('configSms').value,
+        document.getElementById('copyStatus'),
+        'Le champ SMS est vide pour le moment.'
+    );
+});
+
+document.getElementById('copyApiKey').addEventListener('click', (event) => {
+    const button = event.currentTarget;
+    const value = document.getElementById('selectedApiKey').textContent;
+    copyText(value, button, 'Aucune API key.');
+    const old = button.textContent;
+    button.textContent = 'Copié';
+    setTimeout(() => button.textContent = old, 1400);
 });
 </script>
 <?php page_footer(); ?>
