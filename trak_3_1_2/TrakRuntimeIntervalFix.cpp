@@ -5,6 +5,7 @@
 #include "PositionBuffer.h"
 #include "MotionManager.h"
 #include "WiFiManager.h"
+#include "SmsConfigManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -130,6 +131,7 @@ void trakCommunicationTaskFixed(void*) {
 
   for (;;) {
     const uint32_t now = millis();
+    smsConfigTick();
     wifiNetworkTick(true);
     const NetworkPath previousNetwork = activeNetwork;
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
