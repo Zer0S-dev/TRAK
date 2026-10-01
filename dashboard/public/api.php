@@ -77,48 +77,12 @@ page_header('API', $user);
             </div>
         </div>
 
-        <div id="apiInfoGrid" class="api-info-grid" hidden>
-            <div class="card api-info-card">
-                <div class="card-icon">U</div>
-                <div>
-                    <span class="detail-label">Utilisateur</span>
-                    <strong id="selectedUserNameCard"></strong>
-                    <small id="selectedEmail"></small>
-                    <small id="selectedUserPhone"></small>
-                </div>
-            </div>
+        <div id="apiDataCard" class="card api-data-card" hidden>
+<div class="section-heading compact"><div><span class="section-kicker">PAYLOAD</span><h3>Données TRAK</h3></div></div>
+<pre id="apiDataCode" class="api-data-code"><code></code></pre>
+</div>
 
-            <div class="card api-info-card">
-                <div class="card-icon">T</div>
-                <div>
-                    <span class="detail-label">TRAK</span>
-                    <strong id="selectedTrakPhoneCard"></strong>
-                    <small>TRAK ID : <code id="selectedTrakIdCard"></code></small>
-                    <small>User ID : <code id="selectedUserIdCard"></code></small>
-                </div>
-            </div>
-
-            <div class="card api-info-card api-secret-card">
-                <div class="card-icon">K</div>
-                <div class="secret-content">
-                    <span class="detail-label">API key</span>
-                    <div class="secret-row">
-                        <code id="selectedApiKey"></code>
-                        <button type="button" class="mini-copy" id="copyApiKey">Copier</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card api-info-card">
-                <div class="card-icon">↗</div>
-                <div>
-                    <span class="detail-label">OsmAnd / Trakserver</span>
-                    <a id="selectedOsmand" href="#" target="_blank" rel="noopener"></a>
-                </div>
-            </div>
-        </div>
-
-        <div class="api-two-columns">
+<div class="api-two-columns">
             <div class="card api-sms-card">
                 <div class="section-heading compact">
                     <div>
@@ -170,7 +134,7 @@ function resetSelection() {
     selection.hidden = true;
     selection.setAttribute('aria-hidden', 'true');
     document.getElementById('apiIdentity').hidden = true;
-    document.getElementById('apiInfoGrid').hidden = true;
+    document.getElementById('apiDataCard').hidden = true;
     emptyHint.textContent = userSelect.value
         ? 'Sélectionnez un TRAK ID pour afficher sa configuration.'
         : 'Sélectionnez un User ID pour afficher ses TRAK.';
@@ -230,7 +194,7 @@ function displaySelection() {
     selection.hidden = false;
     selection.setAttribute('aria-hidden', 'false');
     document.getElementById('apiIdentity').hidden = false;
-    document.getElementById('apiInfoGrid').hidden = false;
+    document.getElementById('apiDataCard').hidden = false;
 }
 
 userSelect.addEventListener('change', fillTraks);
