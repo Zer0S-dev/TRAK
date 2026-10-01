@@ -74,5 +74,14 @@ function db(): PDO {
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
+
+    // Repair legacy TRAK rows created before user_id existed.
+    // If there is exactly one user, orphan TRAK boxes belong to that user.
+    $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+    if ($userCount === 1) {
+        $onlyUserId = (int)$pdo->query('SELECT id FROM users LIMIT 1')->fetchColumn();
+        $stmt = $pdo->prepare('UPDATE trak_boxes SET user_id = ? WHERE user_id IS NULL');
+        $stmt->execute([$onlyUserId]);
+    }
     return $pdo;
 }
