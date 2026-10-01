@@ -100,9 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <form method="post">
             <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
             <label>ID TRAK<input name="trak_id" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK-001'))?>" required autofocus></label>
-            <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? '')?>" required></label>
-            <label>Trakserver URL<input type="url" name="trakserver_url" maxlength="500" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? '')?>" placeholder="https://..." required></label>
-            <label>Clé API<input type="text" name="api_key" maxlength="128" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? '')?>" placeholder="Laisser vide pour générer automatiquement"></label>
+            <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? ''))?>" required></label>
+            <label>Trakserver URL<input type="url" name="trakserver_url" maxlength="500" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
+            <label>Clé API<input type="text" name="api_key" maxlength="128" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
             <button type="submit">Enregistrer le premier TRAK</button>
         </form>
     <?php else: ?>
