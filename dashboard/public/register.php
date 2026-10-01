@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../app/auth.php';
+require_once __DIR__ . '/../app/mail.php';
 
 $count = user_count();
 if ($count > 0) require_admin();
@@ -23,16 +24,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     else {
         try {
             $role = ($count === 0) ? 'admin' : 'user';
-            $stmt = db()->prepare('INSERT INTO users (username, password_hash, email, phone, role) VALUES (?, ?, ?, ?, ?)');
+            $pdo = db();
+            $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, email, phone, role) VALUES (?, ?, ?, ?, ?)');
             $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $email !== '' ? $email : null, $phone !== '' ? $phone : null, $role]);
-            if ($count === 0) {
-                $id = (int)db()->lastInsertId();
-                login_user(['id'=>$id]);
-                header('Location: home.php'); exit;
+            $id = (int)$pdo->lastInsertId();
+
+            $mailSent = false;
+            if ($email !== '') {
+                $token = bin2hex(random_bytes(32));
+                $stmt = $pdo->prepare('UPDATE users SET pending_email = ?, email = NULL, email_token_hash = ?, email_token_expires = ? WHERE id = ?');
+                $stmt->execute([$email, hash('sha256', $token), time() + 86400, $id]);
+                $mailSent = send_email_verification($email, $token);
             }
-            header('Location: account.php?created=1'); exit;
+
+            if ($count === 0) {
+                login_user(['id'=>$id]);
+                header('Location: account.php?created=1&mail=' . ($mailSent ? 'sent' : 'error'));
+                exit;
+            }
+            header('Location: account.php?created=1&mail=' . ($mailSent ? 'sent' : 'error'));
+            exit;
         } catch (PDOException $e) {
-            $error = ((int)$e->errorInfo[1] === 19) ? 'Cet identifiant existe déjà.' : 'Impossible de créer le compte.';
+            $error = ((int)($e->errorInfo[1] ?? 0) === 19) ? 'Cet identifiant existe déjà.' : 'Impossible de créer le compte.';
         }
     }
 }
