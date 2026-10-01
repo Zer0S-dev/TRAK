@@ -87,24 +87,6 @@ page_header('API', $user);
                 </div>
             </div>
 
-            <div class="card api-contract-card">
-                <div class="section-heading compact">
-                    <div>
-                        <span class="section-kicker">CONTRAT API</span>
-                        <h3>Données prévues</h3>
-                    </div>
-                </div>
-                <div class="contract-list">
-                    <div><strong>Position</strong><span>GPS, altitude, vitesse, cap</span></div>
-                    <div><strong>GNSS</strong><span>Satellites visibles / utilisés + constellations</span></div>
-                    <div><strong>Réseau</strong><span>Wi-Fi, 4G, SSID, opérateur, IP</span></div>
-                    <div><strong>État</strong><span>Motion, sentinel, statut TRAK</span></div>
-                    <div><strong>Télémétrie</strong><span>Batterie, alimentation, température</span></div>
-                    <div><strong>Événements</strong><span>Événement + horodatage</span></div>
-                    <div><strong>Commandes</strong><span>Dashboard → TRAK + ACK / résultat</span></div>
-                    <div><strong>Configuration</strong><span>Paramètres TRAK selon les droits</span></div>
-                </div>
-            </div>
         </div>
     </section>
 </div>
