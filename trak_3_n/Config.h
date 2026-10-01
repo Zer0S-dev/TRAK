@@ -51,6 +51,9 @@
 #ifndef LSM6DS3_SCL_PIN
 #define LSM6DS3_SCL_PIN 22
 #endif
+#ifndef POSITION_BUFFER_CAPACITY
+#define POSITION_BUFFER_CAPACITY 8192
+#endif
 static inline String trackerSerialNumber() {
   const uint64_t chipId = ESP.getEfuseMac();
   char serial[20];
