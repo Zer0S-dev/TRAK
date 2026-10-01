@@ -4,7 +4,6 @@
 #include "Config.h"
 #include "WiFiManager.h"
 
-namespace {
 constexpr uint8_t MAX_WIFI_PROFILES=3;
 constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS=8000UL;
 constexpr uint32_t WIFI_LOSS_CONFIRM_MS=1500UL;
