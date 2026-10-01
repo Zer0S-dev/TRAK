@@ -98,20 +98,24 @@ function resetSelection() {
 }
 
 function fillTraks() {
-    const userId = Number(userSelect.value);
+    const userId = String(userSelect.value || '').trim();
 
     trakSelect.innerHTML = '<option value="">Sélectionner un TRAK</option>';
 
-    apiTraks
-        .filter(t => Number(t.user_id) === userId)
-        .forEach(t => {
+    const matchingTraks = apiTraks.filter(t => String(t.user_id ?? '').trim() === userId);
+    matchingTraks.forEach(t => {
             const option = document.createElement('option');
             option.value = t.id;
             option.textContent = t.trak_id;
             trakSelect.appendChild(option);
         });
 
-    trakSelect.disabled = !userId || trakSelect.options.length === 1;
+    trakSelect.disabled = !userId || matchingTraks.length === 0;
+    emptyHint.textContent = !userId
+        ? 'Sélectionnez un User ID pour afficher ses TRAK.'
+        : matchingTraks.length === 0
+            ? 'Aucun TRAK n’est associé à cet utilisateur. Vérifiez le User ID dans TRAK Box.'
+            : 'Sélectionnez un TRAK ID pour afficher sa configuration.';
     resetSelection();
 }
 
@@ -240,3 +244,6 @@ async function copyText(value, statusElement, emptyMessage) {
     setTimeout(() => statusElement.textContent = '', 1800);
 }
 
+
+</script>
+<?php page_footer(); ?>
