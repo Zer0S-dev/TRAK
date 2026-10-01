@@ -6,10 +6,10 @@ $user = require_login();
 $pdo = db();
 
 if ($user['role'] === 'admin') {
-    $users = $pdo->query('SELECT id, username, email, phone FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
+    $users = $pdo->query('SELECT id, username, email, pending_email, phone FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
     $traks = $pdo->query('SELECT id, user_id, trak_id, phone, api_key, trakserver_url FROM trak_boxes ORDER BY trak_id COLLATE NOCASE')->fetchAll();
 } else {
-    $stmt = $pdo->prepare('SELECT id, username, email, phone FROM users WHERE id = ?');
+    $stmt = $pdo->prepare('SELECT id, username, email, pending_email, phone FROM users WHERE id = ?');
     $stmt->execute([(int)$user['id']]);
     $users = $stmt->fetchAll();
     $stmt = $pdo->prepare('SELECT id, user_id, trak_id, phone, api_key, trakserver_url FROM trak_boxes WHERE user_id = ? ORDER BY trak_id COLLATE NOCASE');
@@ -134,7 +134,7 @@ function displaySelection() {
         '// USER',
         'user_id : ' + selectedUser.id,
         'user_name : ' + selectedUser.username,
-        'user_email : ' + (selectedUser.email || ''),
+        'user_email : ' + (selectedUser.email || selectedUser.pending_email || ''),
         'user_phone : ' + (selectedUser.phone || ''),
         '',
         '// TRAK BOX',
