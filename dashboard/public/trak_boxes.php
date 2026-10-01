@@ -56,9 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $editId = 0;
         }
     } catch (Throwable $e) {
-        $error = $e instanceof PDOException && str_contains($e->getMessage(), 'UNIQUE')
-            ? 'Impossible d’enregistrer : cet ID TRAK existe déjà.'
-            : $e->getMessage();
+        if ($e instanceof PDOException && str_contains($e->getMessage(), 'UNIQUE')) {
+            $error = 'Impossible d’enregistrer : cet ID TRAK existe déjà.';
+        } elseif ($e instanceof PDOException) {
+            $error = 'Erreur lors de l’enregistrement de la TRAK Box.';
+        } else {
+            $error = 'Échec de l’opération : ' . $e->getMessage();
+        }
     }
 }
 
@@ -74,7 +78,7 @@ $boxes = $pdo->query('SELECT * FROM trak_boxes ORDER BY trak_id COLLATE NOCASE')
 page_header('TRAK Box', $user);
 ?>
 <?php if ($message): ?><div class="alert success"><?=htmlspecialchars($message)?></div><?php endif; ?>
-<?php if ($error): ?><div class="alert error"><?=htmlspecialchars($error)?></div><?php endif; ?>
+<?php if ($error): ?><div class="alert <?=str_starts_with($error, 'Échec') ? 'fail' : 'error'?>"><?=htmlspecialchars($error)?></div><?php endif; ?>
 
 <div class="card">
 <h2><?= $edit ? 'Modifier une TRAK Box' : 'Enregistrer une TRAK Box' ?></h2>
