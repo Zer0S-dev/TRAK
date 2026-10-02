@@ -27,8 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkUser = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ?');
             $checkUser->execute([$userId]);
             if ((int)$checkUser->fetchColumn() !== 1) throw new RuntimeException('User ID invalide.');
-            if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,31}$/', $trakId)) {
-                throw new RuntimeException('ID TRAK invalide. Utilisez 1 à 32 caractères : A-Z, 0-9, _ ou -.');
+            if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,4}$/', $trakId)) {
+                throw new RuntimeException('ID TRAK invalide. Utilisez 1 à 5 caractères : A-Z, 0-9, _ ou -.');
             }
             if ($phone === '' || strlen($phone) > 32) {
                 throw new RuntimeException('Numéro de téléphone TRAK invalide.');
@@ -98,7 +98,7 @@ page_header('TRAK Box', $user);
 </select>
 </label>
 <label>ID TRAK
-<input type="text" name="trak_id" maxlength="32" required value="<?=htmlspecialchars($edit['trak_id'] ?? '')?>" placeholder="TRK-001">
+<input type="text" name="trak_id" maxlength="5" required value="<?=htmlspecialchars($edit['trak_id'] ?? '')?>" placeholder="TRK01">
 </label>
 <label>Numéro de téléphone du TRAK
 <input type="tel" name="phone" maxlength="32" required value="<?=htmlspecialchars($edit['phone'] ?? '')?>" placeholder="+33612345678">
