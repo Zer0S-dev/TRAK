@@ -131,15 +131,16 @@ async function displaySelection() {
     smsList.appendChild(error);
   } else {
     renderSms('SMS 2', ['TRAKCFG3','1',configId,trak.api_key,nonce].join('|'), smsList);
+    let smsNumber = 3;
     const url = String(trak.trakserver_url || '');
     const chunkSize = 80;
     if (!url) {
       const error = document.createElement('div'); error.className = 'alert error'; error.textContent = 'trackserver_url est vide.'; smsList.appendChild(error);
     } else if (url.length <= chunkSize) {
-      renderSms('SMS 3', ['TRAKCFG2','1',configId,url,'1'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG2','1',configId,url,'1'].join('|'), smsList);
     } else if (url.length <= chunkSize * 2) {
-      renderSms('SMS 3', ['TRAKCFG2','1',configId,url.slice(0,chunkSize),'0'].join('|'), smsList);
-      renderSms('SMS 4', ['TRAKCFG2','2',configId,url.slice(chunkSize),'1'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG2','1',configId,url.slice(0,chunkSize),'0'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG2','2',configId,url.slice(chunkSize),'1'].join('|'), smsList);
     } else {
       const error = document.createElement('div'); error.className = 'alert error'; error.textContent = 'trackserver_url est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).'; smsList.appendChild(error);
     }
@@ -148,10 +149,10 @@ async function displaySelection() {
     if (dashboardUrl.length > 160) {
       const error = document.createElement('div'); error.className = 'alert error'; error.textContent = 'L’URL Dashboard dépasse 160 caractères.'; smsList.appendChild(error);
     } else if (dashboardUrl.length <= dashboardChunkSize) {
-      renderSms('SMS 4', ['TRAKCFG4','1',configId,dashboardUrl,'1'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG4','1',configId,dashboardUrl,'1'].join('|'), smsList);
     } else {
-      renderSms('SMS 4', ['TRAKCFG4','1',configId,dashboardUrl.slice(0,dashboardChunkSize),'0'].join('|'), smsList);
-      renderSms('SMS 5', ['TRAKCFG4','2',configId,dashboardUrl.slice(dashboardChunkSize),'1'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG4','1',configId,dashboardUrl.slice(0,dashboardChunkSize),'0'].join('|'), smsList);
+      renderSms('SMS ' + smsNumber++, ['TRAKCFG4','2',configId,dashboardUrl.slice(dashboardChunkSize),'1'].join('|'), smsList);
     }
   }
 
