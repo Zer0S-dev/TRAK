@@ -13,7 +13,7 @@ namespace {
 Preferences prefs;
 constexpr char PREF_NS[] = "trak_cfg";
 constexpr uint32_t SMS_POLL_MS = 5000;
-constexpr size_t API_KEY_LEN = 50;
+constexpr size_t API_KEY_LEN = 16;
 constexpr size_t MAX_TRAK_ID_LEN = 5;
 constexpr size_t NONCE_LEN = 16;
 constexpr size_t MAX_TRACKSERVER_URL_LEN = 160;
