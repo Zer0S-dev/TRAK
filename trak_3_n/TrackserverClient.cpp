@@ -15,7 +15,7 @@ extern void devLog(const String& message);
 
 namespace {
 constexpr uint32_t WIFI_HTTP_TIMEOUT_MS = 2000;
-constexpr uint32_t CELLULAR_HTTP_TIMEOUT_MS = 30000;
+constexpr uint32_t CELLULAR_HTTP_TIMEOUT_MS = 8000;
 constexpr size_t MAX_URL_LEN = 160;
 
 String urlEncode(const String& value) {
@@ -125,7 +125,9 @@ TrackserverResult sendOverCellular(const String& url) {
     return TrackserverResult::Failed;
   }
 
-  at("AT+HTTPSSL=1", 3000);
+  // A76XX: reference explicite du contexte SSL utilise par HTTP(S).
+  // HTTPSSL=1 n'est pas supporte sur certains firmwares A7670.
+  at("AT+HTTPPARA=\"SSLCFG\",0", 3000);
   const String urlCommand = String("AT+HTTPPARA=\"URL\",\"") + url + "\"";
   if (at(urlCommand, 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
@@ -185,8 +187,7 @@ TrackserverResult trackserverSend(const GnssPosition& position) {
       return wifiResult;
     }
 
-    wifiForceCellular();
-    Serial.println("[TRACKSERVER] Wi-Fi echec -> bascule immediate 4G");
+    Serial.println("[TRACKSERVER] Wi-Fi echec -> tentative 4G sans couper le Wi-Fi");
     devLog("TRACKSERVER | WiFi failed | fallback 4G");
     return sendOverCellular(url);
   }
