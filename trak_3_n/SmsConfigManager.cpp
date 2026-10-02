@@ -16,7 +16,7 @@ constexpr uint32_t SMS_POLL_MS = 5000;
 constexpr size_t API_KEY_LEN = 16;
 constexpr size_t MAX_TRAK_ID_LEN = 5;
 constexpr size_t NONCE_LEN = 16;
-constexpr size_t MAX_TRACKSERVER_URL_LEN = 160;
+constexpr size_t MAX_trackserver_url_LEN = 160;
 uint32_t lastPoll = 0;
 bool ready = false;
 
@@ -69,7 +69,7 @@ bool validNonce(const String& value) {
 }
 
 bool validTrackserverUrl(const String& value) {
-  if (value.isEmpty() || value.length() > MAX_TRACKSERVER_URL_LEN) return false;
+  if (value.isEmpty() || value.length() > MAX_trackserver_url_LEN) return false;
   if (!value.startsWith("https://")) return false;
   if (value.indexOf('|') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) return false;
   return true;
@@ -296,8 +296,8 @@ bool processConfig2(const String& sender, const String& body) {
 
   const size_t combinedLength = prefs.getString("p_url1", "").length() +
                                 prefs.getString("p_url2", "").length();
-  if (combinedLength > MAX_TRACKSERVER_URL_LEN) {
-    Serial.println("[SMS] TRACKSERVER_URL trop longue.");
+  if (combinedLength > MAX_trackserver_url_LEN) {
+    Serial.println("[SMS] trackserver_url trop longue.");
     clearPending();
     return true;
   }
