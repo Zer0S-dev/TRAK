@@ -27,6 +27,27 @@ enum class NetworkPath : uint8_t { None, WiFi, Cellular };
 static PositionBuffer positionBuffer;
 static bool bufferReady = false;
 static volatile NetworkPath activeNetwork = NetworkPath::None;
+static TaskHandle_t dashboardTaskHandle = nullptr;
+static volatile bool dashboardPending = false;
+static GnssPosition dashboardPendingPosition;
+
+static void dashboardAsyncTask(void*) {
+  for (;;) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    if (!dashboardPending) continue;
+    const GnssPosition pending = dashboardPendingPosition;
+    dashboardPending = false;
+    if (WiFi.status() == WL_CONNECTED) {
+      dashboardSend(pending);
+    }
+  }
+}
+
+static void dashboardQueueAsync(const GnssPosition& position) {
+  dashboardPendingPosition = position;
+  dashboardPending = true;
+  if (dashboardTaskHandle) xTaskNotifyGive(dashboardTaskHandle);
+}
 
 constexpr uint32_t GNSS_LOG_MS = 5000;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
@@ -130,6 +151,15 @@ void trakCommunicationTaskFixed(void*) {
   else activeNetwork = NetworkPath::None;
   trackserverBegin();
   dashboardBegin();
+  xTaskCreatePinnedToCore(
+    dashboardAsyncTask,
+    "dashboardSend",
+    8192,
+    nullptr,
+    1,
+    &dashboardTaskHandle,
+    0
+  );
   devLog(String("START | network=") + terrainNetworkName(activeNetwork) +
          " | fifo=" + String((unsigned)positionBuffer.size()));
 
@@ -213,11 +243,17 @@ void trakCommunicationTaskFixed(void*) {
         GnssPosition buffered;
         if (!positionBuffer.peek(buffered)) break;
 
-        // Les deux destinations sont traitees back-to-back.
-        // Le resultat Dashboard est volontairement independant de Trackserver.
+        // Trackserver reste synchrone dans le runtime.
+        // Le Dashboard Wi-Fi est lance dans une tache dediee pour ne jamais
+        // bloquer GNSS, gyro, SMS ou la boucle principale.
         const TrackserverResult result = trackserverSend(buffered);
-        const DashboardResult dashboardResult = dashboardSend(buffered);
-        (void)dashboardResult;
+        if (WiFi.status() == WL_CONNECTED) {
+          dashboardQueueAsync(buffered);
+        } else {
+          // En 4G, on conserve pour l'instant l'envoi direct afin de ne pas
+          // concurrencer les acces AT du modem depuis une seconde tache.
+          dashboardSend(buffered);
+        }
 
         if (result == TrackserverResult::Success) {
           positionBuffer.pop();
