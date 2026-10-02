@@ -214,6 +214,12 @@ bool tryCommitPending() {
   prefs.putString("trackserver_url", trackserverUrl);
   const String dashboardUrl = prefs.getString("p_dash1", "") + prefs.getString("p_dash2", "");
   if (!dashboardUrl.isEmpty() && validTrackserverUrl(dashboardUrl) && dashboardUrl.length() <= MAX_DASHBOARD_URL_LEN) {
+    if (!validTrackserverUrl(dashboardUrl)) {
+      Serial.println("[SMS] URL Dashboard finale invalide.");
+      prefs.remove("p_dash1");
+      prefs.remove("p_dash2");
+      return true;
+    }
     prefs.putString("dashboard_url", dashboardUrl);
   }
   prefs.putString("api_key", apiKey);
@@ -351,8 +357,8 @@ bool processConfig4(const String& sender, const String& body) {
   else prefs.putString("p_dash2", fields[3]);
 
   const String dashboardUrl = prefs.getString("p_dash1", "") + prefs.getString("p_dash2", "");
-  if (dashboardUrl.length() > MAX_DASHBOARD_URL_LEN || !validTrackserverUrl(dashboardUrl)) {
-    Serial.println("[SMS] URL Dashboard trop longue ou invalide.");
+  if (dashboardUrl.length() > MAX_DASHBOARD_URL_LEN) {
+    Serial.println("[SMS] URL Dashboard trop longue.");
     prefs.remove("p_dash1");
     prefs.remove("p_dash2");
     return true;
