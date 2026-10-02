@@ -4,6 +4,7 @@
 #include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include "SmsConfigManager.h"
+#include "WiFiManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -12,7 +13,7 @@ extern String at(const String& command, uint32_t timeoutMs);
 extern void devLog(const String& message);
 
 namespace {
-constexpr uint32_t HTTP_TIMEOUT_MS = 5000;
+constexpr uint32_t HTTP_TIMEOUT_MS = 2000;
 constexpr size_t MAX_URL_LEN = 160;
 
 String jsonEscape(const String& value) {
@@ -171,6 +172,7 @@ DashboardResult dashboardSendPosition(const GnssPosition& position) {
       return wifiResult;
     }
 
+    wifiForceCellular();
     Serial.println("[DASHBOARD] Wi-Fi echec -> bascule immediate 4G");
     devLog("DASHBOARD | WiFi failed | fallback 4G");
     return cellularPost(url, body);
