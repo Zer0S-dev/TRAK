@@ -5,6 +5,6 @@ void smsConfigBegin();
 void smsConfigTick();
 bool smsConfigIsConfigured();
 String smsConfigUserPhone();
-String smsConfigApiUrl();
+String smsConfigTrackserverUrl();
 String smsConfigApiKey();
 String smsConfigTrakId();
