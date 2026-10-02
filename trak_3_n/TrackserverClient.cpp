@@ -36,20 +36,50 @@ String urlEncode(const String& value) {
   return out;
 }
 
-// Trackserver attend un timestamp au format "YYYY-MM-DD HH:MM:SS".
-// Le GNSS conserve volontairement son format ISO UTC (YYYY-MM-DDTHH:MM:SSZ)
-// car il est aussi utilisé par le buffer de positions.
-String trackserverTimestamp(const String& timestamp) {
-  if (timestamp.length() >= 20 &&
-      timestamp.charAt(10) == 'T' &&
-      timestamp.charAt(19) == 'Z') {
-    String out = timestamp;
-    out.setCharAt(10, ' ');
-    out.remove(19);
-    return out;
+// Trackserver (protocole OsmAnd / GetRequest) attend un timestamp UNIX
+// en millisecondes dans le parametre \"timestamp\".
+// Le GNSS conserve volontairement son format ISO UTC
+// (YYYY-MM-DDTHH:MM:SSZ) car il est aussi utilise par le buffer de positions.
+uint64_t trackserverTimestampMs(const String& timestamp) {
+  if (timestamp.length() < 20 ||
+      timestamp.charAt(4) != '-' || timestamp.charAt(7) != '-' ||
+      timestamp.charAt(10) != 'T' || timestamp.charAt(13) != ':' ||
+      timestamp.charAt(16) != ':') {
+    return 0;
   }
 
-  return timestamp;
+  const int year = timestamp.substring(0, 4).toInt();
+  const int month = timestamp.substring(5, 7).toInt();
+  const int day = timestamp.substring(8, 10).toInt();
+  const int hour = timestamp.substring(11, 13).toInt();
+  const int minute = timestamp.substring(14, 16).toInt();
+  const int second = timestamp.substring(17, 19).toInt();
+
+  if (year < 2020 || year > 2099 || month < 1 || month > 12 ||
+      day < 1 || day > 31 || hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59 || second < 0 || second > 60) {
+    return 0;
+  }
+
+  uint32_t days = 0;
+  for (int y = 1970; y < year; ++y) {
+    days += ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0)) ? 366U : 365U;
+  }
+
+  static const uint16_t before[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+  days += before[month - 1];
+  if (month > 2 && ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))) {
+    ++days;
+  }
+  days += static_cast<uint32_t>(day - 1);
+
+  const uint32_t epochSeconds =
+      days * 86400UL +
+      static_cast<uint32_t>(hour) * 3600UL +
+      static_cast<uint32_t>(minute) * 60UL +
+      static_cast<uint32_t>(second);
+
+  return static_cast<uint64_t>(epochSeconds) * 1000ULL;
 }
 
 String buildUrl(const GnssPosition& position) {
@@ -58,7 +88,7 @@ String buildUrl(const GnssPosition& position) {
 
   url.replace("{0}", String(position.latitude, 6));
   url.replace("{1}", String(position.longitude, 6));
-  url.replace("{2}", urlEncode(trackserverTimestamp(position.timestamp)));
+  url.replace("{2}", String(trackserverTimestampMs(position.timestamp)));
   url.replace("{4}", String(position.altitude, 1));
   url.replace("{5}", String(position.speedKnots, 2));
   url.replace("{6}", String(position.courseDeg, 1));
