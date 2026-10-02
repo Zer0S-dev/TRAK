@@ -340,7 +340,8 @@ bool processConfig4(const String& sender, const String& body) {
   const int part = fields[1].toInt();
   const bool isFinal = fields[4] == "1";
   if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
-      fields[3].length() > MAX_DASHBOARD_URL_LEN || !validTrackserverUrl(fields[3]) ||
+      fields[3].length() > MAX_DASHBOARD_URL_LEN ||
+      fields[3].indexOf('|') >= 0 || fields[3].indexOf('\r') >= 0 || fields[3].indexOf('\n') >= 0 ||
       !dashboardConfigMatches(fields[2], sender)) {
     Serial.println("[SMS] TRAKCFG4 URL Dashboard invalide ou configuration absente.");
     return true;
