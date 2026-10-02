@@ -6,7 +6,7 @@
 
 class PositionBuffer {
 public:
-  PositionBuffer();
+  explicit PositionBuffer(const String& storagePath = "/buffer/positions.dat");
   bool begin();
   bool push(const GnssPosition& position);
   bool peek(GnssPosition& position) const;
