@@ -22,11 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!preg_match('/^[A-Z0-9_-]{1,5}$/', $trakId)) $error = 'ID TRAK invalide.';
         elseif ($trakPhone === '' || strlen($trakPhone) > 32) $error = 'Numéro de téléphone TRAK invalide.';
         elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'TRACKSERVER_URL doit être une URL HTTPS valide de 160 caractères maximum.';
-        elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{50}$/', $apiKey)) $error = 'La clé API doit contenir exactement 50 caractères alphanumériques.';
+        elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) $error = 'La clé API doit contenir exactement 16 caractères alphanumériques.';
         else {
             try {
                 $pdo = db();
-                $apiKey = $apiKey !== '' ? $apiKey : bin2hex(random_bytes(25));
+                $apiKey = $apiKey !== '' ? $apiKey : bin2hex(random_bytes(8));
                 $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url) VALUES (?, ?, ?, ?, ?)');
                 $stmt->execute([$wizardUserId, $trakId, $trakPhone, $apiKey, $trakServerUrl]);
                 unset($_SESSION['wizard_user_id']);
@@ -102,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>ID TRAK<input name="trak_id" maxlength="5" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK01'))?>" required autofocus></label>
             <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? ''))?>" required></label>
             <label>Trakserver URL<input type="url" name="trakserver_url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
-            <label>Clé API<input type="text" name="api_key" maxlength="50" pattern="[A-Za-z0-9]{50}" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
+            <label>Clé API<input type="text" name="api_key" maxlength="16" pattern="[A-Za-z0-9]{16}" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
             <button type="submit">Enregistrer le premier TRAK</button>
         </form>
     <?php else: ?>
