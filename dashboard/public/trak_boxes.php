@@ -107,7 +107,7 @@ page_header('TRAK Box', $user);
 <input type="text" name="api_key" maxlength="50" pattern="[A-Za-z0-9]{50}" value="<?=htmlspecialchars($edit['api_key'] ?? '')?>" placeholder="Laisser vide pour générer une nouvelle clé">
 </label>
 <label>URL Trakserver URL
-<input type="url" name="trakserver_url" maxlength="500" required value="<?=htmlspecialchars($edit['trakserver_url'] ?? '')?>" placeholder="https://exemple.fr/trakserver">
+<input type="url" name="trakserver_url" maxlength="160" required value="<?=htmlspecialchars($edit['trakserver_url'] ?? '')?>" placeholder="https://exemple.fr/trakserver">
 </label>
 <button type="submit"><?= $edit ? 'Enregistrer les modifications' : 'Enregistrer la TRAK Box' ?></button>
 <?php if ($edit): ?><a class="back" href="trak_boxes.php">Annuler</a><?php endif; ?>
