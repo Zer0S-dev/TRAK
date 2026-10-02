@@ -106,7 +106,8 @@ DashboardResult cellularPost(const String& url, const String& body) {
   if (!modemReady || !cellularReady) return DashboardResult::NotReady;
   at("AT+HTTPTERM", 1000);
   if (at("AT+HTTPINIT", 3000).indexOf("OK") < 0) return DashboardResult::Failed;
-  at("AT+HTTPSSL=1", 3000);
+  // A76XX: reference explicite du contexte SSL utilise par HTTP(S).
+  at("AT+HTTPPARA=\"SSLCFG\",0", 3000);
   if (at(String("AT+HTTPPARA=\"URL\",\"") + url + "\"", 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     return DashboardResult::Failed;
@@ -172,8 +173,7 @@ DashboardResult dashboardSendPosition(const GnssPosition& position) {
       return wifiResult;
     }
 
-    wifiForceCellular();
-    Serial.println("[DASHBOARD] Wi-Fi echec -> bascule immediate 4G");
+    Serial.println("[DASHBOARD] Wi-Fi echec -> tentative 4G sans couper le Wi-Fi");
     devLog("DASHBOARD | WiFi failed | fallback 4G");
     return cellularPost(url, body);
   }
