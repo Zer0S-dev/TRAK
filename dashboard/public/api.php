@@ -168,6 +168,19 @@ async function displaySelection() {
         return;
     }
 
+    const smsList = document.getElementById('configSmsList');
+    smsList.innerHTML = '';
+
+    if (!selectedUser.phone) {
+        const error = document.createElement('div');
+        error.className = 'alert error';
+        error.textContent = 'Le compte utilisateur ne possède pas de numéro de téléphone. USER_PHONE est obligatoire pour le SMS 1.';
+        smsList.appendChild(error);
+        selection.hidden = false;
+        selection.setAttribute('aria-hidden', 'false');
+        return;
+    }
+
     const lines = [
         '// USER',
         'user_id : ' + selectedUser.id,
@@ -185,9 +198,6 @@ async function displaySelection() {
 
     const configId = buildConfigId(trak);
     const nonce = randomNonce16();
-    const smsList = document.getElementById('configSmsList');
-    smsList.innerHTML = '';
-
     const sms1 = [
         'TRAKCFG1',
         '1',
