@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $trakServerUrl = trim((string)($_POST['trakserver_url'] ?? ''));
         $apiKey = trim((string)($_POST['api_key'] ?? ''));
 
-        if (!preg_match('/^[A-Z0-9_-]{1,32}$/', $trakId)) $error = 'ID TRAK invalide.';
+        if (!preg_match('/^[A-Z0-9_-]{1,5}$/', $trakId)) $error = 'ID TRAK invalide.';
         elseif ($trakPhone === '' || strlen($trakPhone) > 32) $error = 'Numéro de téléphone TRAK invalide.';
         elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'TRACKSERVER_URL doit être une URL HTTPS valide de 160 caractères maximum.';
         elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{50}$/', $apiKey)) $error = 'La clé API doit contenir exactement 50 caractères alphanumériques.';
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($error): ?><div class="alert error"><?=htmlspecialchars($error)?></div><?php endif; ?>
         <form method="post">
             <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
-            <label>ID TRAK<input name="trak_id" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK-001'))?>" required autofocus></label>
+            <label>ID TRAK<input name="trak_id" maxlength="5" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK01'))?>" required autofocus></label>
             <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? ''))?>" required></label>
             <label>Trakserver URL<input type="url" name="trakserver_url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
             <label>Clé API<input type="text" name="api_key" maxlength="50" pattern="[A-Za-z0-9]{50}" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
