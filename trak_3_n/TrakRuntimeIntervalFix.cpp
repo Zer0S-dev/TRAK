@@ -30,7 +30,7 @@ static volatile NetworkPath activeNetwork = NetworkPath::None;
 
 constexpr uint32_t GNSS_LOG_MS = 5000;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
-constexpr uint32_t BUFFER_RETRY_MS = 200;
+constexpr uint32_t BUFFER_RETRY_MS = 5000;
 constexpr uint32_t CELLULAR_SIGNAL_POLL_MS = 10000;
 static int cachedCellularSignalPercent = -1;
 static uint32_t lastCellularSignalPoll = 0;
