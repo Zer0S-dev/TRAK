@@ -5,6 +5,7 @@ void wifiManagerBegin();
 bool wifiConnectBestSaved();
 bool wifiInternetAvailable();
 void wifiNetworkTick(bool cellularAvailable);
+void wifiForceCellular();
 bool wifiIsActive();
 int wifiSignalPercent();
 uint8_t wifiProfileCount();
