@@ -120,7 +120,7 @@ DashboardResult sendOverCellular(const String& url) {
   }
 
   at("AT+HTTPSSL=1", 3000);
-  const String urlCommand = String("AT+HTTPPARA="URL","") + url + """;
+  const String urlCommand = String("AT+HTTPPARA=\"URL\",\"") + url + "\"";
   if (at(urlCommand, 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     Serial.println("[DASHBOARD] 4G HTTP URL ERROR");
