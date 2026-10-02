@@ -139,7 +139,7 @@ async function displaySelection() {
       renderSms('SMS 3', ['TRAKCFG2','1',configId,url,'1'].join('|'), smsList);
     } else if (url.length <= chunkSize * 2) {
       renderSms('SMS 3', ['TRAKCFG2','1',configId,url.slice(0,chunkSize),'0'].join('|'), smsList);
-      renderSms('SMS 4', ['SMS 4 — trackserver_url (partie 2)', ['TRAKCFG2','2',configId,url.slice(chunkSize),'1'].join('|'), smsList);
+      renderSms('SMS 4', ['TRAKCFG2','2',configId,url.slice(chunkSize),'1'].join('|'), smsList);
     } else {
       const error = document.createElement('div'); error.className = 'alert error'; error.textContent = 'trackserver_url est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).'; smsList.appendChild(error);
     }
