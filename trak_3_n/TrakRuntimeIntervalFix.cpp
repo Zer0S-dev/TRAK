@@ -25,7 +25,9 @@ extern String at(const String& command, uint32_t timeoutMs);
 
 enum class NetworkPath : uint8_t { None, WiFi, Cellular };
 static PositionBuffer positionBuffer;
+static PositionBuffer dashboardPositionBuffer("/buffer/dashboard_positions.dat");
 static bool bufferReady = false;
+static bool dashboardBufferReady = false;
 static volatile NetworkPath activeNetwork = NetworkPath::None;
 
 constexpr uint32_t GNSS_LOG_MS = 5000;
@@ -66,6 +68,7 @@ static void terrainLogSnapshot(const GnssPosition& position, NetworkPath network
   line += " | motion="; line += motionIsMobile() ? "MOBILE" : "IMMOBILE";
   line += " | gyro="; line += String(ms.motionDps, 2);
   line += "dps | fifo="; line += String((unsigned)fifoCount);
+  line += " | fifo_dash="; line += String((unsigned)dashboardPositionBuffer.size());
   line += " | interval="; line += String((unsigned)(sendIntervalMs / 1000UL)); line += "s";
   if (network == NetworkPath::Cellular && cachedCellularSignalPercent >= 0) {
     line += " | csq="; line += String(cachedCellularSignalPercent); line += "%";
@@ -121,7 +124,7 @@ bool trakPositionBufferInit() {
 
 void trakCommunicationTaskFixed(void*) {
   GnssPosition position; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
-  uint32_t lastBufferRetry = 0, lastBufferInitRetry = millis(), previousMotionReturnMs = 0, lastTerrainLog = 0;
+  uint32_t lastBufferRetry = 0, lastBufferInitRetry = millis(), lastDashboardBufferInitRetry = millis() - 30000, previousMotionReturnMs = 0, lastTerrainLog = 0;
   bool bufferFlushActive = false, bufferWasFull = false;
 
   wifiManagerBegin();
@@ -146,6 +149,7 @@ void trakCommunicationTaskFixed(void*) {
     }
 
     if (!bufferReady && now - lastBufferInitRetry >= CELLULAR_RETRY_MS) { lastBufferInitRetry = now; trakPositionBufferInit(); }
+    if (!dashboardBufferReady && !smsConfigDashboardUrl().isEmpty() && now - lastDashboardBufferInitRetry >= CELLULAR_RETRY_MS) { lastDashboardBufferInitRetry = now; trakDashboardPositionBufferInit(); }
     if (!modemReady && now - lastRecovery >= CELLULAR_RETRY_MS) { lastRecovery = now; if (powerOnModem()) { detectApn(); attachCellular(); configureGnss(); } }
     else if (modemReady && !cellularReady && now - lastRecovery >= CELLULAR_RETRY_MS) { lastRecovery = now; attachCellular(); }
 
@@ -196,7 +200,12 @@ void trakCommunicationTaskFixed(void*) {
         centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
-      dashboardSendPosition(position);
+      if (dashboardBufferReady) {
+        const size_t dashboardBefore = dashboardPositionBuffer.size();
+        if (dashboardPositionBuffer.push(position) && dashboardBefore == 0) {
+          devLog("FIFO_DASHBOARD | DATA_PENDING | first position queued");
+        }
+      }
     }
     if (bufferReady && gnssFix && now - lastRecord >= sendIntervalMs) {
       lastRecord = now;
@@ -205,7 +214,24 @@ void trakCommunicationTaskFixed(void*) {
         centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
-      dashboardSendPosition(position);
+      if (dashboardBufferReady) {
+        const size_t dashboardBefore = dashboardPositionBuffer.size();
+        if (dashboardPositionBuffer.push(position) && dashboardBefore == 0) {
+          devLog("FIFO_DASHBOARD | DATA_PENDING | first position queued");
+        }
+      }
+    }
+
+    if (dashboardBufferReady && activeNetwork != NetworkPath::None && !dashboardPositionBuffer.empty() && now - lastBufferRetry >= BUFFER_RETRY_MS) {
+      GnssPosition buffered;
+      if (dashboardPositionBuffer.peek(buffered)) {
+        const DashboardResult result = dashboardSendPosition(buffered);
+        if (result == DashboardResult::Success) {
+          dashboardPositionBuffer.pop();
+          centerBlinkUntil = now + 500;
+          if (dashboardPositionBuffer.empty()) devLog("FIFO_DASHBOARD | FLUSH_COMPLETE");
+        }
+      }
     }
 
     if (bufferReady && activeNetwork != NetworkPath::None && !positionBuffer.empty() && now - lastBufferRetry >= BUFFER_RETRY_MS) {
