@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($phone === '' || strlen($phone) > 32) {
                 throw new RuntimeException('Numéro de téléphone TRAK invalide.');
             }
-            if ($trakserverUrl === '' || !filter_var($trakserverUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $trakserverUrl)) {
+            if ($trakserverUrl === '' || strlen($trakserverUrl) > 160 || !filter_var($trakserverUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $trakserverUrl)) {
                 throw new RuntimeException('URL OsmAnd/Trakserver invalide. Utilisez une URL HTTPS.');
             }
             if ($apiKey === '') $apiKey = bin2hex(random_bytes(25));
