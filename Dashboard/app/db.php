@@ -75,6 +75,17 @@ function db(): PDO {
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
 
+    // Dernière position connue de chaque TRAK.
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_positions (
+        trak_box_id INTEGER PRIMARY KEY,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        gps_timestamp TEXT,
+        received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_positions_received ON trak_positions(received_at)');
+
     // Repair legacy TRAK rows created before user_id existed.
     // If there is exactly one user, orphan TRAK boxes belong to that user.
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
