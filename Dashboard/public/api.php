@@ -78,6 +78,52 @@ function randomNonce16() {
   return Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('');
 }
 function buildConfigId(trak) { return 'CFG-' + trak.trak_id + '-' + Date.now(); }
+async function copyText(value, button, emptyMessage) {
+  const text = String(value || '');
+  if (!text.trim()) {
+    if (button) button.textContent = emptyMessage || 'Vide.';
+    return false;
+  }
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      helper.style.pointerEvents = 'none';
+      document.body.appendChild(helper);
+      helper.focus();
+      helper.select();
+      helper.setSelectionRange(0, helper.value.length);
+      const copied = document.execCommand('copy');
+      helper.remove();
+      if (!copied) throw new Error('copy_failed');
+    }
+
+    if (button) {
+      const original = button.textContent;
+      button.textContent = 'Copié !';
+      button.disabled = true;
+      window.setTimeout(() => {
+        button.textContent = original;
+        button.disabled = false;
+      }, 1200);
+    }
+    return true;
+  } catch (_) {
+    if (button) {
+      const original = button.textContent;
+      button.textContent = 'Sélectionner';
+      window.setTimeout(() => { button.textContent = original; }, 1200);
+    }
+    return false;
+  }
+}
+
 function renderSms(label, value, smsList) {
   const row = document.createElement('div');
   row.className = 'sms-config-item';
