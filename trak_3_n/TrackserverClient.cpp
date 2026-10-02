@@ -36,13 +36,29 @@ String urlEncode(const String& value) {
   return out;
 }
 
+// Trackserver attend un timestamp au format "YYYY-MM-DD HH:MM:SS".
+// Le GNSS conserve volontairement son format ISO UTC (YYYY-MM-DDTHH:MM:SSZ)
+// car il est aussi utilisé par le buffer de positions.
+String trackserverTimestamp(const String& timestamp) {
+  if (timestamp.length() >= 20 &&
+      timestamp.charAt(10) == 'T' &&
+      timestamp.charAt(19) == 'Z') {
+    String out = timestamp;
+    out.setCharAt(10, ' ');
+    out.remove(19);
+    return out;
+  }
+
+  return timestamp;
+}
+
 String buildUrl(const GnssPosition& position) {
   String url = smsConfigTrackserverUrl();
   if (url.isEmpty() || url.length() > MAX_URL_LEN) return "";
 
   url.replace("{0}", String(position.latitude, 6));
   url.replace("{1}", String(position.longitude, 6));
-  url.replace("{2}", urlEncode(position.timestamp));
+  url.replace("{2}", urlEncode(trackserverTimestamp(position.timestamp)));
   url.replace("{4}", String(position.altitude, 1));
   url.replace("{5}", String(position.speedKnots, 2));
   url.replace("{6}", String(position.courseDeg, 1));
