@@ -17,18 +17,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $trakId = strtoupper(trim((string)($_POST['trak_id'] ?? '')));
         $trakPhone = trim((string)($_POST['trak_phone'] ?? ''));
         $trakServerUrl = trim((string)($_POST['trakserver_url'] ?? ''));
+        $dashboardUrl = trim((string)($_POST['dashboard_url'] ?? ''));
         $apiKey = trim((string)($_POST['api_key'] ?? ''));
 
         if (!preg_match('/^[A-Z0-9_-]{1,5}$/', $trakId)) $error = 'ID TRAK invalide.';
         elseif ($trakPhone === '' || strlen($trakPhone) > 32) $error = 'Numéro de téléphone TRAK invalide.';
         elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'trackserver_url doit être une URL HTTPS valide de 160 caractères maximum.';
+        elseif (strlen($dashboardUrl) > 160 || !filter_var($dashboardUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($dashboardUrl), 'https://')) $error = 'L’URL du Dashboard doit être une URL HTTPS valide de 160 caractères maximum.';
         elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) $error = 'La clé API doit contenir exactement 16 caractères alphanumériques.';
         else {
             try {
                 $pdo = db();
                 $apiKey = $apiKey !== '' ? $apiKey : bin2hex(random_bytes(8));
-                $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url) VALUES (?, ?, ?, ?, ?)');
-                $stmt->execute([$wizardUserId, $trakId, $trakPhone, $apiKey, $trakServerUrl]);
+                $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url, dashboard_url) VALUES (?, ?, ?, ?, ?, ?)');
+                $stmt->execute([$wizardUserId, $trakId, $trakPhone, $apiKey, $trakServerUrl, $dashboardUrl]);
                 unset($_SESSION['wizard_user_id']);
                 header('Location: home.php?wizard=complete');
                 exit;
@@ -54,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $role = ($count === 0) ? 'admin' : 'user';
                 $pdo = db();
                 $stmt = $pdo->prepare('INSERT INTO users (username, password_hash, email, phone, role) VALUES (?, ?, ?, ?, ?)');
-                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $email !== '' ? $email : null, $phone !== '' ? $phone : null, $role]);
+                $stmt->execute([$username, password_hash($password, PASSWORD_DEFAULT), $email, $phone, $role]);
                 $id = (int)$pdo->lastInsertId();
 
                 $mailSent = false;
@@ -102,6 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label>ID TRAK<input name="trak_id" maxlength="5" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK01'))?>" required autofocus></label>
             <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? ''))?>" required></label>
             <label>trackserver_url<input type="url" name="trakserver_url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
+            <label>URL Dashboard / réception position
+                <input type="url" name="dashboard_url" id="dashboard-url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['dashboard_url'] ?? ''))?>" placeholder="https://.../position.php" required>
+            </label>
             <label>Clé API<input type="text" name="api_key" maxlength="16" pattern="[A-Za-z0-9]{16}" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
             <button type="submit">Enregistrer le premier TRAK</button>
         </form>
@@ -122,7 +127,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if ($count > 0): ?><a class="back" href="home.php">Retour au dashboard</a><?php endif; ?>
     <?php endif; ?>
 </main>
-<?php if (!$wizardTrakStep): ?>
+<?php if ($wizardTrakStep): ?>
+<script>
+(() => {
+  const input = document.getElementById('dashboard-url');
+  if (!input || input.value.trim()) return;
+  const url = new URL('position.php', window.location.href);
+  input.value = url.href;
+})();
+</script>
+<?php else: ?>
 <script>document.getElementById('show-register-password').addEventListener('change',function(){const type=this.checked?'text':'password';document.getElementById('register-password').type=type;document.getElementById('register-password-confirm').type=type;});</script>
 <?php endif; ?>
 </body>
