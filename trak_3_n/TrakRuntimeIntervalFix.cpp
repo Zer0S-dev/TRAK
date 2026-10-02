@@ -206,12 +206,6 @@ void trakCommunicationTaskFixed(void*) {
         centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
-      if (dashboardBufferReady) {
-        const size_t dashboardBefore = dashboardPositionBuffer.size();
-        if (dashboardPositionBuffer.push(position) && dashboardBefore == 0) {
-          devLog("FIFO_DASHBOARD | DATA_PENDING | first position queued");
-        }
-      }
     }
 
     if (bufferReady && activeNetwork != NetworkPath::None && !positionBuffer.empty() && now - lastBufferRetry >= BUFFER_RETRY_MS) {
