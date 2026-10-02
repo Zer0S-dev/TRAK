@@ -106,7 +106,7 @@ page_header('TRAK Box', $user);
 <label>Clé API
 <input type="text" name="api_key" maxlength="16" pattern="[A-Za-z0-9]{16}" value="<?=htmlspecialchars($edit['api_key'] ?? '')?>" placeholder="Laisser vide pour générer une nouvelle clé">
 </label>
-<label>URL Trakserver URL
+<label>URL trackserver_url
 <input type="url" name="trakserver_url" maxlength="160" required value="<?=htmlspecialchars($edit['trakserver_url'] ?? '')?>" placeholder="https://exemple.fr/trakserver">
 </label>
 <button type="submit"><?= $edit ? 'Enregistrer les modifications' : 'Enregistrer la TRAK Box' ?></button>
@@ -120,7 +120,7 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table">
-<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>Trakserver URL</th><th>Actions</th></tr></thead>
+<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>trackserver_url</th><th>Actions</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
