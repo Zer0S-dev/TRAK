@@ -6,6 +6,7 @@
 #include "MotionManager.h"
 #include "WiFiManager.h"
 #include "SmsConfigManager.h"
+#include "TrackserverClient.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -126,6 +127,7 @@ void trakCommunicationTaskFixed(void*) {
   if (wifiConnectBestSaved()) activeNetwork = NetworkPath::WiFi;
   else if (cellularReady) activeNetwork = NetworkPath::Cellular;
   else activeNetwork = NetworkPath::None;
+  trackserverBegin();
   devLog(String("START | network=") + terrainNetworkName(activeNetwork) +
          " | fifo=" + String((unsigned)positionBuffer.size()));
 
@@ -206,8 +208,18 @@ void trakCommunicationTaskFixed(void*) {
       lastBufferRetry = now; const size_t backlog = positionBuffer.size(); const uint8_t budget = backlog > 10 ? 3 : 1;
       if (backlog > 1 && !bufferFlushActive) { bufferFlushActive = true; devLog(String("Buffer flush started: ") + String((unsigned)backlog)); }
       for (uint8_t n = 0; n < budget && !positionBuffer.empty(); ++n) {
-        GnssPosition buffered; if (!positionBuffer.peek(buffered)) break;
-        // No server/API transport on this branch yet. Keep the FIFO on SD.
+        GnssPosition buffered;
+        if (!positionBuffer.peek(buffered)) break;
+
+        const TrackserverResult result = trackserverSend(buffered);
+        if (result == TrackserverResult::Success) {
+          positionBuffer.pop();
+          centerBlinkUntil = now + 500;
+          continue;
+        }
+
+        // NotReady: network/configuration is not usable right now.
+        // Failed: keep the record on SD and retry on the next pass.
         break;
       }
       if (positionBuffer.empty() && bufferFlushActive) { bufferFlushActive = false; devLog("Buffer flush complete"); }
