@@ -119,19 +119,43 @@ function fillTraks() {
     resetSelection();
 }
 
-async function hmacSha256(secret, message) {
-    const encoder = new TextEncoder();
-    const key = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(secret),
-        { name: 'HMAC', hash: 'SHA-256' },
-        false,
-        ['sign']
-    );
-    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-    return Array.from(new Uint8Array(signature))
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
+function randomNonce16() {
+    const bytes = crypto.getRandomValues(new Uint8Array(8));
+    return Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function buildConfigId(trak) {
+    return 'CFG-' + trak.trak_id + '-' + Date.now();
+}
+
+function renderSms(label, value, smsList) {
+    const row = document.createElement('div');
+    row.className = 'sms-config-item';
+
+    const title = document.createElement('div');
+    title.className = 'sms-config-label';
+    title.textContent = label;
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'sms-config';
+    textarea.rows = 4;
+    textarea.readOnly = true;
+    textarea.value = value;
+
+    const actions = document.createElement('div');
+    actions.className = 'sms-actions';
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'copy-button';
+    button.textContent = 'Copier ' + label;
+    button.addEventListener('click', () => copyText(textarea.value, button, 'SMS vide.'));
+
+    actions.appendChild(button);
+    row.appendChild(title);
+    row.appendChild(textarea);
+    row.appendChild(actions);
+    smsList.appendChild(row);
 }
 
 async function displaySelection() {
@@ -155,63 +179,92 @@ async function displaySelection() {
         'trak_id : ' + trak.trak_id,
         'trak_phone : ' + (trak.phone || ''),
         'api_key : ' + trak.api_key,
-        'trakserver_url : ' + trak.trakserver_url
+        'TRACKSERVER_URL : ' + trak.trakserver_url
     ];
     document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
-    const configId = 'CFG-' + trak.trak_id + '-' + Date.now();
-    const nonce = crypto.getRandomValues(new Uint32Array(2))
-        .reduce((value, part) => value + part.toString(16).padStart(8, '0'), '');
-
-    const signatureInput = [
-        'TRAKCFG',
-        '1',
-        trak.trak_id,
-        trak.phone || '',
-        selectedUser.phone || '',
-        trak.trakserver_url,
-        trak.api_key,
-        configId,
-        nonce
-    ].join('|');
-
-    const signedMessage = signatureInput + '|' + await hmacSha256(trak.api_key, signatureInput);
-    const chunkSize = 110;
-    const total = Math.ceil(signedMessage.length / chunkSize);
+    const configId = buildConfigId(trak);
+    const nonce = randomNonce16();
     const smsList = document.getElementById('configSmsList');
     smsList.innerHTML = '';
 
-    for (let i = 0; i < total; i++) {
-        const chunk = signedMessage.slice(i * chunkSize, (i + 1) * chunkSize);
-        const sms = ['TRAKCFGP', '1', configId, String(i + 1), String(total), chunk].join('|');
+    // SMS 1 — identité
+    const sms1 = [
+        'TRAKCFG1',
+        '1',
+        configId,
+        trak.trak_id,
+        trak.phone || '',
+        selectedUser.phone || ''
+    ].join('|');
 
-        const row = document.createElement('div');
-        row.className = 'sms-config-item';
+    // SMS 2 — clé API + nonce
+    if (!/^[A-Za-z0-9]{50}$/.test(String(trak.api_key || ''))) {
+        const error = document.createElement('div');
+        error.className = 'alert error';
+        error.textContent = 'Ce TRAK possède une clé API qui ne fait pas exactement 50 caractères. Régénérez-la dans TRAK Box avant de configurer le TRAK.';
+        smsList.appendChild(error);
+    } else {
+        const sms2 = [
+            'TRAKCFG3',
+            '1',
+            configId,
+            trak.api_key,
+            nonce
+        ].join('|');
 
-        const label = document.createElement('div');
-        label.className = 'sms-config-label';
-        label.textContent = 'SMS ' + (i + 1) + '/' + total;
+        // SMS 3 / 4 — TRACKSERVER_URL. Une URL de plus de 80 caractères
+        // est découpée en deux SMS TRAKCFG2.
+        const url = String(trak.trakserver_url || '');
+        const chunkSize = 80;
 
-        const textarea = document.createElement('textarea');
-        textarea.className = 'sms-config';
-        textarea.rows = 4;
-        textarea.readOnly = true;
-        textarea.value = sms;
+        if (url.length === 0) {
+            const error = document.createElement('div');
+            error.className = 'alert error';
+            error.textContent = 'TRACKSERVER_URL est vide.';
+            smsList.appendChild(error);
+        } else if (url.length <= chunkSize) {
+            const sms3 = ['TRAKCFG2', '1', configId, url].join('|');
+            renderSms('SMS 3', sms3, smsList);
+        } else if (url.length <= chunkSize * 2) {
+            const sms3 = ['TRAKCFG2', '1', configId, url.slice(0, chunkSize)].join('|');
+            const sms4 = ['TRAKCFG2', '2', configId, url.slice(chunkSize)].join('|');
+            renderSms('SMS 3', sms3, smsList);
+            renderSms('SMS 4', sms4, smsList);
+        } else {
+            const error = document.createElement('div');
+            error.className = 'alert error';
+            error.textContent = 'TRACKSERVER_URL est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).';
+            smsList.appendChild(error);
+        }
 
-        const actions = document.createElement('div');
-        actions.className = 'sms-actions';
+        renderSms('SMS 1', sms1, smsList);
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'copy-button';
-        button.textContent = 'Copier SMS ' + (i + 1);
-        button.addEventListener('click', () => copyText(textarea.value, button, 'SMS vide.'));
+        // SMS 2 est affiché après SMS 1, même si l'URL est en erreur.
+        const sms2Row = document.createElement('div');
+        sms2Row.className = 'sms-config-item';
+        const sms2Title = document.createElement('div');
+        sms2Title.className = 'sms-config-label';
+        sms2Title.textContent = 'SMS 2';
+        const sms2Area = document.createElement('textarea');
+        sms2Area.className = 'sms-config';
+        sms2Area.rows = 4;
+        sms2Area.readOnly = true;
+        sms2Area.value = sms2;
+        const sms2Actions = document.createElement('div');
+        sms2Actions.className = 'sms-actions';
+        const sms2Button = document.createElement('button');
+        sms2Button.type = 'button';
+        sms2Button.className = 'copy-button';
+        sms2Button.textContent = 'Copier SMS 2';
+        sms2Button.addEventListener('click', () => copyText(sms2Area.value, sms2Button, 'SMS vide.'));
+        sms2Actions.appendChild(sms2Button);
+        sms2Row.appendChild(sms2Title);
+        sms2Row.appendChild(sms2Area);
+        sms2Row.appendChild(sms2Actions);
 
-        actions.appendChild(button);
-        row.appendChild(label);
-        row.appendChild(textarea);
-        row.appendChild(actions);
-        smsList.appendChild(row);
+        const first = smsList.firstChild;
+        smsList.insertBefore(sms2Row, first);
     }
 
     emptyHint.textContent = '';
