@@ -17,6 +17,7 @@ constexpr size_t API_KEY_LEN = 16;
 constexpr size_t MAX_TRAK_ID_LEN = 5;
 constexpr size_t NONCE_LEN = 16;
 constexpr size_t MAX_trackserver_url_LEN = 160;
+constexpr size_t MAX_DASHBOARD_URL_LEN = 160;
 uint32_t lastPoll = 0;
 bool ready = false;
 
@@ -166,6 +167,8 @@ void clearPending() {
   prefs.remove("p_nonce");
   prefs.remove("p_url1");
   prefs.remove("p_url2");
+  prefs.remove("p_dash1");
+  prefs.remove("p_dash2");
 }
 
 bool pendingMatches(const String& configId, const String& sender) {
@@ -209,6 +212,10 @@ bool tryCommitPending() {
   prefs.putString("trak_phone", trakPhone);
   prefs.putString("user_phone", userPhone);
   prefs.putString("trackserver_url", trackserverUrl);
+  const String dashboardUrl = prefs.getString("p_dash1", "") + prefs.getString("p_dash2", "");
+  if (!dashboardUrl.isEmpty() && validTrackserverUrl(dashboardUrl) && dashboardUrl.length() <= MAX_DASHBOARD_URL_LEN) {
+    prefs.putString("dashboard_url", dashboardUrl);
+  }
   prefs.putString("api_key", apiKey);
   prefs.putString("config_id", configId);
   prefs.putString("nonce", nonce);
@@ -316,12 +323,65 @@ bool processConfig2(const String& sender, const String& body) {
   return true;
 }
 
+
+bool dashboardConfigMatches(const String& configId, const String& sender) {
+  if (pendingMatches(configId, sender)) return true;
+  return prefs.getString("config_id", "") == configId &&
+         phonesMatch(prefs.getString("user_phone", ""), sender);
+}
+
+bool processConfig4(const String& sender, const String& body) {
+  String fields[5];
+  size_t count = 0;
+  if (!splitPipe(body, fields, 5, count) || count != 5 ||
+      fields[0] != "TRAKCFG4" || (fields[1] != "1" && fields[1] != "2") ||
+      (fields[4] != "0" && fields[4] != "1")) return false;
+
+  const int part = fields[1].toInt();
+  const bool isFinal = fields[4] == "1";
+  if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
+      fields[3].length() > MAX_DASHBOARD_URL_LEN || !validTrackserverUrl(fields[3]) ||
+      !dashboardConfigMatches(fields[2], sender)) {
+    Serial.println("[SMS] TRAKCFG4 URL Dashboard invalide ou configuration absente.");
+    return true;
+  }
+
+  if (part == 1) prefs.putString("p_dash1", fields[3]);
+  else prefs.putString("p_dash2", fields[3]);
+
+  const String dashboardUrl = prefs.getString("p_dash1", "") + prefs.getString("p_dash2", "");
+  if (dashboardUrl.length() > MAX_DASHBOARD_URL_LEN || !validTrackserverUrl(dashboardUrl)) {
+    Serial.println("[SMS] URL Dashboard trop longue ou invalide.");
+    prefs.remove("p_dash1");
+    prefs.remove("p_dash2");
+    return true;
+  }
+
+  Serial.printf("[SMS] TRAKCFG4 partie %d recu | FIN=%d | CONFIG_ID=%s\n",
+                part, isFinal ? 1 : 0, fields[2].c_str());
+  devLog(String("SMS | CFG4 part=") + String(part) + " | fin=" + String(isFinal ? 1 : 0) + " | config_id=" + fields[2]);
+
+  if (isFinal) {
+    if (part == 2 && prefs.getString("p_dash1", "").isEmpty()) {
+      Serial.println("[SMS] TRAKCFG4 finale refusee: partie 1 absente.");
+      return true;
+    }
+    prefs.putString("dashboard_url", dashboardUrl);
+    prefs.remove("p_dash1");
+    prefs.remove("p_dash2");
+    Serial.printf("[SMS] URL Dashboard acceptee : %s\n", dashboardUrl.c_str());
+    devLog(String("SMS | dashboard_url updated | config_id=") + fields[2]);
+  }
+  return true;
+}
+
 bool processSms(int index, const String& sender, const String& body) {
   String cleanBody = body;
   cleanBody.trim();
   if (cleanBody.startsWith("TRAKCFG1|")) processConfig1(sender, cleanBody);
   else if (cleanBody.startsWith("TRAKCFG2|")) processConfig2(sender, cleanBody);
   else if (cleanBody.startsWith("TRAKCFG3|")) processConfig3(sender, cleanBody);
+  else if (cleanBody.startsWith("TRAKCFG4|")) processConfig4(sender, cleanBody);
   else return false;
 
   deleteSms(index);
@@ -382,3 +442,4 @@ String smsConfigUserPhone() { return prefs.getString("user_phone", ""); }
 String smsConfigTrackserverUrl() { return prefs.getString("trackserver_url", ""); }
 String smsConfigApiKey() { return prefs.getString("api_key", ""); }
 String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
+String smsConfigDashboardUrl() { return prefs.getString("dashboard_url", ""); }
