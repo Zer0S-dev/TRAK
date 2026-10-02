@@ -268,7 +268,7 @@ bool processConfig3(const String& sender, const String& body) {
 
   prefs.putString("p_api_key", fields[3]);
   prefs.putString("p_nonce", fields[4]);
-  Serial.printf("[SMS] TRAKCFG3 recu | CONFIG_ID=%s | API_KEY=50 | NONCE=16\n", fields[2].c_str());
+  Serial.printf("[SMS] TRAKCFG3 recu | CONFIG_ID=%s | API_KEY=%u | NONCE=%u\n", fields[2].c_str(), (unsigned)fields[3].length(), (unsigned)fields[4].length());
   devLog(String("SMS | CFG3 | config_id=") + fields[2]);
   tryCommitPending();
   return true;
@@ -283,14 +283,24 @@ bool processConfig2(const String& sender, const String& body) {
   }
 
   const int part = fields[1].toInt();
-  if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
+  if (!validConfigId(fields[2]) || (part == 1 && fields[3].isEmpty()) ||
       !pendingMatches(fields[2], sender)) {
     Serial.println("[SMS] TRAKCFG2 invalide ou configuration correspondante absente.");
     return true;
   }
 
-  if (part == 1) prefs.putString("p_url1", fields[3]);
-  else prefs.putString("p_url2", fields[3]);
+  if (part == 1) {
+    prefs.putString("p_url1", fields[3]);
+    // A full 80-character first part may be followed by SMS 4.
+    // Do not commit yet because the URL can be split across two SMS.
+    if (fields[3].length() == 80) {
+      Serial.printf("[SMS] TRAKCFG2 partie 1 complete (80 chars) | attente partie 2 | CONFIG_ID=%s\n", fields[2].c_str());
+      devLog(String("SMS | CFG2 part=1/2 | config_id=") + fields[2]);
+      return true;
+    }
+  } else {
+    prefs.putString("p_url2", fields[3]);
+  }
 
   const size_t combinedLength = prefs.getString("p_url1", "").length() +
                                 prefs.getString("p_url2", "").length();
