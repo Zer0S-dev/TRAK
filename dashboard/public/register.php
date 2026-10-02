@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!preg_match('/^[A-Z0-9_-]{1,32}$/', $trakId)) $error = 'ID TRAK invalide.';
         elseif ($trakPhone === '' || strlen($trakPhone) > 32) $error = 'Numéro de téléphone TRAK invalide.';
-        elseif (!filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'L’URL Trakserver doit être une URL HTTPS valide.';
+        elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'TRACKSERVER_URL doit être une URL HTTPS valide de 160 caractères maximum.';
         elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{50}$/', $apiKey)) $error = 'La clé API doit contenir exactement 50 caractères alphanumériques.';
         else {
             try {
