@@ -13,8 +13,8 @@ extern String at(const String& command, uint32_t timeoutMs);
 extern void devLog(const String& message);
 
 namespace {
-constexpr uint32_t WIFI_HTTP_TIMEOUT_MS = 10000;
-constexpr uint32_t CELLULAR_HTTP_TIMEOUT_MS = 30000;
+constexpr uint32_t WIFI_HTTP_TIMEOUT_MS = 2500;
+constexpr uint32_t CELLULAR_HTTP_TIMEOUT_MS = 8000;
 constexpr size_t MAX_URL_LEN = 160;
 
 String urlEncode(const String& value) {
