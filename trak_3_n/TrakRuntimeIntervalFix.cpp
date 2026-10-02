@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <HardwareSerial.h>
 #include "Config.h"
 #include "TrakRuntime.h"
