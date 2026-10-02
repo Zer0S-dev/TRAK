@@ -192,7 +192,7 @@ async function displaySelection() {
         'trak_id : ' + trak.trak_id,
         'trak_phone : ' + (trak.phone || ''),
         'api_key : ' + trak.api_key,
-        'TRACKSERVER_URL : ' + trak.trakserver_url
+        'trackserver_url : ' + trak.trakserver_url
     ];
     document.getElementById('apiDataCode').textContent = lines.join(String.fromCharCode(10));
 
@@ -231,7 +231,7 @@ async function displaySelection() {
         if (url.length === 0) {
             const error = document.createElement('div');
             error.className = 'alert error';
-            error.textContent = 'TRACKSERVER_URL est vide.';
+            error.textContent = 'trackserver_url est vide.';
             smsList.appendChild(error);
         } else if (url.length <= chunkSize) {
             renderSms('SMS 3', ['TRAKCFG2', '1', configId, url, '1'].join('|'), smsList);
@@ -241,7 +241,7 @@ async function displaySelection() {
         } else {
             const error = document.createElement('div');
             error.className = 'alert error';
-            error.textContent = 'TRACKSERVER_URL est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).';
+            error.textContent = 'trackserver_url est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).';
             smsList.appendChild(error);
         }
     }
