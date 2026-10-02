@@ -207,10 +207,10 @@ async function displaySelection() {
         selectedUser.phone || ''
     ].join('|');
 
-    if (!/^[A-Za-z0-9]{50}$/.test(String(trak.api_key || ''))) {
+    if (!/^[A-Za-z0-9]{16}$/.test(String(trak.api_key || ''))) {
         const error = document.createElement('div');
         error.className = 'alert error';
-        error.textContent = 'Ce TRAK possède une clé API qui ne fait pas exactement 50 caractères. Régénérez-la dans TRAK Box avant de configurer le TRAK.';
+        error.textContent = 'Ce TRAK possède une clé API qui ne fait pas exactement 16 caractères. Régénérez-la dans TRAK Box avant de configurer le TRAK.';
         smsList.appendChild(error);
     } else {
         const sms2 = [
