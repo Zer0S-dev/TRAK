@@ -36,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($trakserverUrl === '' || strlen($trakserverUrl) > 160 || !filter_var($trakserverUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $trakserverUrl)) {
                 throw new RuntimeException('URL OsmAnd/Trakserver invalide. Utilisez une URL HTTPS.');
             }
-            if ($apiKey === '') $apiKey = bin2hex(random_bytes(25));
-            if (!preg_match('/^[A-Za-z0-9]{50}$/', $apiKey)) throw new RuntimeException('La clé API doit contenir exactement 50 caractères alphanumériques.');
+            if ($apiKey === '') $apiKey = bin2hex(random_bytes(8));
+            if (!preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) throw new RuntimeException('La clé API doit contenir exactement 16 caractères alphanumériques.');
 
             if ($id > 0) {
                 $stmt = $pdo->prepare('UPDATE trak_boxes SET user_id = ?, trak_id = ?, phone = ?, api_key = ?, trakserver_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
@@ -104,7 +104,7 @@ page_header('TRAK Box', $user);
 <input type="tel" name="phone" maxlength="32" required value="<?=htmlspecialchars($edit['phone'] ?? '')?>" placeholder="+33612345678">
 </label>
 <label>Clé API
-<input type="text" name="api_key" maxlength="50" pattern="[A-Za-z0-9]{50}" value="<?=htmlspecialchars($edit['api_key'] ?? '')?>" placeholder="Laisser vide pour générer une nouvelle clé">
+<input type="text" name="api_key" maxlength="16" pattern="[A-Za-z0-9]{16}" value="<?=htmlspecialchars($edit['api_key'] ?? '')?>" placeholder="Laisser vide pour générer une nouvelle clé">
 </label>
 <label>URL Trakserver URL
 <input type="url" name="trakserver_url" maxlength="160" required value="<?=htmlspecialchars($edit['trakserver_url'] ?? '')?>" placeholder="https://exemple.fr/trakserver">
