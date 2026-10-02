@@ -20,8 +20,9 @@
 
   let autoCenter = false;
   let mapOnly = false;
-  let trakMarker = null;
   let trakPosition = null;
+  const trakMarkers = new Map();
+  let pollTimer = null;
 
   function updateCenterButton() {
     centerButton.classList.toggle('active', autoCenter);
@@ -36,31 +37,78 @@
     setTimeout(() => map.invalidateSize(), 50);
   }
 
-  function showPosition(latitude, longitude, label) {
+  function updateMarker(trakId, latitude, longitude, receivedAt) {
     const lat = Number(latitude);
     const lon = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
 
-    trakPosition = [lat, lon];
+    const position = [lat, lon];
+    trakPosition = position;
     emptyState.hidden = true;
 
-    if (!trakMarker) {
-      trakMarker = L.marker(trakPosition).addTo(map);
+    let marker = trakMarkers.get(trakId);
+    if (!marker) {
+      marker = L.marker(position).addTo(map);
+      trakMarkers.set(trakId, marker);
     } else {
-      trakMarker.setLatLng(trakPosition);
+      marker.setLatLng(position);
     }
 
-    if (label) {
-      trakMarker.bindTooltip(String(label), {
-        permanent: false,
-        direction: 'top',
-        offset: [0, -8]
-      });
-    }
+    const receivedText = receivedAt ? 'Dernière réception : ' + receivedAt + ' UTC' : '';
+    marker.bindTooltip(String(trakId) + (receivedText ? '<br>' + receivedText : ''), {
+      permanent: false,
+      direction: 'top',
+      offset: [0, -8]
+    });
 
     if (autoCenter) {
-      map.setView(trakPosition, Math.max(map.getZoom(), 15), { animate: true });
+      map.setView(position, Math.max(map.getZoom(), 15), { animate: true });
     }
+  }
+
+  function removeMissingMarkers(currentIds) {
+    for (const [trakId, marker] of trakMarkers.entries()) {
+      if (!currentIds.has(trakId)) {
+        map.removeLayer(marker);
+        trakMarkers.delete(trakId);
+      }
+    }
+  }
+
+  async function refreshPositions() {
+    try {
+      const response = await fetch('map_positions.php', {
+        method: 'GET',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (!data.ok || !Array.isArray(data.positions)) return;
+
+      const ids = new Set();
+
+      for (const item of data.positions) {
+        const trakId = String(item.trak_id || '').trim();
+        if (!trakId) continue;
+        ids.add(trakId);
+        updateMarker(trakId, item.latitude, item.longitude, item.received_at);
+      }
+
+      removeMissingMarkers(ids);
+      emptyState.hidden = trakMarkers.size > 0;
+    } catch (_) {
+      // Une erreur réseau ne doit pas perturber la carte.
+      // Le prochain polling reprendra automatiquement.
+    }
+  }
+
+  function startPositionPolling() {
+    refreshPositions();
+    pollTimer = window.setInterval(refreshPositions, 2000);
   }
 
   centerButton.addEventListener('click', () => {
@@ -84,9 +132,16 @@
     }
   });
 
-  // Point d'integration pour l'API de position qui sera ajoutee ensuite.
-  window.trakMapSetPosition = showPosition;
+  // Compatibilité avec une éventuelle injection directe d'une position.
+  window.trakMapSetPosition = (latitude, longitude, label) => {
+    updateMarker(String(label || 'TRAK'), latitude, longitude, null);
+  };
 
   updateCenterButton();
   updateMapOnlyButton();
+  startPositionPolling();
+
+  window.addEventListener('beforeunload', () => {
+    if (pollTimer !== null) window.clearInterval(pollTimer);
+  });
 })();
