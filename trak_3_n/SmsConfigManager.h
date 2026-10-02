@@ -8,3 +8,4 @@ String smsConfigUserPhone();
 String smsConfigTrackserverUrl();
 String smsConfigApiKey();
 String smsConfigTrakId();
+String smsConfigDashboardUrl();
