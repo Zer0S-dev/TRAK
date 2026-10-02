@@ -1,0 +1,1 @@
+<?php require_once __DIR__.'/partials.php'; $user=require_login(); page_header('Settings',$user); ?><div class="card placeholder"><h2>Settings</h2><p>Structure prête — configuration à venir.</p></div><?php page_footer(); ?>
