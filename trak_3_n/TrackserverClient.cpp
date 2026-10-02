@@ -43,9 +43,11 @@ String buildUrl(const GnssPosition& position) {
   url.replace("{0}", String(position.latitude, 6));
   url.replace("{1}", String(position.longitude, 6));
   url.replace("{2}", urlEncode(position.timestamp));
+  url.replace("{3}", urlEncode(smsConfigApiKey()));
   url.replace("{4}", String(position.altitude, 1));
   url.replace("{5}", String(position.speedKnots, 2));
   url.replace("{6}", String(position.courseDeg, 1));
+  url.replace("{7}", urlEncode(smsConfigTrakId()));
   return url;
 }
 
