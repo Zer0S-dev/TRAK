@@ -7,6 +7,7 @@
 #include "WiFiManager.h"
 #include "SmsConfigManager.h"
 #include "TrackserverClient.h"
+#include "DashboardClient.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -128,6 +129,7 @@ void trakCommunicationTaskFixed(void*) {
   else if (cellularReady) activeNetwork = NetworkPath::Cellular;
   else activeNetwork = NetworkPath::None;
   trackserverBegin();
+  dashboardBegin();
   devLog(String("START | network=") + terrainNetworkName(activeNetwork) +
          " | fifo=" + String((unsigned)positionBuffer.size()));
 
@@ -194,6 +196,7 @@ void trakCommunicationTaskFixed(void*) {
         centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
+      dashboardSendPosition(position);
     }
     if (bufferReady && gnssFix && now - lastRecord >= sendIntervalMs) {
       lastRecord = now;
@@ -202,6 +205,7 @@ void trakCommunicationTaskFixed(void*) {
         centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
+      dashboardSendPosition(position);
     }
 
     if (bufferReady && activeNetwork != NetworkPath::None && !positionBuffer.empty() && now - lastBufferRetry >= BUFFER_RETRY_MS) {
