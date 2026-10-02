@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include "SmsConfigManager.h"
+#include "WiFiManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -13,7 +14,7 @@ extern String at(const String& command, uint32_t timeoutMs);
 extern void devLog(const String& message);
 
 namespace {
-constexpr uint32_t WIFI_HTTP_TIMEOUT_MS = 5000;
+constexpr uint32_t WIFI_HTTP_TIMEOUT_MS = 2000;
 constexpr uint32_t CELLULAR_HTTP_TIMEOUT_MS = 30000;
 constexpr size_t MAX_URL_LEN = 160;
 
@@ -184,6 +185,7 @@ TrackserverResult trackserverSend(const GnssPosition& position) {
       return wifiResult;
     }
 
+    wifiForceCellular();
     Serial.println("[TRACKSERVER] Wi-Fi echec -> bascule immediate 4G");
     devLog("TRACKSERVER | WiFi failed | fallback 4G");
     return sendOverCellular(url);
