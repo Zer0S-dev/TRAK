@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $phone = trim((string)($_POST['phone'] ?? ''));
             $apiKey = trim((string)($_POST['api_key'] ?? ''));
             $trakserverUrl = trim((string)($_POST['trakserver_url'] ?? ''));
+            $dashboardUrl = trim((string)($_POST['dashboard_url'] ?? ''));
 
             if ($userId <= 0) throw new RuntimeException('Veuillez sélectionner un User ID.');
             $checkUser = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ?');
@@ -36,17 +37,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($trakserverUrl === '' || strlen($trakserverUrl) > 160 || !filter_var($trakserverUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $trakserverUrl)) {
                 throw new RuntimeException('URL OsmAnd/Trakserver invalide. Utilisez une URL HTTPS.');
             }
+            if ($dashboardUrl === '' || strlen($dashboardUrl) > 160 || !filter_var($dashboardUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $dashboardUrl)) {
+                throw new RuntimeException('URL Dashboard invalide. Utilisez une URL HTTPS.');
+            }
             if ($apiKey === '') $apiKey = bin2hex(random_bytes(8));
             if (!preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) throw new RuntimeException('La clé API doit contenir exactement 16 caractères alphanumériques.');
 
             if ($id > 0) {
-                $stmt = $pdo->prepare('UPDATE trak_boxes SET user_id = ?, trak_id = ?, phone = ?, api_key = ?, trakserver_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
-                $stmt->execute([$userId, $trakId, $phone, $apiKey, $trakserverUrl, $id]);
+                $stmt = $pdo->prepare('UPDATE trak_boxes SET user_id = ?, trak_id = ?, phone = ?, api_key = ?, trakserver_url = ?, dashboard_url = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+                $stmt->execute([$userId, $trakId, $phone, $apiKey, $trakserverUrl, $dashboardUrl, $id]);
                 $message = 'TRAK Box modifiée avec succès.';
                 $editId = $id;
             } else {
-                $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url) VALUES (?, ?, ?, ?, ?)');
-                $stmt->execute([$userId, $trakId, $phone, $apiKey, $trakserverUrl]);
+                $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url, dashboard_url) VALUES (?, ?, ?, ?, ?, ?)');
+                $stmt->execute([$userId, $trakId, $phone, $apiKey, $trakserverUrl, $dashboardUrl]);
                 $message = 'TRAK Box enregistrée avec succès.';
                 $editId = (int)$pdo->lastInsertId();
             }
@@ -110,6 +114,10 @@ page_header('TRAK Box', $user);
 <input type="url" name="trakserver_url" maxlength="160" required value="<?=htmlspecialchars($edit['trakserver_url'] ?? '')?>" placeholder="https://exemple.fr/position.php?trak_id={7}&amp;api_key={3}&amp;lat={0}&amp;lon={1}&amp;timestamp={2}">
 <small class="muted">Pour l'API de position : {0}=latitude, {1}=longitude, {2}=timestamp, {3}=clé API, {7}=TRAK ID. L'URL doit rester en HTTPS et faire au maximum 160 caractères.</small>
 </label>
+<label>URL Dashboard / réception position
+<input type="url" name="dashboard_url" maxlength="160" required value="<?=htmlspecialchars($edit['dashboard_url'] ?? '')?>" placeholder="https://exemple.fr/position.php">
+<small class="muted">Endpoint HTTPS utilisé uniquement pour la position Dashboard. Le trackserver_url reste indépendant.</small>
+</label>
 <button type="submit"><?= $edit ? 'Enregistrer les modifications' : 'Enregistrer la TRAK Box' ?></button>
 <?php if ($edit): ?><a class="back" href="trak_boxes.php">Annuler</a><?php endif; ?>
 </form>
@@ -121,7 +129,7 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table">
-<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>trackserver_url</th><th>Actions</th></tr></thead>
+<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>trackserver_url</th><th>Dashboard</th><th>Actions</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
@@ -130,6 +138,7 @@ page_header('TRAK Box', $user);
 <td><?=htmlspecialchars($box['phone'])?></td>
 <td><code><?=htmlspecialchars($box['api_key'])?></code></td>
 <td><a href="<?=htmlspecialchars($box['trakserver_url'])?>" target="_blank" rel="noopener"><?=htmlspecialchars($box['trakserver_url'])?></a></td>
+<td><a href="<?=htmlspecialchars($box['dashboard_url'])?>" target="_blank" rel="noopener"><?=htmlspecialchars($box['dashboard_url'])?></a></td>
 <td class="actions">
 <a href="trak_boxes.php?edit=<?=(int)$box['id']?>">Modifier</a>
 <form method="post" onsubmit="return confirm('Supprimer cette TRAK Box ?');">
