@@ -373,6 +373,12 @@ bool processConfig4(const String& sender, const String& body) {
       Serial.println("[SMS] TRAKCFG4 finale refusee: partie 1 absente.");
       return true;
     }
+    if (!validTrackserverUrl(dashboardUrl)) {
+      Serial.println("[SMS] URL Dashboard finale invalide.");
+      prefs.remove("p_dash1");
+      prefs.remove("p_dash2");
+      return true;
+    }
     prefs.putString("dashboard_url", dashboardUrl);
     prefs.remove("p_dash1");
     prefs.remove("p_dash2");
