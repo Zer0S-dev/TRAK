@@ -57,6 +57,7 @@ function db(): PDO {
         phone TEXT NOT NULL,
         api_key TEXT NOT NULL,
         trakserver_url TEXT NOT NULL,
+        dashboard_url TEXT NOT NULL DEFAULT \'\',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -72,10 +73,12 @@ function db(): PDO {
     if (!in_array('trakserver_url', $trakColumns, true)) {
         $pdo->exec("ALTER TABLE trak_boxes ADD COLUMN trakserver_url TEXT NOT NULL DEFAULT ''");
     }
+    if (!in_array('dashboard_url', $trakColumns, true)) {
+        $pdo->exec("ALTER TABLE trak_boxes ADD COLUMN dashboard_url TEXT NOT NULL DEFAULT ''");
+    }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
 
-    // Dernière position connue de chaque TRAK.
     $pdo->exec('CREATE TABLE IF NOT EXISTS trak_positions (
         trak_box_id INTEGER PRIMARY KEY,
         latitude REAL NOT NULL,
@@ -86,8 +89,6 @@ function db(): PDO {
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_positions_received ON trak_positions(received_at)');
 
-    // Repair legacy TRAK rows created before user_id existed.
-    // If there is exactly one user, orphan TRAK boxes belong to that user.
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
     if ($userCount === 1) {
         $onlyUserId = (int)$pdo->query('SELECT id FROM users LIMIT 1')->fetchColumn();
