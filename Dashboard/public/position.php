@@ -19,17 +19,12 @@ if (!in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'POST'], true)) {
 
 $trakId = trim((string)($_GET['trak_id'] ?? $_POST['trak_id'] ?? ''));
 $apiKey = trim((string)($_GET['api_key'] ?? $_POST['api_key'] ?? ''));
-
-if ($trakId === '') {
-    $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
-}
-if ($apiKey === '') {
-    $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
-}
-
 $latRaw = $_GET['lat'] ?? $_POST['lat'] ?? null;
 $lonRaw = $_GET['lon'] ?? $_POST['lon'] ?? null;
 $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
+
+if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
+if ($apiKey === '') $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_SERVER['CONTENT_TYPE'] ?? '')), 'application/json')) {
     $json = json_decode((string)file_get_contents('php://input'), true);
@@ -45,29 +40,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
 if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,4}$/', $trakId) || !preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) {
     positionResponse(401, ['ok' => false, 'error' => 'invalid_credentials']);
 }
-
 if (!is_numeric($latRaw) || !is_numeric($lonRaw)) {
     positionResponse(422, ['ok' => false, 'error' => 'invalid_position']);
 }
 
 $latitude = (float)$latRaw;
 $longitude = (float)$lonRaw;
-if (!is_finite($latitude) || !is_finite($longitude) ||
-    $latitude < -90 || $latitude > 90 ||
-    $longitude < -180 || $longitude > 180) {
+if (!is_finite($latitude) || !is_finite($longitude) || $latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
     positionResponse(422, ['ok' => false, 'error' => 'invalid_position']);
 }
 
 try {
     $pdo = db();
-
     $stmt = $pdo->prepare('SELECT id FROM trak_boxes WHERE trak_id = ? AND api_key = ? LIMIT 1');
     $stmt->execute([$trakId, $apiKey]);
     $trak = $stmt->fetch();
-
-    if (!$trak) {
-        positionResponse(401, ['ok' => false, 'error' => 'invalid_credentials']);
-    }
+    if (!$trak) positionResponse(401, ['ok' => false, 'error' => 'invalid_credentials']);
 
     $stmt = $pdo->prepare(
         'INSERT INTO trak_positions (trak_box_id, latitude, longitude, gps_timestamp, received_at)
