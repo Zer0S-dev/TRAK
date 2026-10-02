@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!preg_match('/^[A-Z0-9_-]{1,5}$/', $trakId)) $error = 'ID TRAK invalide.';
         elseif ($trakPhone === '' || strlen($trakPhone) > 32) $error = 'Numéro de téléphone TRAK invalide.';
-        elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'TRACKSERVER_URL doit être une URL HTTPS valide de 160 caractères maximum.';
+        elseif (strlen($trakServerUrl) > 160 || !filter_var($trakServerUrl, FILTER_VALIDATE_URL) || !str_starts_with(strtolower($trakServerUrl), 'https://')) $error = 'trackserver_url doit être une URL HTTPS valide de 160 caractères maximum.';
         elseif ($apiKey !== '' && !preg_match('/^[A-Za-z0-9]{16}$/', $apiKey)) $error = 'La clé API doit contenir exactement 16 caractères alphanumériques.';
         else {
             try {
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
             <label>ID TRAK<input name="trak_id" maxlength="5" value="<?=htmlspecialchars((string)($_POST['trak_id'] ?? 'TRK01'))?>" required autofocus></label>
             <label>Téléphone TRAK<input type="tel" name="trak_phone" maxlength="32" value="<?=htmlspecialchars((string)($_POST['trak_phone'] ?? ''))?>" required></label>
-            <label>Trakserver URL<input type="url" name="trakserver_url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
+            <label>trackserver_url<input type="url" name="trakserver_url" maxlength="160" value="<?=htmlspecialchars((string)($_POST['trakserver_url'] ?? ''))?>" placeholder="https://..." required></label>
             <label>Clé API<input type="text" name="api_key" maxlength="16" pattern="[A-Za-z0-9]{16}" value="<?=htmlspecialchars((string)($_POST['api_key'] ?? ''))?>" placeholder="Laisser vide pour générer automatiquement"></label>
             <button type="submit">Enregistrer le premier TRAK</button>
         </form>
