@@ -12,7 +12,7 @@ extern String at(const String& command, uint32_t timeoutMs);
 extern void devLog(const String& message);
 
 namespace {
-constexpr uint32_t HTTP_TIMEOUT_MS = 10000;
+constexpr uint32_t HTTP_TIMEOUT_MS = 5000;
 constexpr size_t MAX_URL_LEN = 160;
 
 String jsonEscape(const String& value) {
@@ -163,7 +163,19 @@ DashboardResult dashboardSendPosition(const GnssPosition& position) {
 
   const String body = payload(position);
   Serial.printf("[DASHBOARD] POST %s | lat=%.6f lon=%.6f\n", url.c_str(), position.latitude, position.longitude);
-  if (WiFi.status() == WL_CONNECTED) return wifiPost(url, body);
+  if (WiFi.status() == WL_CONNECTED) {
+    const DashboardResult wifiResult = wifiPost(url, body);
+    if (wifiResult == DashboardResult::Success ||
+        wifiResult == DashboardResult::NotReady ||
+        !cellularReady) {
+      return wifiResult;
+    }
+
+    Serial.println("[DASHBOARD] Wi-Fi echec -> bascule immediate 4G");
+    devLog("DASHBOARD | WiFi failed | fallback 4G");
+    return cellularPost(url, body);
+  }
+
   if (cellularReady) return cellularPost(url, body);
   return DashboardResult::NotReady;
 }
