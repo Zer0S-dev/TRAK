@@ -1,3 +1,4 @@
+(() => {
   const page = document.getElementById('homeMapPage');
   const mapElement = document.getElementById('homeMap');
   const centerButton = document.getElementById('mapCenterBtn');
@@ -88,3 +89,4 @@
 
   updateCenterButton();
   updateMapOnlyButton();
+})();
