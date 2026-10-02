@@ -188,7 +188,6 @@ async function displaySelection() {
     const smsList = document.getElementById('configSmsList');
     smsList.innerHTML = '';
 
-    // SMS 1 — identité
     const sms1 = [
         'TRAKCFG1',
         '1',
@@ -198,7 +197,6 @@ async function displaySelection() {
         selectedUser.phone || ''
     ].join('|');
 
-    // SMS 2 — clé API + nonce
     if (!/^[A-Za-z0-9]{50}$/.test(String(trak.api_key || ''))) {
         const error = document.createElement('div');
         error.className = 'alert error';
@@ -213,8 +211,10 @@ async function displaySelection() {
             nonce
         ].join('|');
 
-        // SMS 3 / 4 — TRACKSERVER_URL. Une URL de plus de 80 caractères
-        // est découpée en deux SMS TRAKCFG2.
+        // Ordre d'affichage : SMS 1, SMS 2, puis SMS 3 et éventuellement SMS 4.
+        renderSms('SMS 1', sms1, smsList);
+        renderSms('SMS 2', sms2, smsList);
+
         const url = String(trak.trakserver_url || '');
         const chunkSize = 80;
 
@@ -224,47 +224,16 @@ async function displaySelection() {
             error.textContent = 'TRACKSERVER_URL est vide.';
             smsList.appendChild(error);
         } else if (url.length <= chunkSize) {
-            const sms3 = ['TRAKCFG2', '1', configId, url].join('|');
-            renderSms('SMS 3', sms3, smsList);
+            renderSms('SMS 3', ['TRAKCFG2', '1', configId, url].join('|'), smsList);
         } else if (url.length <= chunkSize * 2) {
-            const sms3 = ['TRAKCFG2', '1', configId, url.slice(0, chunkSize)].join('|');
-            const sms4 = ['TRAKCFG2', '2', configId, url.slice(chunkSize)].join('|');
-            renderSms('SMS 3', sms3, smsList);
-            renderSms('SMS 4', sms4, smsList);
+            renderSms('SMS 3', ['TRAKCFG2', '1', configId, url.slice(0, chunkSize)].join('|'), smsList);
+            renderSms('SMS 4', ['TRAKCFG2', '2', configId, url.slice(chunkSize)].join('|'), smsList);
         } else {
             const error = document.createElement('div');
             error.className = 'alert error';
             error.textContent = 'TRACKSERVER_URL est trop longue pour le format prévu sur 2 SMS (maximum 160 caractères).';
             smsList.appendChild(error);
         }
-
-        renderSms('SMS 1', sms1, smsList);
-
-        // SMS 2 est affiché après SMS 1, même si l'URL est en erreur.
-        const sms2Row = document.createElement('div');
-        sms2Row.className = 'sms-config-item';
-        const sms2Title = document.createElement('div');
-        sms2Title.className = 'sms-config-label';
-        sms2Title.textContent = 'SMS 2';
-        const sms2Area = document.createElement('textarea');
-        sms2Area.className = 'sms-config';
-        sms2Area.rows = 4;
-        sms2Area.readOnly = true;
-        sms2Area.value = sms2;
-        const sms2Actions = document.createElement('div');
-        sms2Actions.className = 'sms-actions';
-        const sms2Button = document.createElement('button');
-        sms2Button.type = 'button';
-        sms2Button.className = 'copy-button';
-        sms2Button.textContent = 'Copier SMS 2';
-        sms2Button.addEventListener('click', () => copyText(sms2Area.value, sms2Button, 'SMS vide.'));
-        sms2Actions.appendChild(sms2Button);
-        sms2Row.appendChild(sms2Title);
-        sms2Row.appendChild(sms2Area);
-        sms2Row.appendChild(sms2Actions);
-
-        const first = smsList.firstChild;
-        smsList.insertBefore(sms2Row, first);
     }
 
     emptyHint.textContent = '';
