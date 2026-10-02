@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <HardwareSerial.h>
-#include <mbedtls/md.h>
 #include "Config.h"
 #include "SmsConfigManager.h"
 
@@ -14,6 +13,9 @@ namespace {
 Preferences prefs;
 constexpr char PREF_NS[] = "trak_cfg";
 constexpr uint32_t SMS_POLL_MS = 5000;
+constexpr size_t API_KEY_LEN = 50;
+constexpr size_t NONCE_LEN = 16;
+constexpr size_t MAX_TRACKSERVER_URL_LEN = 160;
 uint32_t lastPoll = 0;
 bool ready = false;
 
@@ -26,10 +28,12 @@ String normalizePhone(const String& value) {
   if (out.length() > 10) out = out.substring(out.length() - 10);
   return out;
 }
+
 bool phonesMatch(const String& a, const String& b) {
   const String na = normalizePhone(a), nb = normalizePhone(b);
   return na.length() >= 8 && nb.length() >= 8 && na == nb;
 }
+
 bool validTrakId(const String& value) {
   if (value.isEmpty() || value.length() > 32) return false;
   for (size_t i = 0; i < value.length(); ++i) {
@@ -38,6 +42,7 @@ bool validTrakId(const String& value) {
   }
   return true;
 }
+
 bool validConfigId(const String& value) {
   if (value.isEmpty() || value.length() > 64) return false;
   for (size_t i = 0; i < value.length(); ++i) {
@@ -47,208 +52,289 @@ bool validConfigId(const String& value) {
   }
   return true;
 }
-bool hexString(const String& value) {
-  if (value.isEmpty()) return false;
+
+bool validAlphaNum(const String& value, size_t expectedLength) {
+  if (value.length() != expectedLength) return false;
   for (size_t i = 0; i < value.length(); ++i) {
     const char c = value[i];
-    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+    if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+          (c >= '0' && c <= '9'))) return false;
   }
   return true;
 }
-String hmacSha256Hex(const String& secret, const String& message) {
-  const mbedtls_md_info_t* info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  if (!info) return "";
-  unsigned char digest[32] = {};
-  if (mbedtls_md_hmac(info, reinterpret_cast<const unsigned char*>(secret.c_str()), secret.length(),
-                      reinterpret_cast<const unsigned char*>(message.c_str()), message.length(), digest) != 0) return "";
-  String out; out.reserve(64);
-  char byteHex[3];
-  for (uint8_t i = 0; i < sizeof(digest); ++i) { snprintf(byteHex, sizeof(byteHex), "%02x", digest[i]); out += byteHex; }
-  return out;
+
+bool validNonce(const String& value) {
+  return validAlphaNum(value, NONCE_LEN);
 }
+
+bool validTrackserverUrl(const String& value) {
+  if (value.isEmpty() || value.length() > MAX_TRACKSERVER_URL_LEN) return false;
+  if (!value.startsWith("https://")) return false;
+  if (value.indexOf('|') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) return false;
+  return true;
+}
+
 bool splitPipe(const String& line, String* fields, size_t maxFields, size_t& count) {
-  count = 0; int cursor = 0;
+  count = 0;
+  int cursor = 0;
   while (cursor <= (int)line.length() && count < maxFields) {
     const int sep = line.indexOf('|', cursor);
-    if (sep < 0) { fields[count++] = line.substring(cursor); return true; }
-    fields[count++] = line.substring(cursor, sep); cursor = sep + 1;
+    if (sep < 0) {
+      fields[count++] = line.substring(cursor);
+      return true;
+    }
+    fields[count++] = line.substring(cursor, sep);
+    cursor = sep + 1;
   }
   return count == maxFields && line.indexOf('|', cursor) < 0;
 }
+
 String smsSenderFromHeader(const String& header) {
-  int quote = header.indexOf('"'); if (quote < 0) return "";
-  quote = header.indexOf('"', quote + 1); if (quote < 0) return "";
-  quote = header.indexOf('"', quote + 1); if (quote < 0) return "";
-  const int end = header.indexOf('"', quote + 1); if (end < 0) return "";
+  int quote = header.indexOf('"');
+  if (quote < 0) return "";
+  quote = header.indexOf('"', quote + 1);
+  if (quote < 0) return "";
+  quote = header.indexOf('"', quote + 1);
+  if (quote < 0) return "";
+  const int end = header.indexOf('"', quote + 1);
+  if (end < 0) return "";
   return header.substring(quote + 1, end);
 }
+
 int smsIndexFromHeader(const String& header) {
-  const int colon = header.indexOf(':'); if (colon < 0) return -1;
-  int cursor = colon + 1; while (cursor < (int)header.length() && header[cursor] == ' ') ++cursor;
-  int end = cursor; while (end < (int)header.length() && header[end] >= '0' && header[end] <= '9') ++end;
+  const int colon = header.indexOf(':');
+  if (colon < 0) return -1;
+  int cursor = colon + 1;
+  while (cursor < (int)header.length() && header[cursor] == ' ') ++cursor;
+  int end = cursor;
+  while (end < (int)header.length() && header[end] >= '0' && header[end] <= '9') ++end;
   if (end == cursor) return -1;
   return header.substring(cursor, end).toInt();
 }
+
 void sendSms(const String& phone, const String& text) {
   if (!modemReady || phone.isEmpty()) return;
-  Serial.printf("[SMS] Envoi notification -> %s\n", phone.c_str());
   while (modem.available()) modem.read();
-  modem.print("AT+CMGS=""); modem.print(phone); modem.print(""\r\n");
-  const uint32_t promptStart = millis(); bool prompt = false;
+  modem.print("AT+CMGS=\"");
+  modem.print(phone);
+  modem.print("\"\r\n");
+
+  const uint32_t promptStart = millis();
+  bool prompt = false;
   while (millis() - promptStart < 5000) {
-    while (modem.available()) { if (static_cast<char>(modem.read()) == '>') { prompt = true; break; } }
+    while (modem.available()) {
+      if (static_cast<char>(modem.read()) == '>') {
+        prompt = true;
+        break;
+      }
+    }
     if (prompt) break;
     vTaskDelay(pdMS_TO_TICKS(5));
   }
-  if (!prompt) { Serial.println("[SMS] Erreur: pas de prompt CMGS."); devLog("SMS | notification ERROR | no CMGS prompt"); return; }
-  modem.print(text); modem.write(0x1A);
-  String response; const uint32_t start = millis();
+  if (!prompt) {
+    devLog("SMS | notification ERROR | no CMGS prompt");
+    return;
+  }
+
+  modem.print(text);
+  modem.write(0x1A);
+
+  String response;
+  const uint32_t start = millis();
   while (millis() - start < 15000) {
     while (modem.available()) response += static_cast<char>(modem.read());
-    if (response.indexOf("OK") >= 0 || response.indexOf("ERROR") >= 0 || response.indexOf("+CMS ERROR") >= 0) break;
+    if (response.indexOf("OK") >= 0 || response.indexOf("ERROR") >= 0 ||
+        response.indexOf("+CMS ERROR") >= 0) break;
     vTaskDelay(pdMS_TO_TICKS(5));
   }
-  if (response.indexOf("OK") >= 0) { Serial.println("[SMS] Notification envoyee."); devLog("SMS | notification sent"); }
-  else { Serial.println("[SMS] Erreur envoi notification."); devLog("SMS | notification ERROR"); }
-}
-void deleteSms(int index) { if (index >= 0) at(String("AT+CMGD=") + String(index), 3000); }
-
-struct MultipartSms {
-  String configId;
-  String sender;
-  uint8_t total = 0;
-  uint16_t receivedMask = 0;
-  String parts[12];
-};
-MultipartSms multipart;
-
-void resetMultipart() {
-  multipart.configId = "";
-  multipart.sender = "";
-  multipart.total = 0;
-  multipart.receivedMask = 0;
-  for (auto& part : multipart.parts) part = "";
+  if (response.indexOf("OK") >= 0) devLog("SMS | notification sent");
+  else devLog("SMS | notification ERROR");
 }
 
-bool processCompleteConfigSms(const String& sender, const String& body);
+void deleteSms(int index) {
+  if (index >= 0) at(String("AT+CMGD=") + String(index), 3000);
+}
 
-bool processMultipartSms(int index, const String& sender, const String& body) {
-  String fields[6];
-  int cursor = 0;
-  bool valid = true;
-  for (int i = 0; i < 5; ++i) {
-    const int sep = body.indexOf('|', cursor);
-    if (sep < 0) { valid = false; break; }
-    fields[i] = body.substring(cursor, sep);
-    cursor = sep + 1;
-  }
-  if (valid) fields[5] = body.substring(cursor);
+void clearPending() {
+  prefs.remove("p_cfg");
+  prefs.remove("p_sender");
+  prefs.remove("p_trak_id");
+  prefs.remove("p_trak_phone");
+  prefs.remove("p_user_phone");
+  prefs.remove("p_api_key");
+  prefs.remove("p_nonce");
+  prefs.remove("p_url1");
+  prefs.remove("p_url2");
+}
 
-  if (!valid || fields[0] != "TRAKCFGP" || fields[1] != "1") {
+bool pendingMatches(const String& configId, const String& sender) {
+  return prefs.getString("p_cfg", "") == configId &&
+         phonesMatch(prefs.getString("p_sender", ""), sender);
+}
+
+bool tryCommitPending() {
+  const String configId = prefs.getString("p_cfg", "");
+  const String sender = prefs.getString("p_sender", "");
+  const String trakId = prefs.getString("p_trak_id", "");
+  const String trakPhone = prefs.getString("p_trak_phone", "");
+  const String userPhone = prefs.getString("p_user_phone", "");
+  const String apiKey = prefs.getString("p_api_key", "");
+  const String nonce = prefs.getString("p_nonce", "");
+  const String url1 = prefs.getString("p_url1", "");
+  const String url2 = prefs.getString("p_url2", "");
+
+  if (!validConfigId(configId) || sender.isEmpty() ||
+      !validTrakId(trakId) || trakPhone.isEmpty() || userPhone.isEmpty() ||
+      !phonesMatch(sender, userPhone) ||
+      !validAlphaNum(apiKey, API_KEY_LEN) || !validNonce(nonce) ||
+      url1.isEmpty()) {
     return false;
   }
 
-  const int part = fields[3].toInt();
-  const int total = fields[4].toInt();
-  if (fields[2].isEmpty() || total < 2 || total > 12 || part < 1 || part > total) {
-    Serial.println("[SMS] Fragment TRAKCFGP invalide.");
-    deleteSms(index);
+  String trackserverUrl = url1 + url2;
+  if (!validTrackserverUrl(trackserverUrl)) return false;
+
+  const String usedConfig = prefs.getString("config_id", "");
+  const String usedNonce = prefs.getString("nonce", "");
+  if ((usedConfig.length() && usedConfig == configId) ||
+      (usedNonce.length() && usedNonce == nonce)) {
+    Serial.println("[SMS] Rejeu detecte: CONFIG_ID ou NONCE deja utilise.");
+    sendSms(sender, "TRAK: configuration deja utilisee.");
+    clearPending();
     return true;
   }
 
-  if (multipart.configId != fields[2] || multipart.sender != sender || multipart.total != total) {
-    resetMultipart();
-    multipart.configId = fields[2];
-    multipart.sender = sender;
-    multipart.total = static_cast<uint8_t>(total);
-  }
+  prefs.putString("trak_id", trakId);
+  prefs.putString("trak_phone", trakPhone);
+  prefs.putString("user_phone", userPhone);
+  prefs.putString("trackserver_url", trackserverUrl);
+  prefs.putString("api_key", apiKey);
+  prefs.putString("config_id", configId);
+  prefs.putString("nonce", nonce);
+  clearPending();
 
-  multipart.parts[part - 1] = fields[5];
-  multipart.receivedMask |= static_cast<uint16_t>(1U << (part - 1));
-  deleteSms(index);
-
-  const uint16_t expectedMask = static_cast<uint16_t>((1U << total) - 1U);
-  Serial.printf("[SMS] Fragment %d/%d recu | CONFIG_ID=%s\n", part, total, fields[2].c_str());
-
-  if (multipart.receivedMask != expectedMask) return true;
-
-  String complete;
-  for (int i = 0; i < total; ++i) complete += multipart.parts[i];
-  const String completeSender = multipart.sender;
-  resetMultipart();
-  processCompleteConfigSms(completeSender, complete);
+  Serial.printf("[SMS] Configuration acceptee | CONFIG_ID=%s | TRACKSERVER_URL=%s\n",
+                configId.c_str(), trackserverUrl.c_str());
+  devLog(String("SMS | config OK | config_id=") + configId);
+  sendSms(userPhone, String("TRAK ") + trakId + ": configuration recue et valide. CONFIG_ID=" + configId);
   return true;
 }
 
-void processSms(int index, const String& sender, const String& body) {
-  String cleanBody = body; cleanBody.trim();
-  if (cleanBody.startsWith("TRAKCFGP|")) {
-    processMultipartSms(index, sender, cleanBody);
-    return;
+bool processConfig1(const String& sender, const String& body) {
+  String fields[6];
+  size_t count = 0;
+  if (!splitPipe(body, fields, 6, count) || count != 6 ||
+      fields[0] != "TRAKCFG1" || fields[1] != "1") return false;
+
+  if (!validConfigId(fields[2]) || !validTrakId(fields[3]) ||
+      fields[4].isEmpty() || fields[5].isEmpty() ||
+      !phonesMatch(sender, fields[5])) {
+    Serial.println("[SMS] TRAKCFG1 invalide ou USER_PHONE different de l'expediteur.");
+    return true;
   }
-  processCompleteConfigSms(sender, cleanBody);
-  deleteSms(index);
+
+  const String usedConfig = prefs.getString("config_id", "");
+  if (usedConfig.length() && usedConfig == fields[2]) {
+    Serial.println("[SMS] TRAKCFG1 rejete: CONFIG_ID deja utilise.");
+    return true;
+  }
+
+  clearPending();
+  prefs.putString("p_cfg", fields[2]);
+  prefs.putString("p_sender", sender);
+  prefs.putString("p_trak_id", fields[3]);
+  prefs.putString("p_trak_phone", fields[4]);
+  prefs.putString("p_user_phone", fields[5]);
+
+  Serial.printf("[SMS] TRAKCFG1 recu | CONFIG_ID=%s | TRAK_ID=%s\n",
+                fields[2].c_str(), fields[3].c_str());
+  devLog(String("SMS | CFG1 | config_id=") + fields[2]);
+  tryCommitPending();
+  return true;
 }
 
-bool processCompleteConfigSms(const String& sender, const String& body) {
-  String fields[10]; size_t count = 0; String cleanBody = body; cleanBody.trim();
-  if (!splitPipe(cleanBody, fields, 10, count) || count != 10 || fields[0] != "TRAKCFG" || fields[1] != "1") {
-    Serial.println("[SMS] Message ignore: format TRAKCFG invalide.");
+bool processConfig3(const String& sender, const String& body) {
+  String fields[5];
+  size_t count = 0;
+  if (!splitPipe(body, fields, 5, count) || count != 5 ||
+      fields[0] != "TRAKCFG3" || fields[1] != "1") return false;
+
+  if (!validConfigId(fields[2]) || !validAlphaNum(fields[3], API_KEY_LEN) ||
+      !validNonce(fields[4]) || !pendingMatches(fields[2], sender)) {
+    Serial.println("[SMS] TRAKCFG3 invalide ou configuration correspondante absente.");
+    return true;
+  }
+
+  prefs.putString("p_api_key", fields[3]);
+  prefs.putString("p_nonce", fields[4]);
+  Serial.printf("[SMS] TRAKCFG3 recu | CONFIG_ID=%s | API_KEY=50 | NONCE=16\n", fields[2].c_str());
+  devLog(String("SMS | CFG3 | config_id=") + fields[2]);
+  tryCommitPending();
+  return true;
+}
+
+bool processConfig2(const String& sender, const String& body) {
+  String fields[4];
+  size_t count = 0;
+  if (!splitPipe(body, fields, 4, count) || count != 4 ||
+      fields[0] != "TRAKCFG2" || fields[1] != "1" && fields[1] != "2") {
     return false;
   }
-  // Le TRAK_ID est l'identifiant attribue dans le Dashboard.
-  // Il peut donc etre TRK-001 ou tout autre ID valide du Dashboard.
-  // L'authentification du message repose sur USER_PHONE + HMAC(API_KEY).
-  if (!validTrakId(fields[2])) {
-    Serial.printf("[SMS] TRAK ID invalide: %s\n", fields[2].c_str());
-    sendSms(sender, "TRAK: erreur configuration - ID TRAK invalide.");
-    return false;
+
+  const int part = fields[1].toInt();
+  if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
+      !pendingMatches(fields[2], sender)) {
+    Serial.println("[SMS] TRAKCFG2 invalide ou configuration correspondante absente.");
+    return true;
   }
-  if (!phonesMatch(sender, fields[4])) {
-    Serial.println("[SMS] Expediteur different du USER_PHONE du message.");
-    sendSms(sender, "TRAK: erreur configuration - expediteur non autorise.");
-    return false;
+
+  if (part == 1) prefs.putString("p_url1", fields[3]);
+  else prefs.putString("p_url2", fields[3]);
+
+  const size_t combinedLength = prefs.getString("p_url1", "").length() +
+                                prefs.getString("p_url2", "").length();
+  if (combinedLength > MAX_TRACKSERVER_URL_LEN) {
+    Serial.println("[SMS] TRACKSERVER_URL trop longue.");
+    clearPending();
+    return true;
   }
-  // fields[7] est le CONFIG_ID genere par le Dashboard (ex: CFG-TRK-001-...).
-  // Ce n'est pas une valeur hexadecimale : seule la signature et le nonce sont hex.
-  if (!validConfigId(fields[7]) || !hexString(fields[8]) || fields[8].length() != 16 || fields[9].length() != 64 || !hexString(fields[9])) {
-    Serial.printf("[SMS] Parametres de securite invalides | config_id=%s | nonce_len=%u | sig_len=%u\n",
-                  fields[7].c_str(), (unsigned)fields[8].length(), (unsigned)fields[9].length());
-    sendSms(sender, "TRAK: erreur configuration - signature ou nonce invalide.");
-    return false;
-  }
-  const String savedNonce = prefs.getString("nonce", "");
-  if (savedNonce.length() && savedNonce == fields[8]) {
-    Serial.println("[SMS] Rejeu detecte: nonce deja utilise.");
-    sendSms(sender, "TRAK: erreur configuration - message deja utilise.");
-    return false;
-  }
-  const String signedPart = fields[0] + "|" + fields[1] + "|" + fields[2] + "|" + fields[3] + "|" + fields[4] + "|" + fields[5] + "|" + fields[6] + "|" + fields[7] + "|" + fields[8];
-  const String expectedSignature = hmacSha256Hex(fields[6], signedPart);
-  String receivedSignature = fields[9]; receivedSignature.toLowerCase();
-  if (expectedSignature.length() != 64 || receivedSignature != expectedSignature) {
-    Serial.println("[SMS] HMAC invalide."); devLog("SMS | config ERROR | HMAC invalide");
-    sendSms(sender, "TRAK: erreur configuration - signature HMAC invalide.");
-    return false;
-  }
-  prefs.putString("trak_id", fields[2]); prefs.putString("trak_phone", fields[3]); prefs.putString("user_phone", fields[4]);
-  prefs.putString("api_url", fields[5]); prefs.putString("api_key", fields[6]); prefs.putString("config_id", fields[7]); prefs.putString("nonce", fields[8]);
-  Serial.printf("[SMS] Configuration acceptee | ID=%s | URL=%s\n", fields[7].c_str(), fields[5].c_str());
-  devLog(String("SMS | config OK | config_id=") + fields[7]);
-  sendSms(fields[4], String("TRAK ") + fields[2] + ": configuration recue et valide. CONFIG_ID=" + fields[7]);
+
+  Serial.printf("[SMS] TRAKCFG2 partie %d recu | CONFIG_ID=%s\n", part, fields[2].c_str());
+  devLog(String("SMS | CFG2 part=") + String(part) + " | config_id=" + fields[2]);
+  tryCommitPending();
+  return true;
+}
+
+bool processSms(int index, const String& sender, const String& body) {
+  String cleanBody = body;
+  cleanBody.trim();
+  if (cleanBody.startsWith("TRAKCFG1|")) processConfig1(sender, cleanBody);
+  else if (cleanBody.startsWith("TRAKCFG2|")) processConfig2(sender, cleanBody);
+  else if (cleanBody.startsWith("TRAKCFG3|")) processConfig3(sender, cleanBody);
+  else return false;
+
+  deleteSms(index);
   return true;
 }
 
 void pollSms() {
-  const String response = at("AT+CMGL="REC UNREAD"", 5000);
+  const String response = at("AT+CMGL=\"REC UNREAD\"", 5000);
   if (response.indexOf("+CMGL:") < 0) return;
+
   int cursor = 0;
   while (cursor < (int)response.length()) {
-    const int headerStart = response.indexOf("+CMGL:", cursor); if (headerStart < 0) break;
-    const int headerEnd = response.indexOf('\n', headerStart); if (headerEnd < 0) break;
-    String header = response.substring(headerStart, headerEnd); header.trim();
-    const int bodyStart = headerEnd + 1; const int bodyEnd = response.indexOf('\n', bodyStart);
-    String body = bodyEnd < 0 ? response.substring(bodyStart) : response.substring(bodyStart, bodyEnd); body.trim();
+    const int headerStart = response.indexOf("+CMGL:", cursor);
+    if (headerStart < 0) break;
+    const int headerEnd = response.indexOf('\n', headerStart);
+    if (headerEnd < 0) break;
+
+    String header = response.substring(headerStart, headerEnd);
+    header.trim();
+    const int bodyStart = headerEnd + 1;
+    const int bodyEnd = response.indexOf('\n', bodyStart);
+    String body = bodyEnd < 0 ? response.substring(bodyStart) : response.substring(bodyStart, bodyEnd);
+    body.trim();
+
     processSms(smsIndexFromHeader(header), smsSenderFromHeader(header), body);
     cursor = bodyEnd < 0 ? response.length() : bodyEnd + 1;
   }
@@ -259,22 +345,29 @@ void smsConfigBegin() {
   prefs.begin(PREF_NS, false);
   if (!modemReady) return;
   at("AT+CMGF=1", 3000);
-  at("AT+CSCS="GSM"", 3000);
+  at("AT+CSCS=\"GSM\"", 3000);
   at("AT+CNMI=2,1,0,0,0", 3000);
-  ready = true; lastPoll = millis() - SMS_POLL_MS;
-  Serial.println("[SMS] Configuration SMS active."); devLog("SMS | configuration listener active");
+  ready = true;
+  lastPoll = millis() - SMS_POLL_MS;
+  Serial.println("[SMS] Configuration SMS active.");
+  devLog("SMS | configuration listener active");
 }
+
 void smsConfigTick() {
   if (!ready || !modemReady) return;
-  const uint32_t now = millis(); if (now - lastPoll < SMS_POLL_MS) return;
-  lastPoll = now; pollSms();
+  const uint32_t now = millis();
+  if (now - lastPoll < SMS_POLL_MS) return;
+  lastPoll = now;
+  pollSms();
 }
-
 
 bool smsConfigIsConfigured() {
-  return prefs.getString("api_key", "").length() > 0 && prefs.getString("api_url", "").length() > 0 && prefs.getString("trak_id", "").length() > 0;
+  return prefs.getString("api_key", "").length() == API_KEY_LEN &&
+         prefs.getString("trackserver_url", "").length() > 0 &&
+         prefs.getString("trak_id", "").length() > 0;
 }
+
 String smsConfigUserPhone() { return prefs.getString("user_phone", ""); }
-String smsConfigApiUrl() { return prefs.getString("api_url", ""); }
+String smsConfigTrackserverUrl() { return prefs.getString("trackserver_url", ""); }
 String smsConfigApiKey() { return prefs.getString("api_key", ""); }
 String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
