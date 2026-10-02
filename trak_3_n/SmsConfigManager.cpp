@@ -275,32 +275,24 @@ bool processConfig3(const String& sender, const String& body) {
 }
 
 bool processConfig2(const String& sender, const String& body) {
-  String fields[4];
+  String fields[5];
   size_t count = 0;
-  if (!splitPipe(body, fields, 4, count) || count != 4 ||
-      fields[0] != "TRAKCFG2" || fields[1] != "1" && fields[1] != "2") {
+  if (!splitPipe(body, fields, 5, count) || count != 5 ||
+      fields[0] != "TRAKCFG2" || (fields[1] != "1" && fields[1] != "2") ||
+      (fields[4] != "0" && fields[4] != "1")) {
     return false;
   }
 
   const int part = fields[1].toInt();
-  if (!validConfigId(fields[2]) || (part == 1 && fields[3].isEmpty()) ||
+  const bool isFinal = fields[4] == "1";
+  if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
       !pendingMatches(fields[2], sender)) {
     Serial.println("[SMS] TRAKCFG2 invalide ou configuration correspondante absente.");
     return true;
   }
 
-  if (part == 1) {
-    prefs.putString("p_url1", fields[3]);
-    // A full 80-character first part may be followed by SMS 4.
-    // Do not commit yet because the URL can be split across two SMS.
-    if (fields[3].length() == 80) {
-      Serial.printf("[SMS] TRAKCFG2 partie 1 complete (80 chars) | attente partie 2 | CONFIG_ID=%s\n", fields[2].c_str());
-      devLog(String("SMS | CFG2 part=1/2 | config_id=") + fields[2]);
-      return true;
-    }
-  } else {
-    prefs.putString("p_url2", fields[3]);
-  }
+  if (part == 1) prefs.putString("p_url1", fields[3]);
+  else prefs.putString("p_url2", fields[3]);
 
   const size_t combinedLength = prefs.getString("p_url1", "").length() +
                                 prefs.getString("p_url2", "").length();
@@ -310,9 +302,17 @@ bool processConfig2(const String& sender, const String& body) {
     return true;
   }
 
-  Serial.printf("[SMS] TRAKCFG2 partie %d recu | CONFIG_ID=%s\n", part, fields[2].c_str());
-  devLog(String("SMS | CFG2 part=") + String(part) + " | config_id=" + fields[2]);
-  tryCommitPending();
+  Serial.printf("[SMS] TRAKCFG2 partie %d recu | FIN=%d | CONFIG_ID=%s\n",
+                part, isFinal ? 1 : 0, fields[2].c_str());
+  devLog(String("SMS | CFG2 part=") + String(part) + " | fin=" + String(isFinal ? 1 : 0) + " | config_id=" + fields[2]);
+
+  if (isFinal) {
+    if (part == 2 && prefs.getString("p_url1", "").isEmpty()) {
+      Serial.println("[SMS] TRAKCFG2 finale refusee: partie 1 absente.");
+      return true;
+    }
+    tryCommitPending();
+  }
   return true;
 }
 
