@@ -214,7 +214,7 @@ bool tryCommitPending() {
   prefs.putString("nonce", nonce);
   clearPending();
 
-  Serial.printf("[SMS] Configuration acceptee | CONFIG_ID=%s | TRACKSERVER_URL=%s\n",
+  Serial.printf("[SMS] Configuration acceptee | CONFIG_ID=%s | trackserver_url=%s\n",
                 configId.c_str(), trackserverUrl.c_str());
   devLog(String("SMS | config OK | config_id=") + configId);
   sendSms(userPhone, String("TRAK ") + trakId + ": configuration recue et valide. CONFIG_ID=" + configId);
