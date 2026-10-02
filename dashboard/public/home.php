@@ -38,7 +38,7 @@
   const map = L.map(mapElement, {
     zoomControl: true,
     attributionControl: true
-  }).setView(defaultCenter, 6);
+  }).setView(defaultCenter, 8);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
