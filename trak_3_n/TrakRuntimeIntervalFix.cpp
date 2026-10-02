@@ -122,6 +122,18 @@ bool trakPositionBufferInit() {
 
 
 
+static bool trakDashboardPositionBufferInit() {
+  if (dashboardBufferReady) return true;
+  if (smsConfigDashboardUrl().isEmpty()) return false;
+  dashboardBufferReady = dashboardPositionBuffer.begin();
+  if (dashboardBufferReady) {
+    Serial.printf("[BUFFER] FIFO Dashboard SD actif: %u position(s) restauree(s)\\n", (unsigned)dashboardPositionBuffer.size());
+    devLog(String("Dashboard buffer SD ready: count=") + String((unsigned)dashboardPositionBuffer.size()));
+  }
+  return dashboardBufferReady;
+}
+
+
 void trakCommunicationTaskFixed(void*) {
   GnssPosition position; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
   uint32_t lastBufferRetry = 0, lastBufferInitRetry = millis(), lastDashboardBufferInitRetry = millis() - 30000, previousMotionReturnMs = 0, lastTerrainLog = 0;
