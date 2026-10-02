@@ -37,15 +37,36 @@ String urlEncode(const String& value) {
 }
 
 String buildUrl(const GnssPosition& position) {
-  String url = smsConfigDashboardUrl();
-  if (url.isEmpty() || url.length() > MAX_URL_LEN) return "";
+  const String baseUrl = smsConfigDashboardUrl();
+  if (baseUrl.isEmpty() || baseUrl.length() > MAX_URL_LEN) return "";
 
-  url.replace("{0}", String(position.latitude, 6));
-  url.replace("{1}", String(position.longitude, 6));
-  url.replace("{2}", urlEncode(position.timestamp));
-  url.replace("{4}", String(position.altitude, 1));
-  url.replace("{5}", String(position.speedKnots, 2));
-  url.replace("{6}", String(position.courseDeg, 1));
+  const String trakId = smsConfigTrakId();
+  const String apiKey = smsConfigApiKey();
+  if (trakId.isEmpty() || apiKey.isEmpty()) {
+    Serial.println("[DASHBOARD] TRAK ID ou cle API absente.");
+    devLog("DASHBOARD | identite/auth absente");
+    return "";
+  }
+
+  String url = baseUrl;
+  url += (url.indexOf('?') >= 0) ? '&' : '?';
+  url += "trak_id=";
+  url += urlEncode(trakId);
+  url += "&api_key=";
+  url += urlEncode(apiKey);
+  url += "&lat=";
+  url += String(position.latitude, 6);
+  url += "&lon=";
+  url += String(position.longitude, 6);
+  url += "&timestamp=";
+  url += urlEncode(position.timestamp);
+  url += "&altitude=";
+  url += String(position.altitude, 1);
+  url += "&speed=";
+  url += String(position.speedKnots, 2);
+  url += "&bearing=";
+  url += String(position.courseDeg, 1);
+
   return url;
 }
 
