@@ -14,6 +14,7 @@ Preferences prefs;
 constexpr char PREF_NS[] = "trak_cfg";
 constexpr uint32_t SMS_POLL_MS = 5000;
 constexpr size_t API_KEY_LEN = 50;
+constexpr size_t MAX_TRAK_ID_LEN = 5;
 constexpr size_t NONCE_LEN = 16;
 constexpr size_t MAX_TRACKSERVER_URL_LEN = 160;
 uint32_t lastPoll = 0;
@@ -35,7 +36,7 @@ bool phonesMatch(const String& a, const String& b) {
 }
 
 bool validTrakId(const String& value) {
-  if (value.isEmpty() || value.length() > 32) return false;
+  if (value.isEmpty() || value.length() > MAX_TRAK_ID_LEN) return false;
   for (size_t i = 0; i < value.length(); ++i) {
     const char c = value[i];
     if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-')) return false;
