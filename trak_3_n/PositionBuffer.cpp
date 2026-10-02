@@ -7,8 +7,8 @@
 
 extern void devLog(const String& message);
 
-PositionBuffer::PositionBuffer()
-  : path("/buffer/positions.dat"),
+PositionBuffer::PositionBuffer(const String& storagePath)
+  : path(storagePath),
     nextSequence(1),
     head(0),
     tail(0),
