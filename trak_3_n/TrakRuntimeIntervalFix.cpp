@@ -7,6 +7,7 @@
 #include "WiFiManager.h"
 #include "SmsConfigManager.h"
 #include "TrackserverClient.h"
+#include "DashboardClient.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -128,6 +129,7 @@ void trakCommunicationTaskFixed(void*) {
   else if (cellularReady) activeNetwork = NetworkPath::Cellular;
   else activeNetwork = NetworkPath::None;
   trackserverBegin();
+  dashboardBegin();
   devLog(String("START | network=") + terrainNetworkName(activeNetwork) +
          " | fifo=" + String((unsigned)positionBuffer.size()));
 
@@ -211,15 +213,20 @@ void trakCommunicationTaskFixed(void*) {
         GnssPosition buffered;
         if (!positionBuffer.peek(buffered)) break;
 
+        // Les deux destinations sont traitees back-to-back.
+        // Le resultat Dashboard est volontairement independant de Trackserver.
         const TrackserverResult result = trackserverSend(buffered);
+        const DashboardResult dashboardResult = dashboardSend(buffered);
+        (void)dashboardResult;
+
         if (result == TrackserverResult::Success) {
           positionBuffer.pop();
           centerBlinkUntil = now + 500;
           continue;
         }
 
-        // NotReady: network/configuration is not usable right now.
-        // Failed: keep the record on SD and retry on the next pass.
+        // Trackserver reste la reference pour la FIFO.
+        // Une erreur Dashboard ne bloque jamais la suite.
         break;
       }
       if (positionBuffer.empty() && bufferFlushActive) { bufferFlushActive = false; devLog("Buffer flush complete"); }
