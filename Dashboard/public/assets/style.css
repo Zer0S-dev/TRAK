@@ -1,12 +1,12 @@
 :root {
     --bg: #181a1d;
-    --dark: #101216;
+    --dark: #14161d;
     --surface: #20252b;
     --surface-2: #252c33;
     --surface-3: #2b333b;
     --text: #f3f5f6;
     --text-soft: #d5dbe0;
-    --muted: #8b95a1;
+    --muted: #858f9a;
     --lime: #b1d600;
     --lime-soft: #d1eb63;
     --accent: #183029;
@@ -49,81 +49,17 @@ a {
 #blur {
 display: none;
 }
-
-/* =========================================================
-   DARK UI SYSTEM
-   ========================================================= */
-button,
-input,
-select,
-textarea {
-    transition:
-        border-color .18s ease,
-        background-color .18s ease,
-        color .18s ease,
-        box-shadow .18s ease,
-        transform .18s ease;
-}
-
-input::placeholder,
-textarea::placeholder {
-    color: #68727d;
-}
-
-input:hover,
-select:hover,
-textarea:hover {
-    border-color: #46515c;
-}
-
-input:focus,
-select:focus,
-textarea:focus,
-button:focus-visible,
-a:focus-visible {
+/* Dark theme polish — navigation geometry and colors intentionally preserved */
+input:hover, select:hover, textarea:hover { border-color: #46515c; }
+input:focus, select:focus, textarea:focus, button:focus-visible {
     outline: none;
     border-color: var(--lime);
-    box-shadow: 0 0 0 3px rgba(177, 214, 0, 0.14);
+    box-shadow: 0 0 0 3px rgba(177,214,0,.14);
 }
-
-button:hover,
-.button:hover {
-    background: var(--accent-2);
-}
-
-button:active,
-.button:active {
-    transform: translateY(1px);
-}
-
-button:disabled,
-select:disabled,
-input:disabled,
-textarea:disabled {
-    opacity: .48;
-    cursor: not-allowed;
-}
-
-h1, h2, h3, h4 {
-    color: var(--text);
-    letter-spacing: -0.015em;
-}
-
-p {
-    color: var(--text-soft);
-}
-
-code,
-pre,
-.sms-config,
-#apiDataCode {
-    color: var(--lime-soft);
-}
-
-hr {
-    border: 0;
-    border-top: 1px solid var(--border-soft);
-}
+input::placeholder, textarea::placeholder { color: #68727d; }
+button:disabled, select:disabled, input:disabled, textarea:disabled { opacity:.48; cursor:not-allowed; }
+h1, h2, h3, h4 { color: var(--text); }
+p { color: var(--text-soft); }
 
 .auth-page {
     min-height: 100vh;
@@ -190,7 +126,7 @@ display: block;
   margin-top: 7px;
   padding: 12px 13px;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: 8px;
   font: inherit;
   background: var(--surface-2);
   color: var(--text);
@@ -199,10 +135,10 @@ button {
 width: 100%;
   margin-top: 8px;
   padding: 12px;
-  border: 1px solid var(--accent-2);
-  border-radius: 9px;
+  border: 1px solid #23443a;
+  border-radius: 8px;
   background: var(--accent);
-  color: var(--lime-soft);
+  color: var(--lime);
   font: inherit;
   cursor: pointer;
 }
@@ -269,8 +205,8 @@ width: 30%;
     flex: 0 0 18px;
 }
 .sidebar a:hover {
-    background: var(--surface-2);
-    color: var(--text);
+    background: #26323e;
+    color: #fff;
 }
 .side-bottom {
     margin-top: auto;
@@ -291,9 +227,8 @@ width: 30%;
 .user-pill {
     padding: 12px 13px;
     margin-bottom: 8px;
-    background: var(--surface-2);
-    border: 1px solid var(--border-soft);
-    border-radius: 9px;
+    background: #26323e;
+    border-radius: 8px;
     font-weight: 600;
 }
 .user-pill small {
@@ -392,9 +327,8 @@ td.long-text a {
     padding: 8px 10px;
 }
 .actions .danger, .danger {
-    background: var(--danger-bg);
-  color: #ff7d9b;
-  border: 1px solid rgba(255, 49, 95, 0.24);
+    background: #FFC0DE;
+  color: #D12052;
 }
 .card h2 {
     margin-top: 0;
@@ -628,7 +562,7 @@ display: block;
 }
 .api-info-card a {
     display: block;
-    color: var(--lime);
+    color: var(--accent);
     font-size: 12px;
     word-break: break-all;
 }
