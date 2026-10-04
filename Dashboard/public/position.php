@@ -21,7 +21,7 @@ $trakId = trim((string)($_GET['trak_id'] ?? $_POST['trak_id'] ?? ''));
 $apiKey = trim((string)($_GET['api_key'] ?? $_POST['api_key'] ?? ''));
 $latRaw = $_GET['lat'] ?? $_POST['lat'] ?? null;
 $lonRaw = $_GET['lon'] ?? $_POST['lon'] ?? null;
-$altRaw = $_GET['alt'] ?? $_POST['alt'] ?? null;
+$altRaw = $_GET['altitude'] ?? $_GET['alt'] ?? $_POST['altitude'] ?? $_POST['alt'] ?? null;
 $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $apiKey = $apiKey !== '' ? $apiKey : trim((string)($json['api_key'] ?? ''));
         $latRaw = $json['lat'] ?? $latRaw;
         $lonRaw = $json['lon'] ?? $lonRaw;
-        $altRaw = $json['alt'] ?? $altRaw;
+        $altRaw = $json['altitude'] ?? $json['alt'] ?? $altRaw;
         $timestamp = $timestamp !== '' ? $timestamp : trim((string)($json['timestamp'] ?? ''));
     }
 }
