@@ -443,19 +443,10 @@ String smsConfigApiKey() { return prefs.getString("api_key", ""); }
 String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
 
 uint64_t smsConfigLastConfigTimestamp() {
-  // Stockage en texte volontairement : le timestamp serveur est en millisecondes
-  // et peut depasser 32 bits. Cela evite toute dependance a l'implementation
-  // Preferences de getULong64/putULong64 selon la version ESP32.
-  const String value = prefs.getString("last_config_timestamp", "");
-  if (value.isEmpty()) return 0;
-
-  uint64_t timestamp = 0;
-  for (size_t i = 0; i < value.length(); ++i) {
-    const char c = value[i];
-    if (c < '0' || c > '9') return 0;
-    timestamp = timestamp * 10ULL + (uint64_t)(c - '0');
-  }
-  return timestamp;
+  // Le timestamp est stocke nativement en U64 dans NVS. Cela conserve les
+  // millisecondes sans conversion intermediaire et reste compatible avec
+  // les anciennes versions de cette cle qui utilisaient deja U64.
+  return prefs.getULong64("last_config_timestamp", 0ULL);
 }
 
 bool smsConfigApplyRemoteConfig(
@@ -505,21 +496,18 @@ bool smsConfigApplyRemoteConfig(
   else wifiSetProfile(2, wifiSsid3.c_str(), wifiPassword3.c_str());
 
   // Le timestamp doit etre persistant avant toute nouvelle tentative de
-  // synchronisation. On le stocke en texte pour conserver les 64 bits sans
-  // ambiguite sur toutes les versions du core ESP32.
-  char timestampText[32];
-  snprintf(timestampText, sizeof(timestampText), "%llu",
-           (unsigned long long)configTimestamp);
-  const size_t written = prefs.putString("last_config_timestamp", timestampText);
-
+  // synchronisation. Il est ecrit en U64 pour correspondre au type NVS
+  // historique de cette cle et eviter un conflit de type String/U64.
+  const bool timestampWritten = prefs.putULong64("last_config_timestamp", configTimestamp);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%u | stocke=%llu | trackserver=%s\n",
+
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%d | stocke=%llu | trackserver=%s\n",
                 (unsigned long long)configTimestamp,
-                (unsigned)written,
+                timestampWritten ? 1 : 0,
                 (unsigned long long)storedTimestamp,
                 trackserverUrl.c_str());
 
-  if (written == 0 || storedTimestamp != configTimestamp) {
+  if (!timestampWritten || storedTimestamp != configTimestamp) {
     Serial.println("[CONFIG] ERREUR persistance timestamp NVS.");
     devLog("CONFIG | timestamp NVS write ERROR");
     return false;
