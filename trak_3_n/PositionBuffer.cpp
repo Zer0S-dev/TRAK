@@ -210,6 +210,8 @@ bool PositionBuffer::push(const GnssPosition& position) {
   record.altitudeCm = static_cast<int32_t>(round(position.altitude * 100.0));
   record.timestampEpoch = isoToEpoch(position.timestamp);
   if (record.timestampEpoch == 0) { devLog("ERREUR position sans timestamp"); return false; }
+  record.speedCentiKnots = static_cast<int16_t>(round(position.speedKnots * 100.0f));
+  record.courseCentiDeg = static_cast<int16_t>(round(position.courseDeg * 100.0f));
   record.crc32 = calculateCrc(record);
 
   if (!writeRecord(head, record)) {
@@ -236,6 +238,8 @@ bool PositionBuffer::peek(GnssPosition& position) const {
   position.latitude = static_cast<double>(record.latitudeE6) / 1000000.0;
   position.longitude = static_cast<double>(record.longitudeE6) / 1000000.0;
   position.altitude = static_cast<double>(record.altitudeCm) / 100.0;
+  position.speedKnots = static_cast<float>(record.speedCentiKnots) / 100.0f;
+  position.courseDeg = static_cast<float>(record.courseCentiDeg) / 100.0f;
   epochToIso(record.timestampEpoch, position.timestamp);
   return true;
 }
