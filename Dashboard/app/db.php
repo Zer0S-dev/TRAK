@@ -79,6 +79,26 @@ function db(): PDO {
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_phone ON trak_boxes(phone)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_boxes_user ON trak_boxes(user_id)');
 
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_configs (
+        trak_box_id INTEGER PRIMARY KEY,
+        config_pending INTEGER NOT NULL DEFAULT 1 CHECK(config_pending IN (0,1)),
+        config_updated_at INTEGER NOT NULL DEFAULT 0,
+        api_key TEXT NOT NULL DEFAULT '',
+        trak_phone TEXT NOT NULL DEFAULT '',
+        user_phone TEXT NOT NULL DEFAULT '',
+        trackserver_url TEXT NOT NULL DEFAULT '',
+        dashboard_url TEXT NOT NULL DEFAULT '',
+        wifi_ssid_1 TEXT NOT NULL DEFAULT '',
+        wifi_password_1 TEXT NOT NULL DEFAULT '',
+        wifi_ssid_2 TEXT NOT NULL DEFAULT '',
+        wifi_password_2 TEXT NOT NULL DEFAULT '',
+        wifi_ssid_3 TEXT NOT NULL DEFAULT '',
+        wifi_password_3 TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_configs_pending ON trak_configs(config_pending, config_updated_at)');
+
     $pdo->exec('CREATE TABLE IF NOT EXISTS trak_positions (
         trak_box_id INTEGER PRIMARY KEY,
         latitude REAL NOT NULL,
