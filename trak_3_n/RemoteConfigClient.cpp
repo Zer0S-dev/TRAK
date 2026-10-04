@@ -299,6 +299,88 @@ bool postCellular(const String& url, const String& body, String& response) {
     return false;
   }
 
+bool readHttpBody(uint32_t requestedLen, String& response) {
+  response = "";
+  while (modem.available()) modem.read();
+
+  const String command = String("AT+HTTPREAD=0,") + String((unsigned long)requestedLen) + "\r\n";
+  modem.print(command);
+
+  String header;
+  const uint32_t start = millis();
+  uint32_t payloadLen = 0;
+
+  while (millis() - start < 12000UL) {
+    while (modem.available()) {
+      const char c = (char)modem.read();
+      header += c;
+
+      const int marker = header.indexOf("+HTTPREAD:");
+      if (marker >= 0) {
+        const int lineEnd = header.indexOf('\n', marker);
+        if (lineEnd >= 0) {
+          String lenText = header.substring(marker + 10, lineEnd);
+          lenText.trim();
+          payloadLen = (uint32_t)lenText.toInt();
+          if (payloadLen == 0) {
+            Serial.printf("[CONFIG] 4G HTTPREAD payload=0\n");
+            return true;
+          }
+
+          // Keep bytes received after the +HTTPREAD:<len> line.
+          String remainder = header.substring(lineEnd + 1);
+          response = remainder;
+          break;
+        }
+      }
+
+      if (header.indexOf("\r\nERROR\r\n") >= 0) {
+        Serial.println("[CONFIG] 4G HTTPREAD ERROR");
+        return false;
+      }
+    }
+
+    if (payloadLen > 0) break;
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }
+
+  if (payloadLen == 0) {
+    Serial.println("[CONFIG] 4G HTTPREAD timeout (no payload header)");
+    return false;
+  }
+
+  // The modem reports the exact payload size. Read until that many bytes
+  // are available; HTTPREAD's trailing "+HTTPREAD: 0" is left in the UART
+  // stream and drained below.
+  while (response.length() < payloadLen && millis() - start < 12000UL) {
+    while (modem.available() && response.length() < payloadLen) {
+      response += (char)modem.read();
+    }
+    if (response.length() < payloadLen) vTaskDelay(pdMS_TO_TICKS(2));
+  }
+
+  if (response.length() < payloadLen) {
+    Serial.printf("[CONFIG] 4G HTTPREAD timeout payload=%lu/%lu\n",
+                  (unsigned long)response.length(), (unsigned long)payloadLen);
+    return false;
+  }
+
+  response = response.substring(0, payloadLen);
+  Serial.printf("[CONFIG] 4G HTTPREAD payload=%lu => %s\n",
+                (unsigned long)payloadLen, response.c_str());
+
+  // Drain the modem's trailing HTTPREAD completion and leave UART clean.
+  const uint32_t drainStart = millis();
+  String tail;
+  while (millis() - drainStart < 1500UL) {
+    while (modem.available()) tail += (char)modem.read();
+    if (tail.indexOf("+HTTPREAD: 0") >= 0 || tail.indexOf("\r\nOK\r\n") >= 0) break;
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }
+
+  return true;
+}
+
   // Certains A76XX annoncent dataLen=0 avec HTTPACTION alors qu'un corps
   // est pourtant disponible dans le buffer HTTP. Ne pas utiliser dataLen comme
   // condition pour HTTPREAD.
@@ -313,6 +395,160 @@ bool postCellular(const String& url, const String& body, String& response) {
   if (response.indexOf("ERROR") >= 0) {
     Serial.printf("[CONFIG] 4G HTTPREAD ERROR (HTTP=%d dataLen=%lu)\n",
                   statusCode, (unsigned long)dataLen);
+    devLog(String("CONFIG | 4G | HTTPREAD ERROR datalen=") +
+           String((unsigned long)dataLen));
+    at("AT+HTTPTERM", 3000);
+    return false;
+  }
+
+  if (response.length() == 0) {
+    Serial.printf("[CONFIG] 4G HTTP=%d sans corps apres HTTPREAD\n", statusCode);
+    devLog(String("CONFIG | 4G | HTTP=") + String(statusCode) +
+           " no body after HTTPREAD");
+  }
+
+  at("AT+HTTPTERM", 3000);
+  return true;
+}
+
+bool postRequest(const String& url, const String& body, String& response) {
+  if (WiFi.status() == WL_CONNECTED) return postWiFi(url, body, response);
+  if (cellularReady) return postCellular(url, body, response);
+  return false;
+}
+
+bool fetchConfig(const String& url, uint64_t serverTimestamp) {
+  const String body = String("{\"action\":\"config\",\"trak_id\":\"") +
+                      smsConfigTrakId() +
+                      "\",\"last_config_timestamp\":" +
+                      String((unsigned long long)smsConfigLastConfigTimestamp()) + "}";
+
+  String response;
+  if (!postRequest(url, body, response) || !responseOk(response)) {
+    Serial.println("[CONFIG] Recuperation impossible.");
+    devLog("CONFIG | fetch ERROR");
+    return false;
+  }
+
+  bool available = false;
+  uint64_t receivedTimestamp = 0;
+  String configObject;
+  if (!jsonBool(response, "config_available", available) || !available ||
+      !jsonUint64(response, "config_updated_at", receivedTimestamp) ||
+      receivedTimestamp != serverTimestamp ||
+      !jsonObjectForKey(response, "config", configObject)) {
+    Serial.println("[CONFIG] Reponse configuration invalide.");
+    devLog("CONFIG | invalid config response");
+    return false;
+  }
+
+  String trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl;
+  String s1, p1, s2, p2, s3, p3;
+  if (!jsonString(configObject, "trak_id", trakId) ||
+      !jsonString(configObject, "trak_phone", trakPhone) ||
+      !jsonString(configObject, "user_phone", userPhone) ||
+      !jsonString(configObject, "api_key", apiKey) ||
+      !jsonString(configObject, "trackserver_url", trackserverUrl) ||
+      !jsonString(configObject, "dashboard_url", dashboardUrl) ||
+      !jsonWifiSlot(configObject, 1, s1, p1) ||
+      !jsonWifiSlot(configObject, 2, s2, p2) ||
+      !jsonWifiSlot(configObject, 3, s3, p3)) {
+    Serial.println("[CONFIG] Champs configuration manquants.");
+    devLog("CONFIG | validation ERROR");
+    return false;
+  }
+
+   Serial.printf("[CONFIG] Nouvelle configuration | TRAK_ID=%s | TRACKSERVER=%s | WIFI1=%s\n",
+                trakId.c_str(), trackserverUrl.c_str(), s1.c_str());
+
+  if (!smsConfigApplyRemoteConfig(
+          trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
+          s1, p1, s2, p2, s3, p3, receivedTimestamp)) {
+    Serial.println("[CONFIG] Application refusee.");
+    return false;
+  }
+
+  return smsConfigLastConfigTimestamp() == receivedTimestamp;
+}
+
+bool checkConfig() {
+  const String url = configApiUrl();
+  const String trakId = smsConfigTrakId();
+  const String apiKey = smsConfigApiKey();
+  if (url.isEmpty() || trakId.isEmpty() || apiKey.isEmpty()) return false;
+
+  const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId + "\"}";
+  String response;
+  if (!postRequest(url, body, response) || !responseOk(response)) {
+    Serial.println("[CONFIG] STATUS indisponible.");
+    devLog("CONFIG | status ERROR");
+    return false;
+  }
+
+  bool pending = false;
+  uint64_t serverTimestamp = 0;
+  if (!jsonBool(response, "config_pending", pending) ||
+      !jsonUint64(response, "config_updated_at", serverTimestamp)) {
+    Serial.println("[CONFIG] STATUS invalide.");
+    return false;
+  }
+
+  const uint64_t localTimestamp = smsConfigLastConfigTimestamp();
+  Serial.printf("[CONFIG] status pending=%d server=%llu local=%llu\n",
+                pending ? 1 : 0,
+                (unsigned long long)serverTimestamp,
+                (unsigned long long)localTimestamp);
+
+  if (serverTimestamp <= localTimestamp) return true;
+
+  if (!fetchConfig(url, serverTimestamp)) return false;
+
+  const String ack = String("{\"action\":\"ack\",\"trak_id\":\"") + smsConfigTrakId() +
+                     "\",\"config_updated_at\":" +
+                     String((unsigned long long)serverTimestamp) + "}";
+  String ackResponse;
+  if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
+    Serial.println("[CONFIG] ACK indisponible.");
+    devLog("CONFIG | ACK ERROR");
+    return false;
+  }
+
+  Serial.println("[CONFIG] Configuration distante appliquee + ACK.");
+  devLog("CONFIG | remote apply + ACK OK");
+  return true;
+}
+}
+
+void remoteConfigBegin() {
+  lastCheck = 0;
+  initialized = true;
+  busy = false;
+}
+
+void remoteConfigTick() {
+  if (!initialized || busy) return;
+  if (!smsConfigIsConfigured()) return;
+
+  const uint32_t now = millis();
+  const uint32_t interval = (lastCheck == 0) ? FIRST_CHECK_DELAY_MS : CHECK_INTERVAL_MS;
+  if (now - lastCheck < interval) return;
+
+  busy = true;
+  const bool success = checkConfig();
+  busy = false;
+
+  // Controle immediat au boot. En cas d'echec HTTP/reseau, on reessaie
+  // rapidement au lieu d'attendre les 5 minutes normales.
+  if (success) lastCheck = millis();
+  else lastCheck = millis() - (CHECK_INTERVAL_MS - RETRY_INTERVAL_MS);
+}  // HTTPREAD est particulier sur A76XX : la commande retourne d'abord OK,
+  // puis +HTTPREAD:<len> et le payload. La fonction at() s'arrete sur le premier
+  // OK et perd donc les 82 octets de notre JSON.
+  const uint32_t readLen = dataLen > 0 ? dataLen : 1024UL;
+  const String readInfo = at("AT+HTTPREAD?", 3000);
+  Serial.printf("[CONFIG] 4G HTTPREAD? => %s\n", readInfo.c_str());
+
+  if (!readHttpBody(readLen, response)) {
     devLog(String("CONFIG | 4G | HTTPREAD ERROR datalen=") +
            String((unsigned long)dataLen));
     at("AT+HTTPTERM", 3000);
