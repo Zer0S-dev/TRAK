@@ -43,7 +43,7 @@ String configApiUrl() {
 }
 
 bool jsonBool(const String& json, const char* key, bool& value) {
-  const String needle = String(""") + key + "":";
+  const String needle = String("\"") + key + "\":";
   int p = json.indexOf(needle);
   if (p < 0) return false;
   p += needle.length();
@@ -54,10 +54,10 @@ bool jsonBool(const String& json, const char* key, bool& value) {
 }
 
 bool jsonUint64(const String& json, const char* key, uint64_t& value) {
-  const String quoted = String(""") + key + "":";
-  int p = json.indexOf(quoted);
+  const String needle = String("\"") + key + "\":";
+  int p = json.indexOf(needle);
   if (p < 0) return false;
-  p += quoted.length();
+  p += needle.length();
   while (p < (int)json.length() && (isspace((unsigned char)json[p]) || json[p] == '"')) ++p;
   uint64_t n = 0;
   bool found = false;
@@ -71,7 +71,7 @@ bool jsonUint64(const String& json, const char* key, uint64_t& value) {
 }
 
 bool jsonString(const String& json, const char* key, String& value) {
-  const String needle = String(""") + key + "":"";
+  const String needle = String("\"") + key + "\":\"";
   const int start = json.indexOf(needle);
   if (start < 0) return false;
 
@@ -99,7 +99,7 @@ bool jsonString(const String& json, const char* key, String& value) {
 }
 
 bool jsonObjectForKey(const String& json, const char* key, String& object) {
-  const String needle = String(""") + key + "":{";
+  const String needle = String("\"") + key + "\":{";
   const int start = json.indexOf(needle);
   if (start < 0) return false;
 
@@ -126,7 +126,7 @@ bool jsonObjectForKey(const String& json, const char* key, String& object) {
 }
 
 bool jsonWifiSlot(const String& object, uint8_t slot, String& ssid, String& password) {
-  const String needle = String(""slot":") + String(slot);
+  const String needle = String("\"slot\":") + String(slot);
   const int slotPos = object.indexOf(needle);
   if (slotPos < 0) return false;
   const int objectStart = object.lastIndexOf('{', slotPos);
@@ -195,15 +195,15 @@ bool postCellular(const String& url, const String& body, String& response) {
   at("AT+HTTPTERM", 1000);
   if (at("AT+HTTPINIT", 3000).indexOf("OK") < 0) return false;
   at("AT+HTTPSSL=1", 3000);
-  at("AT+HTTPPARA="CONTENT","application/json"", 3000);
+  at("AT+HTTPPARA=\"CONTENT\",\"application/json\"", 3000);
 
-  if (at(String("AT+HTTPPARA="URL","") + url + """, 5000).indexOf("OK") < 0) {
+  if (at(String("AT+HTTPPARA=\"URL\",\"") + url + "\"", 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     return false;
   }
 
   const String header = String("Authorization: Bearer ") + smsConfigApiKey() + "\\r\\n";
-  if (at(String("AT+HTTPPARA="USERDATA","") + header + """, 3000).indexOf("OK") < 0) {
+  if (at(String("AT+HTTPPARA=\"USERDATA\",\"") + header + "\"", 3000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     return false;
   }
@@ -265,9 +265,9 @@ bool postRequest(const String& url, const String& body, String& response) {
 }
 
 bool fetchConfig(const String& url, uint64_t serverTimestamp) {
-  const String body = String("{"action":"config","trak_id":"") +
+  const String body = String("{\"action\":\"config\",\"trak_id\":\"") +
                       smsConfigTrakId() +
-                      "","last_config_timestamp":" +
+                      "\",\"last_config_timestamp\":" +
                       String((unsigned long long)smsConfigLastConfigTimestamp()) + "}";
 
   String response;
@@ -324,7 +324,7 @@ bool checkConfig() {
   const String apiKey = smsConfigApiKey();
   if (url.isEmpty() || trakId.isEmpty() || apiKey.isEmpty()) return false;
 
-  const String body = String("{"action":"status","trak_id":"") + trakId + ""}";
+  const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId + "\"}";
   String response;
   if (!postRequest(url, body, response) || !responseOk(response)) {
     Serial.println("[CONFIG] STATUS indisponible.");
@@ -350,10 +350,8 @@ bool checkConfig() {
 
   if (!fetchConfig(url, serverTimestamp)) return false;
 
-  // ACK est envoyé avec la nouvelle clé : le serveur accepte aussi la clé
-  // pending tant que la configuration n'est pas encore acquittée.
-  const String ack = String("{"action":"ack","trak_id":"") + smsConfigTrakId() +
-                     "","config_updated_at":" +
+  const String ack = String("{\"action\":\"ack\",\"trak_id\":\"") + smsConfigTrakId() +
+                     "\",\"config_updated_at\":" +
                      String((unsigned long long)serverTimestamp) + "}";
   String ackResponse;
   if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
