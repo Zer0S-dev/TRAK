@@ -98,6 +98,28 @@ function db(): PDO {
         FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
     )");
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_configs_pending ON trak_configs(config_pending, config_updated_at)');
+    $configColumns = $pdo->query('PRAGMA table_info(trak_configs)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    $configMigrations = [
+        'config_pending' => "ALTER TABLE trak_configs ADD COLUMN config_pending INTEGER NOT NULL DEFAULT 1",
+        'config_updated_at' => "ALTER TABLE trak_configs ADD COLUMN config_updated_at INTEGER NOT NULL DEFAULT 0",
+        'api_key' => "ALTER TABLE trak_configs ADD COLUMN api_key TEXT NOT NULL DEFAULT ''",
+        'trak_phone' => "ALTER TABLE trak_configs ADD COLUMN trak_phone TEXT NOT NULL DEFAULT ''",
+        'user_phone' => "ALTER TABLE trak_configs ADD COLUMN user_phone TEXT NOT NULL DEFAULT ''",
+        'trackserver_url' => "ALTER TABLE trak_configs ADD COLUMN trackserver_url TEXT NOT NULL DEFAULT ''",
+        'dashboard_url' => "ALTER TABLE trak_configs ADD COLUMN dashboard_url TEXT NOT NULL DEFAULT ''",
+        'wifi_ssid_1' => "ALTER TABLE trak_configs ADD COLUMN wifi_ssid_1 TEXT NOT NULL DEFAULT ''",
+        'wifi_password_1' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_1 TEXT NOT NULL DEFAULT ''",
+        'wifi_ssid_2' => "ALTER TABLE trak_configs ADD COLUMN wifi_ssid_2 TEXT NOT NULL DEFAULT ''",
+        'wifi_password_2' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_2 TEXT NOT NULL DEFAULT ''",
+        'wifi_ssid_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_ssid_3 TEXT NOT NULL DEFAULT ''",
+        'wifi_password_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_3 TEXT NOT NULL DEFAULT ''",
+        'updated_at' => "ALTER TABLE trak_configs ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP",
+    ];
+    foreach ($configMigrations as $column => $sql) {
+        if (!in_array($column, $configColumns, true)) {
+            $pdo->exec($sql);
+        }
+    }
     $pdo->exec("INSERT OR IGNORE INTO trak_configs (
         trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
         trackserver_url, dashboard_url
