@@ -290,12 +290,13 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
     return false;
   }
 
-  String trakId, trakPhone, userPhone, apiKey, dashboardUrl;
+  String trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl;
   String s1, p1, s2, p2, s3, p3;
   if (!jsonString(configObject, "trak_id", trakId) ||
       !jsonString(configObject, "trak_phone", trakPhone) ||
       !jsonString(configObject, "user_phone", userPhone) ||
       !jsonString(configObject, "api_key", apiKey) ||
+      !jsonString(configObject, "trackserver_url", trackserverUrl) ||
       !jsonString(configObject, "dashboard_url", dashboardUrl) ||
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
@@ -305,12 +306,11 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
     return false;
   }
 
-  // L'URL Trackserver locale provient de TRAKCFG2 et reste autoritaire.
-  Serial.printf("[CONFIG] Nouvelle configuration | TRAK_ID=%s | WIFI1=%s\n",
-                trakId.c_str(), s1.c_str());
+   Serial.printf("[CONFIG] Nouvelle configuration | TRAK_ID=%s | TRACKSERVER=%s | WIFI1=%s\n",
+                trakId.c_str(), trackserverUrl.c_str(), s1.c_str());
 
   if (!smsConfigApplyRemoteConfig(
-          trakId, trakPhone, userPhone, apiKey, dashboardUrl,
+          trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
           s1, p1, s2, p2, s3, p3, receivedTimestamp)) {
     Serial.println("[CONFIG] Application refusee.");
     return false;
