@@ -18,7 +18,7 @@ if ($user['role'] === 'admin') {
     );
 } else {
     $stmt = $pdo->prepare(
-        'SELECT tb.trak_id, tp.latitude, tp.longitude, tp.gps_timestamp, tp.received_at
+        'SELECT tb.trak_id, tp.latitude, tp.longitude, tp.altitude, tp.gps_timestamp, tp.received_at
          FROM trak_boxes tb
          LEFT JOIN trak_positions tp ON tp.trak_box_id = tb.id
          WHERE tb.user_id = ?
