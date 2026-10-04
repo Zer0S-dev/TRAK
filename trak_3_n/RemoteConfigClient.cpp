@@ -15,7 +15,8 @@ extern String at(const String& command, uint32_t timeoutMs);
 extern void devLog(const String& message);
 
 namespace {
-constexpr uint32_t FIRST_CHECK_DELAY_MS = 60000UL;
+constexpr uint32_t FIRST_CHECK_DELAY_MS = 0UL;
+constexpr uint32_t RETRY_INTERVAL_MS = 10000UL;
 constexpr uint32_t CHECK_INTERVAL_MS = 300000UL;
 constexpr uint32_t WIFI_TIMEOUT_MS = 2500UL;
 constexpr uint32_t CELLULAR_TIMEOUT_MS = 8000UL;
@@ -203,7 +204,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     return false;
   }
 
-  const String header = String("Authorization: Bearer ") + smsConfigApiKey() + "\r\n";
+  const String header = String("Authorization: Bearer ") + smsConfigApiKey();
   if (at(String("AT+HTTPPARA=\"USERDATA\",\"") + header + "\"", 3000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     return false;
@@ -382,7 +383,11 @@ void remoteConfigTick() {
   if (now - lastCheck < interval) return;
 
   busy = true;
-  lastCheck = now;
-  checkConfig();
+  const bool success = checkConfig();
   busy = false;
+
+  // Controle immediat au boot. En cas d'echec HTTP/reseau, on reessaie
+  // rapidement au lieu d'attendre les 5 minutes normales.
+  if (success) lastCheck = millis();
+  else lastCheck = millis() - (CHECK_INTERVAL_MS - RETRY_INTERVAL_MS);
 }
