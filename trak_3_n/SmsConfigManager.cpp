@@ -459,7 +459,7 @@ uint64_t smsConfigLastConfigTimestamp() {
   // Le timestamp est stocke nativement en U64 dans NVS. Cela conserve les
   // millisecondes sans conversion intermediaire et reste compatible avec
   // les anciennes versions de cette cle qui utilisaient deja U64.
-  return prefs.getULong64("last_config_timestamp_v2", 0ULL);
+  return prefs.getULong64("cfg_ts_v2", 0ULL);
 }
 
 bool smsConfigApplyRemoteConfig(
