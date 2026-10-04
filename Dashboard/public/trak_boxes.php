@@ -21,6 +21,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $trakId = strtoupper(trim((string)($_POST['trak_id'] ?? '')));
             $phone = trim((string)($_POST['phone'] ?? ''));
             $apiKey = trim((string)($_POST['api_key'] ?? ''));
+            if ($id > 0 && $apiKey === '') {
+                $existingKeyStmt = $pdo->prepare('SELECT api_key FROM trak_boxes WHERE id = ?');
+                $existingKeyStmt->execute([$id]);
+                $apiKey = trim((string)($existingKeyStmt->fetchColumn() ?: ''));
+            }
             $trakserverUrl = trim((string)($_POST['trakserver_url'] ?? ''));
             $dashboardUrl = trim((string)($_POST['dashboard_url'] ?? ''));
             $wifiSsid1 = trim((string)($_POST['wifi_ssid_1'] ?? ''));
