@@ -6,7 +6,7 @@ require_once __DIR__ . '/../partials.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-function trakConfigResponse(array $payload, int $status = 200): never {
+function trakConfigResponse(array $payload, int $status = 200): void {
     http_response_code($status);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
