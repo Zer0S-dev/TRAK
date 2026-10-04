@@ -24,7 +24,7 @@ function page_header(string $title, array $user): void { ?>
     <a class="<?= $activePage === 'trak_boxes.php' ? 'active' : '' ?>" href="trak_boxes.php"><i class="fa-solid fa-location-dot"></i><span>TRAK Box</span></a>
     <a class="<?= $activePage === 'api.php' ? 'active' : '' ?>" href="api.php"><i class="fa-solid fa-code"></i><span>API</span></a>
     <?php if ($user['role']==='admin'): ?>
-      <a class="<?= $activePage === 'register.php' ? 'active' : '' ?>" href="register.php"><i class="fa-solid fa-users"></i><span>Users</span></a>
+      <a class="<?= $activePage === 'users.php' ? 'active' : '' ?>" href="users.php"><i class="fa-solid fa-users"></i><span>Users</span></a>
     <?php endif; ?>
   </nav>
   <div class="side-bottom">
