@@ -78,7 +78,7 @@ if ($action === 'config') {
     $lastTimestamp = (int)($input['last_config_timestamp'] ?? 0);
     $serverTimestamp = (int)$config['config_updated_at'];
 
-    if ((int)$config['config_pending'] !== 1 || $serverTimestamp <= $lastTimestamp) {
+    if ($serverTimestamp <= $lastTimestamp) {
         trakConfigResponse([
             'ok' => true,
             'config_pending' => 0,
