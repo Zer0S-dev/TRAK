@@ -90,7 +90,8 @@ String buildUrl(const GnssPosition& position) {
   url.replace("{1}", String(position.longitude, 6));
   url.replace("{2}", String(trackserverTimestampMs(position.timestamp)));
   url.replace("{4}", String(position.altitude, 1));
-  url.replace("{5}", String(position.speedKnots, 2));
+  const float speedKmh = position.speedKnots * 1.852f;
+  url.replace("{5}", String(speedKmh, 2));
   url.replace("{6}", String(position.courseDeg, 1));
   return url;
 }
