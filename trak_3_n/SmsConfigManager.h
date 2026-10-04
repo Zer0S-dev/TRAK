@@ -16,6 +16,7 @@ bool smsConfigApplyRemoteConfig(
     const String& trakPhone,
     const String& userPhone,
     const String& apiKey,
+    const String& trackserverUrl,
     const String& dashboardUrl,
     const String& wifiSsid1,
     const String& wifiPassword1,
