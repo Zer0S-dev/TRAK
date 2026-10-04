@@ -127,7 +127,7 @@ if ($editId > 0) {
     }
     if (!$edit && $error === '') $error = 'TRAK Box introuvable.';
 }
-$boxes = $pdo->query('SELECT tb.*, u.username FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
+$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
 
 page_header('TRAK Box', $user);
 ?>
@@ -200,7 +200,7 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table">
-<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>trackserver_url</th><th>Dashboard</th><th>Actions</th></tr></thead>
+<thead><tr><th>User ID</th><th>TRAK ID</th><th>Téléphone</th><th>Clé API</th><th>trackserver_url</th><th>Dashboard</th><th>Config</th><th>Actions</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
@@ -210,6 +210,7 @@ page_header('TRAK Box', $user);
 <td><code><?=htmlspecialchars($box['api_key'])?></code></td>
 <td class="long-text"><a href="<?=htmlspecialchars($box['trakserver_url'])?>" target="_blank" rel="noopener"><?=htmlspecialchars($box['trakserver_url'])?></a></td>
 <td class="long-text"><a href="<?=htmlspecialchars($box['dashboard_url'])?>" target="_blank" rel="noopener"><?=htmlspecialchars($box['dashboard_url'])?></a></td>
+<td><?= ((int)($box['config_pending'] ?? 0) === 1) ? '<strong>À envoyer</strong>' : 'À jour' ?><br><small class="muted"><?= (int)($box['config_updated_at'] ?? 0) ?></small></td>
 <td class="actions">
 <a href="trak_boxes.php?edit=<?=(int)$box['id']?>" class="modify">Modifier</a>
 <form method="post" onsubmit="return confirm('Supprimer cette TRAK Box ?');">
