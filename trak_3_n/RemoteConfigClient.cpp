@@ -515,7 +515,6 @@ bool checkConfig() {
   devLog("CONFIG | remote apply + ACK OK");
   return true;
 }
-}
 
 void remoteConfigBegin() {
   lastCheck = 0;
