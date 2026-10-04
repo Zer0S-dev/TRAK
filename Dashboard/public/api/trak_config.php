@@ -40,15 +40,20 @@ if ($trakId === '') {
 
 $pdo = db();
 $stmt = $pdo->prepare('
-    SELECT tb.id, tb.trak_id, tb.api_key
+    SELECT tb.id, tb.trak_id, tb.api_key, tc.api_key AS pending_api_key, tc.config_pending
     FROM trak_boxes tb
+    LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id
     WHERE tb.trak_id = ?
     LIMIT 1
 ');
 $stmt->execute([$trakId]);
 $trak = $stmt->fetch();
 
-if (!$trak || !hash_equals((string)$trak['api_key'], $apiKey)) {
+$validCurrentKey = $trak && hash_equals((string)$trak['api_key'], $apiKey);
+$validPendingKey = $trak && (int)$trak['config_pending'] === 1 &&
+    (string)$trak['pending_api_key'] !== '' &&
+    hash_equals((string)$trak['pending_api_key'], $apiKey);
+if (!$trak || (!$validCurrentKey && !$validPendingKey)) {
     trakConfigResponse(['ok' => false, 'error' => 'invalid_credentials'], 401);
 }
 
@@ -139,6 +144,13 @@ if ($action === 'ack') {
             'config_updated_at' => (int)$config['config_updated_at']
         ], 409);
     }
+
+    $updateKey = $pdo->prepare('
+        UPDATE trak_boxes
+        SET api_key = ?
+        WHERE id = ?
+    ');
+    $updateKey->execute([(string)$config['api_key'], (int)$trak['id']);
 
     trakConfigResponse([
         'ok' => true,
