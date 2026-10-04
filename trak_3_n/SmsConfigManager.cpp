@@ -3,6 +3,7 @@
 #include <HardwareSerial.h>
 #include "Config.h"
 #include "SmsConfigManager.h"
+#include "WiFiManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
