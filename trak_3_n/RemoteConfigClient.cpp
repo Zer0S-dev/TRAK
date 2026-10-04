@@ -347,7 +347,7 @@ bool checkConfig() {
                 (unsigned long long)serverTimestamp,
                 (unsigned long long)localTimestamp);
 
-  if (!pending || serverTimestamp <= localTimestamp) return true;
+  if (serverTimestamp <= localTimestamp) return true;
 
   if (!fetchConfig(url, serverTimestamp)) return false;
 
