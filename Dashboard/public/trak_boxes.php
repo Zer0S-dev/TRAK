@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/partials.php';
+require_once __DIR__ . '/../app/mail.php';
 
 $user = require_login();
 $pdo = db();
@@ -71,9 +72,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $editId = (int)$pdo->lastInsertId();
             }
 
-            $userPhoneStmt = $pdo->prepare('SELECT phone FROM users WHERE id = ?');
-            $userPhoneStmt->execute([$userId]);
-            $userPhone = trim((string)($userPhoneStmt->fetchColumn() ?: ''));
+            $userStmt = $pdo->prepare('SELECT username, email, phone FROM users WHERE id = ?');
+            $userStmt->execute([$userId]);
+            $owner = $userStmt->fetch();
+            $userPhone = trim((string)($owner['phone'] ?? ''));
 
             // La configuration existe déjà pour une TRAK Box : on la met à jour.
             // Sinon on la crée. Cette méthode évite ON CONFLICT/UPSERT pour
@@ -106,12 +108,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
+            if ($id === 0 && !empty($owner['email'])) {
+                send_trak_created_email((string)$owner['email'], (string)$owner['username'], $trakId);
+            }
+
             $message = $id > 0 ? 'TRAK Box modifiée et nouvelle configuration mise en attente.' : 'TRAK Box enregistrée et configuration initiale mise en attente.';
         } elseif ($action === 'delete') {
             $id = (int)($_POST['id'] ?? 0);
+            $infoStmt = $pdo->prepare('SELECT tb.trak_id, u.username, u.email FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id WHERE tb.id = ?');
+            $infoStmt->execute([$id]);
+            $boxInfo = $infoStmt->fetch();
+
             $stmt = $pdo->prepare('DELETE FROM trak_boxes WHERE id = ?');
             $stmt->execute([$id]);
             if ($stmt->rowCount() === 0) throw new RuntimeException('TRAK Box introuvable.');
+
+            if (!empty($boxInfo['email'])) {
+                send_trak_deleted_email((string)$boxInfo['email'], (string)$boxInfo['username'], (string)$boxInfo['trak_id']);
+            }
+
             $message = 'TRAK Box supprimée avec succès.';
             $editId = 0;
         }
