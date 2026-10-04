@@ -132,8 +132,22 @@ DashboardResult sendOverWiFi(const String& url) {
 DashboardResult sendOverCellular(const String& url) {
   if (!modemReady || !cellularReady) return DashboardResult::NotReady;
 
+  // Le stack HTTP du A7670 peut mettre un court instant a liberer
+  // la session precedente (Trackserver / config). Ne pas enchainer
+  // HTTPTERM -> HTTPINIT sans laisser le modem finaliser.
   at("AT+HTTPTERM", 1000);
-  const String init = at("AT+HTTPINIT", 3000);
+  vTaskDelay(pdMS_TO_TICKS(250));
+
+  String init = at("AT+HTTPINIT", 3000);
+  if (init.indexOf("OK") < 0) {
+    // Deuxieme tentative apres un TERM explicite : certains A7670
+    // retournent encore ERROR sur le premier HTTPINIT immediatement
+    // apres une session HTTPS.
+    at("AT+HTTPTERM", 1000);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    init = at("AT+HTTPINIT", 3000);
+  }
+
   if (init.indexOf("OK") < 0) {
     Serial.println("[DASHBOARD] 4G HTTPINIT ERROR");
     devLog("DASHBOARD | 4G | HTTPINIT ERROR");
