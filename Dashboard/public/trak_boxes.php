@@ -70,30 +70,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userPhoneStmt->execute([$userId]);
             $userPhone = trim((string)($userPhoneStmt->fetchColumn() ?: ''));
 
-            $configStmt = $pdo->prepare('INSERT INTO trak_configs (
-                trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
-                trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
-                wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3, updated_at
-            ) VALUES (?, 1, (CAST(strftime("%s","now") AS INTEGER) * 1000 + CAST(substr(strftime("%f","now"), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(trak_box_id) DO UPDATE SET
+            // La configuration existe déjà pour une TRAK Box : on la met à jour.
+            // Sinon on la crée. Cette méthode évite ON CONFLICT/UPSERT pour
+            // rester compatible avec les SQLite des hébergements mutualisés.
+            $configStmt = $pdo->prepare('UPDATE trak_configs SET
                 config_pending = 1,
-                config_updated_at = (CAST(strftime("%s","now") AS INTEGER) * 1000 + CAST(substr(strftime("%f","now"), 4, 3) AS INTEGER)),
-                api_key = excluded.api_key,
-                trak_phone = excluded.trak_phone,
-                user_phone = excluded.user_phone,
-                trackserver_url = excluded.trackserver_url,
-                dashboard_url = excluded.dashboard_url,
-                wifi_ssid_1 = excluded.wifi_ssid_1,
-                wifi_password_1 = excluded.wifi_password_1,
-                wifi_ssid_2 = excluded.wifi_ssid_2,
-                wifi_password_2 = excluded.wifi_password_2,
-                wifi_ssid_3 = excluded.wifi_ssid_3,
-                wifi_password_3 = excluded.wifi_password_3,
-                updated_at = CURRENT_TIMESTAMP');
+                config_updated_at = (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)),
+                api_key = ?, trak_phone = ?, user_phone = ?,
+                trackserver_url = ?, dashboard_url = ?,
+                wifi_ssid_1 = ?, wifi_password_1 = ?,
+                wifi_ssid_2 = ?, wifi_password_2 = ?,
+                wifi_ssid_3 = ?, wifi_password_3 = ?,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE trak_box_id = ?');
             $configStmt->execute([
-                $editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl,
-                $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3
+                $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl,
+                $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3,
+                $editId
             ]);
+
+            if ($configStmt->rowCount() === 0) {
+                $configStmt = $pdo->prepare('INSERT INTO trak_configs (
+                    trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
+                    trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
+                    wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3
+                ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $configStmt->execute([
+                    $editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl,
+                    $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3
+                ]);
+            }
 
             $message = $id > 0 ? 'TRAK Box modifiée et nouvelle configuration mise en attente.' : 'TRAK Box enregistrée et configuration initiale mise en attente.';
         } elseif ($action === 'delete') {
