@@ -8,6 +8,7 @@
 #include "TrakRuntime.h"
 #include "MotionManager.h"
 #include "DevLog.h"
+#include "RemoteConfigClient.h"
 
 HardwareSerial modem(1);
 Adafruit_NeoPixel leds(WS2812_RING_COUNT + WS2812_CENTER_COUNT, WS2812_PIN, NEO_GRB + NEO_KHZ800);
