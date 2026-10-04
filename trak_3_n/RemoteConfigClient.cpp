@@ -187,7 +187,7 @@ bool readHttpAction(int& statusCode, uint32_t& dataLen, uint32_t timeoutMs) {
           } else {
             dataLen = (uint32_t)response.substring(c2 + 1).toInt();
           }
-          Serial.printf("[CONFIG] 4G HTTPACTION status=%d dataLen=%lu\\n",
+          Serial.printf("[CONFIG] 4G HTTPACTION status=%d dataLen=%lu\n",
                         statusCode, (unsigned long)dataLen);
           devLog(String("CONFIG | 4G | HTTPACTION status=") + String(statusCode) +
                  " datalen=" + String((unsigned long)dataLen));
@@ -217,7 +217,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   // POST A76XX: HTTPINIT -> HTTPPARA -> HTTPDATA -> HTTPACTION=1 -> HTTPREAD.
   // Ne pas masquer les reponses de HTTPDATA/HTTPACTION: elles sont essentielles
   // pour distinguer un probleme HTTP (401/500...) d'un probleme de lecture modem.
-  Serial.printf("[CONFIG] 4G POST url=%s bodyLen=%lu\\n",
+  Serial.printf("[CONFIG] 4G POST url=%s bodyLen=%lu\n",
                 url.c_str(), (unsigned long)body.length());
   devLog(String("CONFIG | 4G | POST bodyLen=") + String((unsigned long)body.length()));
 
@@ -240,7 +240,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   }
 
   while (modem.available()) modem.read();
-  const String dataCommand = String("AT+HTTPDATA=") + String(body.length()) + ",10000\\r\\n";
+  const String dataCommand = String("AT+HTTPDATA=") + String(body.length()) + ",10000\r\n";
   Serial.printf("[CONFIG] 4G -> %s", dataCommand.c_str());
   modem.print(dataCommand);
 
@@ -250,7 +250,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     while (modem.available()) prompt += (char)modem.read();
     if (prompt.indexOf("DOWNLOAD") >= 0) break;
     if (prompt.indexOf("ERROR") >= 0) {
-      Serial.printf("[CONFIG] 4G HTTPDATA ERROR: %s\\n", prompt.c_str());
+      Serial.printf("[CONFIG] 4G HTTPDATA ERROR: %s\n", prompt.c_str());
       devLog("CONFIG | 4G | HTTPDATA ERROR");
       at("AT+HTTPTERM", 1000);
       return false;
@@ -258,7 +258,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     vTaskDelay(pdMS_TO_TICKS(5));
   }
   if (prompt.indexOf("DOWNLOAD") < 0) {
-    Serial.printf("[CONFIG] 4G HTTPDATA timeout: %s\\n", prompt.c_str());
+    Serial.printf("[CONFIG] 4G HTTPDATA timeout: %s\n", prompt.c_str());
     devLog("CONFIG | 4G | HTTPDATA TIMEOUT");
     at("AT+HTTPTERM", 1000);
     return false;
@@ -274,7 +274,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     vTaskDelay(pdMS_TO_TICKS(5));
   }
   if (uploadAck.indexOf("OK") < 0) {
-    Serial.printf("[CONFIG] 4G HTTPDATA upload ERROR: %s\\n", uploadAck.c_str());
+    Serial.printf("[CONFIG] 4G HTTPDATA upload ERROR: %s\n", uploadAck.c_str());
     devLog("CONFIG | 4G | HTTPDATA upload ERROR");
     at("AT+HTTPTERM", 1000);
     return false;
@@ -282,7 +282,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   Serial.println("[CONFIG] 4G HTTPDATA OK");
 
   while (modem.available()) modem.read();
-  modem.print("AT+HTTPACTION=1\\r\\n");
+  modem.print("AT+HTTPACTION=1\r\n");
   Serial.println("[CONFIG] 4G -> AT+HTTPACTION=1");
 
   int statusCode = -1;
@@ -294,7 +294,7 @@ bool postCellular(const String& url, const String& body, String& response) {
 
   if (statusCode < 200 || statusCode >= 300) {
     at("AT+HTTPTERM", 3000);
-    Serial.printf("[CONFIG] 4G HTTP=%d\\n", statusCode);
+    Serial.printf("[CONFIG] 4G HTTP=%d\n", statusCode);
     devLog(String("CONFIG | 4G | HTTP=") + String(statusCode));
     return false;
   }
@@ -303,17 +303,17 @@ bool postCellular(const String& url, const String& body, String& response) {
   // simplement ERROR. Pour un corps, interroger d'abord la longueur bufferisee.
   if (dataLen == 0) {
     response = "";
-    Serial.printf("[CONFIG] 4G HTTP=%d sans corps\\n", statusCode);
+    Serial.printf("[CONFIG] 4G HTTP=%d sans corps\n", statusCode);
     devLog(String("CONFIG | 4G | HTTP=") + String(statusCode) + " no body");
     at("AT+HTTPTERM", 3000);
     return true;
   }
 
   const String readInfo = at("AT+HTTPREAD?", 3000);
-  Serial.printf("[CONFIG] 4G HTTPREAD? => %s\\n", readInfo.c_str());
+  Serial.printf("[CONFIG] 4G HTTPREAD? => %s\n", readInfo.c_str());
 
   response = at(String("AT+HTTPREAD=0,") + String((unsigned long)dataLen), 7000);
-  Serial.printf("[CONFIG] 4G HTTPREAD len=%lu => %s\\n",
+  Serial.printf("[CONFIG] 4G HTTPREAD len=%lu => %s\n",
                 (unsigned long)dataLen, response.c_str());
 
   if (response.indexOf("ERROR") >= 0) {
