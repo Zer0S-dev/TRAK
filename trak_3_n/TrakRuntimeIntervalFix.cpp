@@ -31,6 +31,7 @@ static bool bufferReady = false;
 static volatile NetworkPath activeNetwork = NetworkPath::None;
 static TaskHandle_t dashboardTaskHandle = nullptr;
 static volatile bool dashboardPending = false;
+static volatile bool dashboardSending = false;
 static GnssPosition dashboardPendingPosition;
 
 static void dashboardAsyncTask(void*) {
@@ -40,10 +41,14 @@ static void dashboardAsyncTask(void*) {
     const GnssPosition pending = dashboardPendingPosition;
     dashboardPending = false;
     if (WiFi.status() == WL_CONNECTED) {
+      dashboardSending = true;
       dashboardSend(pending);
+      dashboardSending = false;
     }
   }
 }
+
+static bool dashboardIsBusy() { return dashboardPending || dashboardSending; }
 
 static void dashboardQueueAsync(const GnssPosition& position) {
   dashboardPendingPosition = position;
@@ -169,7 +174,7 @@ void trakCommunicationTaskFixed(void*) {
   for (;;) {
     const uint32_t now = millis();
     smsConfigTick();
-    remoteConfigTick();
+    if (positionBuffer.empty() && !dashboardIsBusy()) remoteConfigTick();
     wifiNetworkTick(true);
     const NetworkPath previousNetwork = activeNetwork;
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
