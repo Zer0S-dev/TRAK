@@ -10,3 +10,5 @@ int wifiSignalPercent();
 uint8_t wifiProfileCount();
 void wifiSetProfile(uint8_t slot, const char* ssid, const char* password);
 void wifiClearProfile(uint8_t slot);
+
+void wifiResetProfiles();
