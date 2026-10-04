@@ -98,6 +98,14 @@ function db(): PDO {
         FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_configs_pending ON trak_configs(config_pending, config_updated_at)');
+    $pdo->exec("INSERT OR IGNORE INTO trak_configs (
+        trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
+        trackserver_url, dashboard_url
+    )
+    SELECT tb.id, 1, CAST(strftime('%s','now') AS INTEGER), tb.api_key, tb.phone,
+           COALESCE(u.phone, ''), tb.trakserver_url, tb.dashboard_url
+    FROM trak_boxes tb
+    LEFT JOIN users u ON u.id = tb.user_id");
 
     $pdo->exec('CREATE TABLE IF NOT EXISTS trak_positions (
         trak_box_id INTEGER PRIMARY KEY,
