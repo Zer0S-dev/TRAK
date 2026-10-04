@@ -39,14 +39,47 @@
     setTimeout(() => map.invalidateSize(), 50);
   }
 
+  // Les timestamps venant du TRAK sont considérés comme UTC lorsqu'ils
+  // n'indiquent pas explicitement de fuseau. L'affichage est ensuite
+  // converti dans le fuseau horaire local du navigateur.
+  function formatLocalTimestamp(value) {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return '-';
+    }
+
+    const raw = String(value).trim();
+    let date;
+
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
+      date = new Date(raw.replace(' ', 'T') + 'Z');
+    } else {
+      date = new Date(raw);
+    }
+
+    if (Number.isNaN(date.getTime())) {
+      return raw;
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'short',
+      timeStyle: 'medium'
+    }).format(date);
+  }
+
   function updateTrakDatas(latitude, longitude, altitude, gpsTimestamp) {
     if (!trakDatas) return;
     const lat = Number(latitude);
     const lon = Number(longitude);
     const alt = altitude === null || altitude === undefined || altitude === '' ? null : Number(altitude);
-    const timestamp = gpsTimestamp === null || gpsTimestamp === undefined || gpsTimestamp === '' ? '-' : String(gpsTimestamp);
+    const timestamp = formatLocalTimestamp(gpsTimestamp);
+
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    trakDatas.innerHTML = 'lat: ' + lat.toFixed(6) + ' / long: ' + lon.toFixed(6) + ' / alt: ' + (Number.isFinite(alt) ? alt.toFixed(1) + ' m' : '-') + ' / <i class="fa-regular fa-clock"></i> ' + timestamp;
+
+    trakDatas.innerHTML =
+      'lat: ' + lat.toFixed(6) +
+      ' / long: ' + lon.toFixed(6) +
+      ' / alt: ' + (Number.isFinite(alt) ? alt.toFixed(1) + ' m' : '-') +
+      ' / <i class="fa-regular fa-clock"></i> ' + timestamp;
   }
 
   function updateMarker(trakId, latitude, longitude, receivedAt, altitude, gpsTimestamp) {
@@ -66,13 +99,20 @@
       marker.setLatLng(position);
     }
 
-    const receivedText = receivedAt ? 'Dernière réception : ' + receivedAt + ' UTC' : '';
+    const receivedText = receivedAt
+      ? 'Dernière réception : ' + formatLocalTimestamp(receivedAt)
+      : '';
+
     updateTrakDatas(lat, lon, altitude, gpsTimestamp);
-    marker.bindTooltip(String(trakId) + (receivedText ? '<br>' + receivedText : ''), {
-      permanent: false,
-      direction: 'top',
-      offset: [0, -8]
-    });
+
+    marker.bindTooltip(
+      String(trakId) + (receivedText ? '<br>' + receivedText : ''),
+      {
+        permanent: false,
+        direction: 'top',
+        offset: [0, -8]
+      }
+    );
 
     if (autoCenter) {
       map.setView(position, Math.max(map.getZoom(), 15), { animate: true });
@@ -108,12 +148,21 @@
         const trakId = String(item.trak_id || '').trim();
         if (!trakId) continue;
         ids.add(trakId);
+
         const receivedAt = item.received_at || '';
         if (latestReceivedAt === null || receivedAt >= latestReceivedAt) {
           latestReceivedAt = receivedAt;
           updateTrakDatas(item.latitude, item.longitude, item.altitude, item.gps_timestamp);
         }
-        updateMarker(trakId, item.latitude, item.longitude, item.received_at, item.altitude, item.gps_timestamp);
+
+        updateMarker(
+          trakId,
+          item.latitude,
+          item.longitude,
+          item.received_at,
+          item.altitude,
+          item.gps_timestamp
+        );
       }
 
       removeMissingMarkers(ids);
