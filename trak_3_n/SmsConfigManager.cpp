@@ -507,13 +507,23 @@ bool smsConfigApplyRemoteConfig(
   // Le timestamp doit etre persistant avant toute nouvelle tentative de
   // synchronisation. On le stocke en texte pour conserver les 64 bits sans
   // ambiguite sur toutes les versions du core ESP32.
-  prefs.putString("last_config_timestamp", String((unsigned long long)configTimestamp));
+  char timestampText[32];
+  snprintf(timestampText, sizeof(timestampText), "%llu",
+           (unsigned long long)configTimestamp);
+  const size_t written = prefs.putString("last_config_timestamp", timestampText);
 
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | stocke=%llu | trackserver=%s\n",
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%u | stocke=%llu | trackserver=%s\n",
                 (unsigned long long)configTimestamp,
+                (unsigned)written,
                 (unsigned long long)storedTimestamp,
                 trackserverUrl.c_str());
+
+  if (written == 0 || storedTimestamp != configTimestamp) {
+    Serial.println("[CONFIG] ERREUR persistance timestamp NVS.");
+    devLog("CONFIG | timestamp NVS write ERROR");
+    return false;
+  }
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
   return true;
 }
