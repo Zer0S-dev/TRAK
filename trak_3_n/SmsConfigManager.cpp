@@ -451,6 +451,7 @@ bool smsConfigApplyRemoteConfig(
     const String& trakPhone,
     const String& userPhone,
     const String& apiKey,
+    const String& trackserverUrl,
     const String& dashboardUrl,
     const String& wifiSsid1,
     const String& wifiPassword1,
@@ -459,9 +460,11 @@ bool smsConfigApplyRemoteConfig(
     const String& wifiSsid3,
     const String& wifiPassword3,
     uint64_t configTimestamp) {
+  // Le timestamp serveur est l'unique version de configuration.
   if (configTimestamp == 0 || configTimestamp <= smsConfigLastConfigTimestamp()) return false;
   if (!validTrakId(trakId) || trakPhone.isEmpty() || userPhone.isEmpty()) return false;
   if (!validAlphaNum(apiKey, API_KEY_LEN)) return false;
+  if (!validTrackserverUrl(trackserverUrl)) return false;
   if (!validTrackserverUrl(dashboardUrl) || dashboardUrl.length() > MAX_dashboard_url_LEN) return false;
 
   const String ssids[] = {wifiSsid1, wifiSsid2, wifiSsid3};
@@ -473,13 +476,12 @@ bool smsConfigApplyRemoteConfig(
     if (ssids[i].isEmpty() && !passwords[i].isEmpty()) return false;
   }
 
-  // L'URL Trackserver recue par SMS (TRAKCFG2) reste prioritaire.
-  const String localTrackserverUrl = smsConfigTrackserverUrl();
-  if (!validTrackserverUrl(localTrackserverUrl)) return false;
-
+  // Toute la configuration utilisée par le TRAK est remplacée atomiquement
+  // lorsque le timestamp distant est plus récent.
   prefs.putString("trak_id", trakId);
   prefs.putString("trak_phone", trakPhone);
   prefs.putString("user_phone", userPhone);
+  prefs.putString("trackserver_url", trackserverUrl);
   prefs.putString("api_key", apiKey);
   prefs.putString("dashboard_url", dashboardUrl);
 
@@ -491,8 +493,8 @@ bool smsConfigApplyRemoteConfig(
   else wifiSetProfile(2, wifiSsid3.c_str(), wifiPassword3.c_str());
 
   prefs.putULong64("last_config_timestamp", configTimestamp);
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu\n",
-                (unsigned long long)configTimestamp);
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | trackserver=%s\n",
+                (unsigned long long)configTimestamp, trackserverUrl.c_str());
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
   return true;
 }
