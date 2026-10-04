@@ -9,6 +9,7 @@
 #include "SmsConfigManager.h"
 #include "TrackserverClient.h"
 #include "DashboardClient.h"
+#include "RemoteConfigClient.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -152,6 +153,7 @@ void trakCommunicationTaskFixed(void*) {
   else activeNetwork = NetworkPath::None;
   trackserverBegin();
   dashboardBegin();
+  remoteConfigBegin();
   xTaskCreatePinnedToCore(
     dashboardAsyncTask,
     "dashboardSend",
@@ -167,6 +169,7 @@ void trakCommunicationTaskFixed(void*) {
   for (;;) {
     const uint32_t now = millis();
     smsConfigTick();
+    remoteConfigTick();
     wifiNetworkTick(true);
     const NetworkPath previousNetwork = activeNetwork;
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
