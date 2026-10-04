@@ -513,7 +513,7 @@ bool smsConfigApplyRemoteConfig(
 
   // Ne pas supprimer la cle avant l'ecriture : cela ajoute une operation NVS
   // inutile et peut aggraver un namespace deja fragile.
-  const size_t timestampWrittenBytes = prefs.putULong64("last_config_timestamp_v2", configTimestamp);
+  const size_t timestampWrittenBytes = prefs.putULong64("cfg_ts_v2", configTimestamp);
   const bool timestampWritten = timestampWrittenBytes == sizeof(uint64_t);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
