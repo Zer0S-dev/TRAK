@@ -443,7 +443,19 @@ String smsConfigApiKey() { return prefs.getString("api_key", ""); }
 String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
 
 uint64_t smsConfigLastConfigTimestamp() {
-  return prefs.getULong64("last_config_timestamp", 0);
+  // Stockage en texte volontairement : le timestamp serveur est en millisecondes
+  // et peut depasser 32 bits. Cela evite toute dependance a l'implementation
+  // Preferences de getULong64/putULong64 selon la version ESP32.
+  const String value = prefs.getString("last_config_timestamp", "");
+  if (value.isEmpty()) return 0;
+
+  uint64_t timestamp = 0;
+  for (size_t i = 0; i < value.length(); ++i) {
+    const char c = value[i];
+    if (c < '0' || c > '9') return 0;
+    timestamp = timestamp * 10ULL + (uint64_t)(c - '0');
+  }
+  return timestamp;
 }
 
 bool smsConfigApplyRemoteConfig(
@@ -492,9 +504,16 @@ bool smsConfigApplyRemoteConfig(
   if (wifiSsid3.isEmpty()) wifiClearProfile(2);
   else wifiSetProfile(2, wifiSsid3.c_str(), wifiPassword3.c_str());
 
-  prefs.putULong64("last_config_timestamp", configTimestamp);
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | trackserver=%s\n",
-                (unsigned long long)configTimestamp, trackserverUrl.c_str());
+  // Le timestamp doit etre persistant avant toute nouvelle tentative de
+  // synchronisation. On le stocke en texte pour conserver les 64 bits sans
+  // ambiguite sur toutes les versions du core ESP32.
+  prefs.putString("last_config_timestamp", String((unsigned long long)configTimestamp));
+
+  const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | stocke=%llu | trackserver=%s\n",
+                (unsigned long long)configTimestamp,
+                (unsigned long long)storedTimestamp,
+                trackserverUrl.c_str());
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
   return true;
 }
