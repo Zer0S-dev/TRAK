@@ -39,16 +39,17 @@
     setTimeout(() => map.invalidateSize(), 50);
   }
 
-  function updateTrakDatas(latitude, longitude, altitude) {
+  function updateTrakDatas(latitude, longitude, altitude, gpsTimestamp) {
     if (!trakDatas) return;
     const lat = Number(latitude);
     const lon = Number(longitude);
     const alt = altitude === null || altitude === undefined || altitude === '' ? null : Number(altitude);
+    const timestamp = gpsTimestamp === null || gpsTimestamp === undefined || gpsTimestamp === '' ? '-' : String(gpsTimestamp);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-    trakDatas.textContent = 'lat: ' + lat.toFixed(6) + ' / long: ' + lon.toFixed(6) + ' /alt: ' + (Number.isFinite(alt) ? alt.toFixed(1) + ' m' : '-');
+    trakDatas.innerHTML = 'lat: ' + lat.toFixed(6) + ' / long: ' + lon.toFixed(6) + ' / alt: ' + (Number.isFinite(alt) ? alt.toFixed(1) + ' m' : '-') + ' / <i class="fa-regular fa-clock"></i> ' + timestamp;
   }
 
-  function updateMarker(trakId, latitude, longitude, receivedAt, altitude) {
+  function updateMarker(trakId, latitude, longitude, receivedAt, altitude, gpsTimestamp) {
     const lat = Number(latitude);
     const lon = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
@@ -66,7 +67,7 @@
     }
 
     const receivedText = receivedAt ? 'Dernière réception : ' + receivedAt + ' UTC' : '';
-    updateTrakDatas(lat, lon, altitude);
+    updateTrakDatas(lat, lon, altitude, gpsTimestamp);
     marker.bindTooltip(String(trakId) + (receivedText ? '<br>' + receivedText : ''), {
       permanent: false,
       direction: 'top',
@@ -110,9 +111,9 @@
         const receivedAt = item.received_at || '';
         if (latestReceivedAt === null || receivedAt >= latestReceivedAt) {
           latestReceivedAt = receivedAt;
-          updateTrakDatas(item.latitude, item.longitude, item.altitude);
+          updateTrakDatas(item.latitude, item.longitude, item.altitude, item.gps_timestamp);
         }
-        updateMarker(trakId, item.latitude, item.longitude, item.received_at, item.altitude);
+        updateMarker(trakId, item.latitude, item.longitude, item.received_at, item.altitude, item.gps_timestamp);
       }
 
       removeMissingMarkers(ids);
