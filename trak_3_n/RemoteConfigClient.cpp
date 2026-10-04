@@ -369,7 +369,7 @@ bool checkConfig() {
 }
 
 void remoteConfigBegin() {
-  lastCheck = millis();
+  lastCheck = 0;
   initialized = true;
   busy = false;
 }
