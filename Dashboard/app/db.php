@@ -119,6 +119,13 @@ function db(): PDO {
     if (!in_array('altitude', $positionColumns, true)) {
         $pdo->exec('ALTER TABLE trak_positions ADD COLUMN altitude REAL');
     }
+    $positionColumns = $pdo->query('PRAGMA table_info(trak_positions)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('speed', $positionColumns, true)) {
+        $pdo->exec('ALTER TABLE trak_positions ADD COLUMN speed REAL');
+    }
+    if (!in_array('bearing', $positionColumns, true)) {
+        $pdo->exec('ALTER TABLE trak_positions ADD COLUMN bearing REAL');
+    }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_positions_received ON trak_positions(received_at)');
 
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
