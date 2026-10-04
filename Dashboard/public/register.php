@@ -65,6 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare('UPDATE users SET pending_email = ?, email = NULL, email_token_hash = ?, email_token_expires = ? WHERE id = ?');
                     $stmt->execute([$email, hash('sha256', $token), time() + 86400, $id]);
                     $mailSent = send_email_verification($email, $token);
+                    if ($mailSent) {
+                        send_user_created_email($email, $username);
+                    }
                 }
 
                 if ($count === 0) {
