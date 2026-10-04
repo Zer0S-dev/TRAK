@@ -23,6 +23,8 @@ $latRaw = $_GET['lat'] ?? $_POST['lat'] ?? null;
 $lonRaw = $_GET['lon'] ?? $_POST['lon'] ?? null;
 $altRaw = $_GET['altitude'] ?? $_GET['alt'] ?? $_POST['altitude'] ?? $_POST['alt'] ?? null;
 $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
+$speedRaw = $_GET['speed'] ?? $_POST['speed'] ?? null;
+$bearingRaw = $_GET['bearing'] ?? $_POST['bearing'] ?? null;
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
 if ($apiKey === '') $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
@@ -36,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $lonRaw = $json['lon'] ?? $lonRaw;
         $altRaw = $json['altitude'] ?? $json['alt'] ?? $altRaw;
         $timestamp = $timestamp !== '' ? $timestamp : trim((string)($json['timestamp'] ?? ''));
+        $speedRaw = $json['speed'] ?? $speedRaw;
+        $bearingRaw = $json['bearing'] ?? $bearingRaw;
     }
 }
 
@@ -55,6 +59,13 @@ if ($altRaw !== null && $altRaw !== '' && is_numeric($altRaw) && is_finite((floa
 if (!is_finite($latitude) || !is_finite($longitude) || $latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
     positionResponse(422, ['ok' => false, 'error' => 'invalid_position']);
 }
+$speed = null;
+if ($speedRaw !== null && $speedRaw !== '' && is_numeric($speedRaw) && is_finite((float)$speedRaw)) $speed = (float)$speedRaw;
+$bearing = null;
+if ($bearingRaw !== null && $bearingRaw !== '' && is_numeric($bearingRaw) && is_finite((float)$bearingRaw)) {
+    $bearing = (float)$bearingRaw;
+    if ($bearing < 0 || $bearing >= 360) $bearing = fmod($bearing + 360.0, 360.0);
+}
 
 try {
     $pdo = db();
@@ -64,16 +75,18 @@ try {
     if (!$trak) positionResponse(401, ['ok' => false, 'error' => 'invalid_credentials']);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO trak_positions (trak_box_id, latitude, longitude, altitude, gps_timestamp, received_at)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        'INSERT INTO trak_positions (trak_box_id, latitude, longitude, altitude, speed, bearing, gps_timestamp, received_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(trak_box_id) DO UPDATE SET
             latitude = excluded.latitude,
             longitude = excluded.longitude,
             altitude = excluded.altitude,
+            speed = excluded.speed,
+            bearing = excluded.bearing,
             gps_timestamp = excluded.gps_timestamp,
             received_at = CURRENT_TIMESTAMP'
     );
-    $stmt->execute([(int)$trak['id'], $latitude, $longitude, $altitude, $timestamp !== '' ? $timestamp : null]);
+    $stmt->execute([(int)$trak['id'], $latitude, $longitude, $altitude, $speed, $bearing, $timestamp !== '' ? $timestamp : null]);
 
     positionResponse(200, [
         'ok' => true,
