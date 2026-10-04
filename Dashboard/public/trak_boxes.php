@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $edit = null;
-$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
+$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at, tc.wifi_ssid_1, tc.wifi_password_1, tc.wifi_ssid_2, tc.wifi_password_2, tc.wifi_ssid_3, tc.wifi_password_3 FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
 
 page_header('TRAK Box', $user);
 ?>
@@ -172,7 +172,13 @@ page_header('TRAK Box', $user);
             'phone'=>(string)$box['phone'],
             'api_key'=>(string)$box['api_key'],
             'trakserver_url'=>(string)($box['trakserver_url'] ?? ''),
-            'dashboard_url'=>(string)($box['dashboard_url'] ?? '')
+            'dashboard_url'=>(string)($box['dashboard_url'] ?? ''),
+            'wifi_ssid_1'=>(string)($box['wifi_ssid_1'] ?? ''),
+            'wifi_password_1'=>(string)($box['wifi_password_1'] ?? ''),
+            'wifi_ssid_2'=>(string)($box['wifi_ssid_2'] ?? ''),
+            'wifi_password_2'=>(string)($box['wifi_password_2'] ?? ''),
+            'wifi_ssid_3'=>(string)($box['wifi_ssid_3'] ?? ''),
+            'wifi_password_3'=>(string)($box['wifi_password_3'] ?? '')
         ], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT))?>)">
         <i class="fa-solid fa-pen"></i> Modifier
     </button>
@@ -311,6 +317,12 @@ function openEditModal(box) {
     document.getElementById('trakFormApiKey').value = box.api_key || '';
     document.getElementById('trakFormTrackserver').value = box.trakserver_url || '';
     document.getElementById('trakFormDashboard').value = box.dashboard_url || '';
+    document.getElementById('wifiSsid1').value = box.wifi_ssid_1 || '';
+    document.getElementById('wifi_password_1').value = box.wifi_password_1 || '';
+    document.getElementById('wifiSsid2').value = box.wifi_ssid_2 || '';
+    document.getElementById('wifi_password_2').value = box.wifi_password_2 || '';
+    document.getElementById('wifiSsid3').value = box.wifi_ssid_3 || '';
+    document.getElementById('wifi_password_3').value = box.wifi_password_3 || '';
     modal.hidden = false;
     document.body.classList.add('modal-open');
     document.getElementById('trakFormUser').focus();
