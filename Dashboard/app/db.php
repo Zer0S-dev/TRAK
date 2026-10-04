@@ -102,7 +102,7 @@ function db(): PDO {
         trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
         trackserver_url, dashboard_url
     )
-    SELECT tb.id, 1, CAST(strftime('%s','now') AS INTEGER), tb.api_key, tb.phone,
+    SELECT tb.id, 1, CAST(strftime('%s','now') AS INTEGER) * 1000 + CAST(substr(strftime('%f','now'), 4, 3) AS INTEGER), tb.api_key, tb.phone,
            COALESCE(u.phone, ''), tb.trakserver_url, tb.dashboard_url
     FROM trak_boxes tb
     LEFT JOIN users u ON u.id = tb.user_id");
