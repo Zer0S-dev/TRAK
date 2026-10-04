@@ -11,7 +11,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
 if ($user['role'] === 'admin') {
     $stmt = $pdo->query(
-        'SELECT tb.trak_id, tp.latitude, tp.longitude, tp.gps_timestamp, tp.received_at
+        'SELECT tb.trak_id, tp.latitude, tp.longitude, tp.altitude, tp.gps_timestamp, tp.received_at
          FROM trak_boxes tb
          LEFT JOIN trak_positions tp ON tp.trak_box_id = tb.id
          ORDER BY tb.trak_id COLLATE NOCASE'
@@ -36,6 +36,7 @@ foreach ($stmt->fetchAll() as $row) {
         'trak_id' => (string)$row['trak_id'],
         'latitude' => (float)$row['latitude'],
         'longitude' => (float)$row['longitude'],
+        'altitude' => $row['altitude'] !== null ? (float)$row['altitude'] : null,
         'gps_timestamp' => $row['gps_timestamp'] !== null ? (string)$row['gps_timestamp'] : null,
         'received_at' => (string)$row['received_at'],
     ];
