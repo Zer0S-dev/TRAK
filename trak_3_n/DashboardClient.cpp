@@ -63,7 +63,8 @@ String buildUrl(const GnssPosition& position) {
   url += "&altitude=";
   url += String(position.altitude, 1);
   url += "&speed=";
-  url += String(position.speedKnots, 2);
+  const float speedKmh = position.speedKnots * 1.852f;
+  url += String(speedKmh, 2);
   url += "&bearing=";
   url += String(position.courseDeg, 1);
 
