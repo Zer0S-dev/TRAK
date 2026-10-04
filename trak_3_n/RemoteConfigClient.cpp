@@ -516,6 +516,8 @@ bool checkConfig() {
   return true;
 }
 
+} // namespace
+
 void remoteConfigBegin() {
   lastCheck = 0;
   initialized = true;
@@ -538,5 +540,4 @@ void remoteConfigTick() {
   // rapidement au lieu d'attendre les 5 minutes normales.
   if (success) lastCheck = millis();
   else lastCheck = millis() - (CHECK_INTERVAL_MS - RETRY_INTERVAL_MS);
-}
 }
