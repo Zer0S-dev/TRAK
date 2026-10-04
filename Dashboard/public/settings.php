@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/auth.php';
+require_once __DIR__ . '/../app/mail.php';
 require_once __DIR__ . '/partials.php';
 
 $user = require_admin();
@@ -12,6 +13,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
 
     try {
         $pdo = db();
+
+        // Prévenir les utilisateurs avant la suppression de leurs comptes.
+        $usersToNotify = $pdo->query("SELECT username, email FROM users WHERE email IS NOT NULL AND email != ''")->fetchAll();
+        foreach ($usersToNotify as $userToNotify) {
+            send_user_deleted_email((string)$userToNotify['email'], (string)$userToNotify['username']);
+        }
+
         $pdo->beginTransaction();
 
         $pdo->exec('DELETE FROM trak_positions');
