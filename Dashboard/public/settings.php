@@ -70,6 +70,32 @@ page_header('Settings', $user);
     <div class="card" style="margin-top:16px;">
         <div class="section-heading compact">
             <div>
+                <span class="section-kicker">SMS</span>
+                <h3>Reset NVS du TRAK</h3>
+            </div>
+        </div>
+
+        <p class="muted">
+            Copiez ce SMS et envoyez-le au numéro du TRAK. Le TRAK demandera une confirmation
+            par SMS avant d'effacer sa configuration NVS et ses profils Wi-Fi.
+        </p>
+
+        <div style="display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;">
+            <textarea id="resetTrakSms" class="sms-config" rows="2" readonly>RESET TRAK</textarea>
+            <button type="button" onclick="copyResetTrakSms()">
+                <i class="fa-solid fa-copy"></i> Copier
+            </button>
+        </div>
+
+        <p class="muted" style="margin-top:10px;">
+            <strong>Confirmation :</strong> après réception du SMS, répondez exactement <code>YES</code>
+            dans les 2 minutes.
+        </p>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+        <div class="section-heading compact">
+            <div>
                 <span class="section-kicker"><i class="fa-brands fa-android" style="margin-right:5px;"></i>Android App</span>
                 <h3>Reset URL Dashboard</h3>
             </div>
@@ -89,6 +115,18 @@ page_header('Settings', $user);
 </div>
 
 <script>
+function copyResetTrakSms() {
+    const field = document.getElementById('resetTrakSms');
+    field.select();
+    field.setSelectionRange(0, field.value.length);
+    navigator.clipboard?.writeText(field.value).then(() => {
+        alert('SMS copié : RESET TRAK');
+    }).catch(() => {
+        document.execCommand('copy');
+        alert('SMS copié : RESET TRAK');
+    });
+}
+
 function changeDashboardUrl() {
     if (typeof Android === 'undefined' || typeof Android.changeDashboardUrl !== 'function') {
         alert('Cette fonction est disponible uniquement dans l’application Android TRAK.');
