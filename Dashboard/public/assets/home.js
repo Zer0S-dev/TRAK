@@ -4,6 +4,7 @@
   const centerButton = document.getElementById('mapCenterBtn');
   const fullscreenButton = document.getElementById('mapFullscreenBtn');
   const emptyState = document.getElementById('homeMapEmpty');
+  const trakDatas = document.getElementById('trak-datas');
 
   if (!page || !mapElement || typeof L === 'undefined') return;
 
@@ -21,6 +22,7 @@
   let autoCenter = false;
   let mapOnly = false;
   let trakPosition = null;
+  let latestReceivedAt = null;
   const trakMarkers = new Map();
   let pollTimer = null;
 
@@ -37,7 +39,16 @@
     setTimeout(() => map.invalidateSize(), 50);
   }
 
-  function updateMarker(trakId, latitude, longitude, receivedAt) {
+  function updateTrakDatas(latitude, longitude, altitude) {
+    if (!trakDatas) return;
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+    const alt = altitude === null || altitude === undefined || altitude === '' ? null : Number(altitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    trakDatas.textContent = 'lat: ' + lat.toFixed(6) + ' / long: ' + lon.toFixed(6) + ' /alt: ' + (Number.isFinite(alt) ? alt.toFixed(1) + ' m' : '-');
+  }
+
+  function updateMarker(trakId, latitude, longitude, receivedAt, altitude) {
     const lat = Number(latitude);
     const lon = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
@@ -55,6 +66,7 @@
     }
 
     const receivedText = receivedAt ? 'Dernière réception : ' + receivedAt + ' UTC' : '';
+    updateTrakDatas(lat, lon, altitude);
     marker.bindTooltip(String(trakId) + (receivedText ? '<br>' + receivedText : ''), {
       permanent: false,
       direction: 'top',
@@ -95,7 +107,12 @@
         const trakId = String(item.trak_id || '').trim();
         if (!trakId) continue;
         ids.add(trakId);
-        updateMarker(trakId, item.latitude, item.longitude, item.received_at);
+        const receivedAt = item.received_at || '';
+        if (latestReceivedAt === null || receivedAt >= latestReceivedAt) {
+          latestReceivedAt = receivedAt;
+          updateTrakDatas(item.latitude, item.longitude, item.altitude);
+        }
+        updateMarker(trakId, item.latitude, item.longitude, item.received_at, item.altitude);
       }
 
       removeMissingMarkers(ids);
@@ -134,7 +151,7 @@
 
   // Compatibilité avec une éventuelle injection directe d'une position.
   window.trakMapSetPosition = (latitude, longitude, label) => {
-    updateMarker(String(label || 'TRAK'), latitude, longitude, null);
+    updateMarker(String(label || 'TRAK'), latitude, longitude, null, null);
   };
 
   updateCenterButton();
