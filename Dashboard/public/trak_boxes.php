@@ -173,21 +173,21 @@ page_header('TRAK Box', $user);
 <input type="text" name="wifi_ssid_1" maxlength="64" value="<?=htmlspecialchars($edit['wifi_ssid_1'] ?? '')?>" placeholder="Nom du réseau">
 </label>
 <label>Wi-Fi 1 — Mot de passe
-<input type="password" name="wifi_password_1" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_1'] ?? '')?>" placeholder="Mot de passe">
+<div class="password-field"><input type="password" id="wifi_password_1" name="wifi_password_1" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_1'] ?? '')?>" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(1, this)">Voir</button></div>
 </label>
 
 <label>Wi-Fi 2 — SSID
 <input type="text" name="wifi_ssid_2" maxlength="64" value="<?=htmlspecialchars($edit['wifi_ssid_2'] ?? '')?>" placeholder="Nom du réseau">
 </label>
 <label>Wi-Fi 2 — Mot de passe
-<input type="password" name="wifi_password_2" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_2'] ?? '')?>" placeholder="Mot de passe">
+<div class="password-field"><input type="password" id="wifi_password_2" name="wifi_password_2" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_2'] ?? '')?>" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(2, this)">Voir</button></div>
 </label>
 
 <label>Wi-Fi 3 — SSID
 <input type="text" name="wifi_ssid_3" maxlength="64" value="<?=htmlspecialchars($edit['wifi_ssid_3'] ?? '')?>" placeholder="Nom du réseau">
 </label>
 <label>Wi-Fi 3 — Mot de passe
-<input type="password" name="wifi_password_3" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_3'] ?? '')?>" placeholder="Mot de passe">
+<div class="password-field"><input type="password" id="wifi_password_3" name="wifi_password_3" maxlength="128" value="<?=htmlspecialchars($edit['wifi_password_3'] ?? '')?>" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(3, this)">Voir</button></div>
 </label>
 <button type="submit"><?= $edit ? 'Enregistrer les modifications' : 'Enregistrer' ?></button>
 <?php if ($edit): ?><a class="back" href="trak_boxes.php">Annuler</a><?php endif; ?>
@@ -225,4 +225,13 @@ page_header('TRAK Box', $user);
 </tbody></table></div>
 <?php endif; ?>
 </div>
+<script>
+function toggleWifiPassword(slot, button) {
+    const input = document.getElementById('wifi_password_' + slot);
+    if (!input) return;
+    const visible = input.type === 'text';
+    input.type = visible ? 'password' : 'text';
+    button.textContent = visible ? 'Voir' : 'Masquer';
+}
+</script>
 <?php page_footer(); ?>
