@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include "RemoteConfigClient.h"
 
 #include <WiFi.h>
