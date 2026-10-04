@@ -19,7 +19,7 @@
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  let autoCenter = false;
+  let autoCenter = true;
   let mapOnly = false;
   let trakPosition = null;
   let latestReceivedAt = null;
