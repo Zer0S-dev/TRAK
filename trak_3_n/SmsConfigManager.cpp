@@ -4,6 +4,7 @@
 #include "Config.h"
 #include "SmsConfigManager.h"
 #include "WiFiManager.h"
+#include <WiFi.h>
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -585,3 +586,4 @@ bool smsConfigApplyRemoteConfig(
   }
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
   return true;
+}
