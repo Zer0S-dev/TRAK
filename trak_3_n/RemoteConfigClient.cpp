@@ -540,3 +540,4 @@ void remoteConfigTick() {
   if (success) lastCheck = millis();
   else lastCheck = millis() - (CHECK_INTERVAL_MS - RETRY_INTERVAL_MS);
 }
+}
