@@ -34,8 +34,13 @@ function send_password_reset(string $email, string $token): bool {
     return send_mail($email, 'Récupération du mot de passe — TRAK Connect', $body);
 }
 
-function send_user_created_email(string $email, string $username): bool {
-    $body = "Bonjour,\n\nVotre compte TRAK Connect a été créé.\n\nIdentifiant : " . $username . "\n\nSi vous n'êtes pas à l'origine de cette création, contactez l'administrateur du Dashboard.\n\nTRAK Connect";
+function send_user_created_email(string $email, string $username, string $verificationToken = ''): bool {
+    $body = "Bonjour,\n\nVotre compte TRAK Connect a été créé.\n\nIdentifiant : " . $username . "\n\n";
+    if ($verificationToken !== '') {
+        $url = app_mail_url('verify-email.php?token=' . rawurlencode($verificationToken));
+        $body .= "Confirmez votre adresse email ici :\n" . $url . "\n\nCe lien est valable 24 heures.\n\n";
+    }
+    $body .= "Si vous n'êtes pas à l'origine de cette création, contactez l'administrateur du Dashboard.\n\nTRAK Connect";
     return send_mail($email, 'Votre compte TRAK Connect a été créé', $body);
 }
 
