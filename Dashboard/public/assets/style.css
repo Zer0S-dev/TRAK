@@ -1161,7 +1161,9 @@ button:hover { background: var(--accent-hover); }
     position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center;
     padding: 20px; background: rgba(0,0,0,.68); backdrop-filter: blur(4px);
 }
-.modal-backdrop[hidden] { display: none; }
+.modal-backdrop[aria-hidden="true"] { display: none; }
+.modal-backdrop.open { display: grid; }
+.modal { width: min(720px, 100%); max-height: min(90vh, 900px); overflow-y: auto; background: var(--surface); border: 1px solid #344250; border-radius: 14px; padding: 24px; box-shadow: 0 24px 80px rgba(0,0,0,.45); }
 .modal-card {
     width: min(720px, 100%); max-height: min(90vh, 900px); overflow-y: auto;
     background: var(--surface); border: 1px solid #344250; border-radius: 14px;
