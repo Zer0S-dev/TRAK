@@ -50,6 +50,24 @@ page_header('Settings', $user);
     <div class="card" style="margin-top:16px;">
         <div class="section-heading compact">
             <div>
+                <span class="section-kicker">APPLICATION</span>
+                <h3>URL du Dashboard</h3>
+            </div>
+        </div>
+
+        <p class="muted">
+            Depuis l'application Android TRAK, vous pouvez effacer l'URL actuellement enregistrée
+            et revenir directement à l'écran de saisie pour configurer une nouvelle adresse.
+        </p>
+
+        <button type="button" onclick="changeDashboardUrl()">
+            <i class="fa-solid fa-link"></i> Changer URL Dashboard
+        </button>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+        <div class="section-heading compact">
+            <div>
                 <span class="section-kicker">INSTALLATION</span>
                 <h3>Réinitialiser le Dashboard</h3>
             </div>
@@ -69,4 +87,20 @@ page_header('Settings', $user);
         </form>
     </div>
 </div>
+
+<script>
+function changeDashboardUrl() {
+    if (typeof Android === 'undefined' || typeof Android.changeDashboardUrl !== 'function') {
+        alert('Cette fonction est disponible uniquement dans l’application Android TRAK.');
+        return;
+    }
+
+    if (!confirm('L’URL du Dashboard enregistrée dans l’application sera supprimée. Vous serez renvoyé vers l’écran de configuration. Continuer ?')) {
+        return;
+    }
+
+    Android.changeDashboardUrl();
+}
+</script>
+
 <?php page_footer(); ?>
