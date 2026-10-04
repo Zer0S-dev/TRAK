@@ -446,7 +446,7 @@ uint64_t smsConfigLastConfigTimestamp() {
   // Le timestamp est stocke nativement en U64 dans NVS. Cela conserve les
   // millisecondes sans conversion intermediaire et reste compatible avec
   // les anciennes versions de cette cle qui utilisaient deja U64.
-  return prefs.getULong64("last_config_timestamp", 0ULL);
+  return prefs.getULong64("last_config_timestamp_v2", 0ULL);
 }
 
 bool smsConfigApplyRemoteConfig(
@@ -498,7 +498,8 @@ bool smsConfigApplyRemoteConfig(
   // Le timestamp doit etre persistant avant toute nouvelle tentative de
   // synchronisation. Il est ecrit en U64 pour correspondre au type NVS
   // historique de cette cle et eviter un conflit de type String/U64.
-  const bool timestampWritten = prefs.putULong64("last_config_timestamp", configTimestamp);
+  prefs.remove("last_config_timestamp_v2");
+  const bool timestampWritten = prefs.putULong64("last_config_timestamp_v2", configTimestamp);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
   Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%d | stocke=%llu | trackserver=%s\n",
