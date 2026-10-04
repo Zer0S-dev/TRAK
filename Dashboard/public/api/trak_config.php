@@ -126,31 +126,36 @@ if ($action === 'ack') {
         trakConfigResponse(['ok' => false, 'error' => 'missing_config_timestamp'], 400);
     }
 
-    $stmt = $pdo->prepare('
-        UPDATE trak_configs
-        SET config_pending = 0,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE trak_box_id = ?
-          AND config_pending = 1
-          AND config_updated_at = ?
-    ');
-    $stmt->execute([(int)$trak['id'], $timestamp]);
+    try {
+        $pdo->beginTransaction();
 
-    if ($stmt->rowCount() !== 1) {
-        trakConfigResponse([
-            'ok' => false,
-            'error' => 'config_timestamp_mismatch',
-            'config_pending' => (int)$config['config_pending'],
-            'config_updated_at' => (int)$config['config_updated_at']
-        ], 409);
+        $stmt = $pdo->prepare('
+            UPDATE trak_configs
+            SET config_pending = 0,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE trak_box_id = ?
+              AND config_pending = 1
+              AND config_updated_at = ?
+        ');
+        $stmt->execute([(int)$trak['id'], $timestamp]);
+
+        if ($stmt->rowCount() !== 1) {
+            $pdo->rollBack();
+            trakConfigResponse([
+                'ok' => false,
+                'error' => 'config_timestamp_mismatch',
+                'config_pending' => (int)$config['config_pending'],
+                'config_updated_at' => (int)$config['config_updated_at']
+            ], 409);
+        }
+
+        $updateKey = $pdo->prepare('UPDATE trak_boxes SET api_key = ? WHERE id = ?');
+        $updateKey->execute([(string)$config['api_key'], (int)$trak['id']);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        trakConfigResponse(['ok' => false, 'error' => 'ack_failed'], 500);
     }
-
-    $updateKey = $pdo->prepare('
-        UPDATE trak_boxes
-        SET api_key = ?
-        WHERE id = ?
-    ');
-    $updateKey->execute([(string)$config['api_key'], (int)$trak['id']);
 
     trakConfigResponse([
         'ok' => true,
