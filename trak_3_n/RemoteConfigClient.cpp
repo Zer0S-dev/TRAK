@@ -299,27 +299,30 @@ bool postCellular(const String& url, const String& body, String& response) {
     return false;
   }
 
-  // Un HTTP 2xx sans corps est valide (ex. 204): HTTPREAD provoquerait
-  // simplement ERROR. Pour un corps, interroger d'abord la longueur bufferisee.
-  if (dataLen == 0) {
-    response = "";
-    Serial.printf("[CONFIG] 4G HTTP=%d sans corps\n", statusCode);
-    devLog(String("CONFIG | 4G | HTTP=") + String(statusCode) + " no body");
-    at("AT+HTTPTERM", 3000);
-    return true;
-  }
-
+  // Certains A76XX annoncent dataLen=0 avec HTTPACTION alors qu'un corps
+  // est pourtant disponible dans le buffer HTTP. Ne pas utiliser dataLen comme
+  // condition pour HTTPREAD.
+  const uint32_t readLen = dataLen > 0 ? dataLen : 1024UL;
   const String readInfo = at("AT+HTTPREAD?", 3000);
   Serial.printf("[CONFIG] 4G HTTPREAD? => %s\n", readInfo.c_str());
 
-  response = at(String("AT+HTTPREAD=0,") + String((unsigned long)dataLen), 7000);
-  Serial.printf("[CONFIG] 4G HTTPREAD len=%lu => %s\n",
-                (unsigned long)dataLen, response.c_str());
+  response = at(String("AT+HTTPREAD=0,") + String((unsigned long)readLen), 10000);
+  Serial.printf("[CONFIG] 4G HTTPREAD requested=%lu dataLen=%lu => %s\n",
+                (unsigned long)readLen, (unsigned long)dataLen, response.c_str());
 
   if (response.indexOf("ERROR") >= 0) {
-    devLog("CONFIG | 4G | HTTPREAD ERROR");
+    Serial.printf("[CONFIG] 4G HTTPREAD ERROR (HTTP=%d dataLen=%lu)\n",
+                  statusCode, (unsigned long)dataLen);
+    devLog(String("CONFIG | 4G | HTTPREAD ERROR datalen=") +
+           String((unsigned long)dataLen));
     at("AT+HTTPTERM", 3000);
     return false;
+  }
+
+  if (response.length() == 0) {
+    Serial.printf("[CONFIG] 4G HTTP=%d sans corps apres HTTPREAD\n", statusCode);
+    devLog(String("CONFIG | 4G | HTTP=") + String(statusCode) +
+           " no body after HTTPREAD");
   }
 
   at("AT+HTTPTERM", 3000);
