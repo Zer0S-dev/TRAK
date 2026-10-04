@@ -17,8 +17,7 @@ public:
 
 private:
   static constexpr uint32_t RECORD_MAGIC = 0x5452414BUL;
-  static constexpr uint16_t RECORD_VERSION = 1;
-  static constexpr size_t RECORD_SIZE = 32;
+  static constexpr uint16_t RECORD_VERSION = 2;
 
   struct DiskRecord {
     uint32_t magic;
@@ -29,8 +28,12 @@ private:
     int32_t longitudeE6;
     int32_t altitudeCm;
     uint32_t timestampEpoch;
+    int16_t speedCentiKnots;
+    int16_t courseCentiDeg;
     uint32_t crc32;
   };
+
+  static constexpr size_t RECORD_SIZE = sizeof(DiskRecord);
 
   String path;
   uint32_t nextSequence;
