@@ -13,7 +13,7 @@
       </button>
     </div>
   </div>
-<div id="trak-datas">lat: - / long: - /alt: - </div>
+<div id="trak-datas">lat: - / long: - / alt: - / <i class="fa-regular fa-clock"></i> - </div>
   <div class="home-map" id="homeMap" aria-label="Carte des TRAK"></div>
 
   <div class="home-map-empty" id="homeMapEmpty">
