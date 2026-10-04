@@ -21,6 +21,7 @@ $trakId = trim((string)($_GET['trak_id'] ?? $_POST['trak_id'] ?? ''));
 $apiKey = trim((string)($_GET['api_key'] ?? $_POST['api_key'] ?? ''));
 $latRaw = $_GET['lat'] ?? $_POST['lat'] ?? null;
 $lonRaw = $_GET['lon'] ?? $_POST['lon'] ?? null;
+$altRaw = $_GET['alt'] ?? $_POST['alt'] ?? null;
 $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
@@ -33,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $apiKey = $apiKey !== '' ? $apiKey : trim((string)($json['api_key'] ?? ''));
         $latRaw = $json['lat'] ?? $latRaw;
         $lonRaw = $json['lon'] ?? $lonRaw;
+        $altRaw = $json['alt'] ?? $altRaw;
         $timestamp = $timestamp !== '' ? $timestamp : trim((string)($json['timestamp'] ?? ''));
     }
 }
@@ -46,6 +48,10 @@ if (!is_numeric($latRaw) || !is_numeric($lonRaw)) {
 
 $latitude = (float)$latRaw;
 $longitude = (float)$lonRaw;
+$altitude = null;
+if ($altRaw !== null && $altRaw !== '' && is_numeric($altRaw) && is_finite((float)$altRaw)) {
+    $altitude = (float)$altRaw;
+}
 if (!is_finite($latitude) || !is_finite($longitude) || $latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
     positionResponse(422, ['ok' => false, 'error' => 'invalid_position']);
 }
@@ -58,21 +64,23 @@ try {
     if (!$trak) positionResponse(401, ['ok' => false, 'error' => 'invalid_credentials']);
 
     $stmt = $pdo->prepare(
-        'INSERT INTO trak_positions (trak_box_id, latitude, longitude, gps_timestamp, received_at)
-         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        'INSERT INTO trak_positions (trak_box_id, latitude, longitude, altitude, gps_timestamp, received_at)
+         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(trak_box_id) DO UPDATE SET
             latitude = excluded.latitude,
             longitude = excluded.longitude,
+            altitude = excluded.altitude,
             gps_timestamp = excluded.gps_timestamp,
             received_at = CURRENT_TIMESTAMP'
     );
-    $stmt->execute([(int)$trak['id'], $latitude, $longitude, $timestamp !== '' ? $timestamp : null]);
+    $stmt->execute([(int)$trak['id'], $latitude, $longitude, $altitude, $timestamp !== '' ? $timestamp : null]);
 
     positionResponse(200, [
         'ok' => true,
         'trak_id' => $trakId,
         'latitude' => $latitude,
         'longitude' => $longitude,
+        'altitude' => $altitude,
         'received_at' => gmdate('c'),
     ]);
 } catch (Throwable $e) {
