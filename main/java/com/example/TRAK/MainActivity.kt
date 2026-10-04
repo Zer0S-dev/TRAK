@@ -200,7 +200,7 @@ class MainActivity : AppCompatActivity() {
         webView.stopLoading()
         webView.visibility = View.GONE
         homeView.visibility = View.VISIBLE
-        dashboardUrlInput.requestFocus()
+        dashboardUrlInput.clearFocus()
     }
 
     inner class TrackerBridge {
@@ -239,6 +239,19 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (_: Exception) {
                 // La vibration ne doit jamais bloquer le dashboard.
+            }
+        }
+
+        @JavascriptInterface
+        fun changeDashboardUrl() {
+            runOnUiThread {
+                preferences.edit()
+                    .remove(PREF_DASHBOARD_URL)
+                    .apply()
+
+                dashboardUrlInput.setText("")
+                showHome()
+                dashboardUrlInput.requestFocus()
             }
         }
     }
