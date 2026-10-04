@@ -440,3 +440,58 @@ String smsConfigTrackserverUrl() { return prefs.getString("trackserver_url", "")
 String smsConfigDashboardUrl() { return prefs.getString("dashboard_url", ""); }
 String smsConfigApiKey() { return prefs.getString("api_key", ""); }
 String smsConfigTrakId() { return prefs.getString("trak_id", ""); }
+
+uint64_t smsConfigLastConfigTimestamp() {
+  return prefs.getULong64("last_config_timestamp", 0);
+}
+
+bool smsConfigApplyRemoteConfig(
+    const String& trakId,
+    const String& trakPhone,
+    const String& userPhone,
+    const String& apiKey,
+    const String& dashboardUrl,
+    const String& wifiSsid1,
+    const String& wifiPassword1,
+    const String& wifiSsid2,
+    const String& wifiPassword2,
+    const String& wifiSsid3,
+    const String& wifiPassword3,
+    uint64_t configTimestamp) {
+  if (configTimestamp == 0 || configTimestamp <= smsConfigLastConfigTimestamp()) return false;
+  if (!validTrakId(trakId) || trakPhone.isEmpty() || userPhone.isEmpty()) return false;
+  if (!validAlphaNum(apiKey, API_KEY_LEN)) return false;
+  if (!validTrackserverUrl(dashboardUrl) || dashboardUrl.length() > MAX_dashboard_url_LEN) return false;
+
+  const String ssids[] = {wifiSsid1, wifiSsid2, wifiSsid3};
+  const String passwords[] = {wifiPassword1, wifiPassword2, wifiPassword3};
+  for (uint8_t i = 0; i < 3; ++i) {
+    if (ssids[i].length() > 64 || passwords[i].length() > 128) return false;
+    if (ssids[i].indexOf('\r') >= 0 || ssids[i].indexOf('\n') >= 0 ||
+        passwords[i].indexOf('\r') >= 0 || passwords[i].indexOf('\n') >= 0) return false;
+    if (ssids[i].isEmpty() && !passwords[i].isEmpty()) return false;
+  }
+
+  // L'URL Trackserver recue par SMS (TRAKCFG2) reste prioritaire.
+  const String localTrackserverUrl = smsConfigTrackserverUrl();
+  if (!validTrackserverUrl(localTrackserverUrl)) return false;
+
+  prefs.putString("trak_id", trakId);
+  prefs.putString("trak_phone", trakPhone);
+  prefs.putString("user_phone", userPhone);
+  prefs.putString("api_key", apiKey);
+  prefs.putString("dashboard_url", dashboardUrl);
+
+  if (wifiSsid1.isEmpty()) wifiClearProfile(0);
+  else wifiSetProfile(0, wifiSsid1.c_str(), wifiPassword1.c_str());
+  if (wifiSsid2.isEmpty()) wifiClearProfile(1);
+  else wifiSetProfile(1, wifiSsid2.c_str(), wifiPassword2.c_str());
+  if (wifiSsid3.isEmpty()) wifiClearProfile(2);
+  else wifiSetProfile(2, wifiSsid3.c_str(), wifiPassword3.c_str());
+
+  prefs.putULong64("last_config_timestamp", configTimestamp);
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu\n",
+                (unsigned long long)configTimestamp);
+  devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
+  return true;
+}
