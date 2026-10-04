@@ -74,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
                 trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
                 wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3, updated_at
-            ) VALUES (?, 1, strftime("%s","now"), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, 1, (CAST(strftime("%s","now") AS INTEGER) * 1000 + CAST(substr(strftime("%f","now"), 4, 3) AS INTEGER))), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(trak_box_id) DO UPDATE SET
                 config_pending = 1,
-                config_updated_at = strftime("%s","now"),
+                config_updated_at = (CAST(strftime("%s","now") AS INTEGER) * 1000 + CAST(substr(strftime("%f","now"), 4, 3) AS INTEGER)),
                 api_key = excluded.api_key,
                 trak_phone = excluded.trak_phone,
                 user_phone = excluded.user_phone,
