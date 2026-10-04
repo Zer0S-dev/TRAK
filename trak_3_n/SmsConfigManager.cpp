@@ -22,6 +22,15 @@ constexpr size_t MAX_dashboard_url_LEN = 160;
 uint32_t lastPoll = 0;
 bool ready = false;
 
+bool putStringChecked(const char* key, const String& value) {
+  const size_t written = prefs.putString(key, value);
+  if (written == 0 && !value.isEmpty()) {
+    Serial.printf("[CONFIG] NVS erreur ecriture | key=%s | len=%u | free=%u\\n", key, (unsigned)value.length(), (unsigned)prefs.freeEntries());
+    return false;
+  }
+  return true;
+}
+
 String normalizePhone(const String& value) {
   String out;
   for (size_t i = 0; i < value.length(); ++i) {
@@ -411,7 +420,11 @@ void pollSms() {
 }
 
 void smsConfigBegin() {
-  prefs.begin(PREF_NS, false);
+  if (!prefs.begin(PREF_NS, false)) {
+    Serial.println("[CONFIG] ERREUR ouverture NVS trak_cfg.");
+    devLog("CONFIG | NVS begin ERROR");
+    return;
+  }
   if (!modemReady) return;
   at("AT+CMGF=1", 3000);
   at("AT+CSCS=\"GSM\"", 3000);
@@ -479,14 +492,17 @@ bool smsConfigApplyRemoteConfig(
     if (ssids[i].isEmpty() && !passwords[i].isEmpty()) return false;
   }
 
-  // Toute la configuration utilisée par le TRAK est remplacée atomiquement
-  // lorsque le timestamp distant est plus récent.
-  prefs.putString("trak_id", trakId);
-  prefs.putString("trak_phone", trakPhone);
-  prefs.putString("user_phone", userPhone);
-  prefs.putString("trackserver_url", trackserverUrl);
-  prefs.putString("api_key", apiKey);
-  prefs.putString("dashboard_url", dashboardUrl);
+  // Ecriture controlee : chaque valeur doit etre acceptee par NVS.
+  if (!putStringChecked("trak_id", trakId) ||
+      !putStringChecked("trak_phone", trakPhone) ||
+      !putStringChecked("user_phone", userPhone) ||
+      !putStringChecked("trackserver_url", trackserverUrl) ||
+      !putStringChecked("api_key", apiKey) ||
+      !putStringChecked("dashboard_url", dashboardUrl)) {
+    Serial.println("[CONFIG] ERREUR ecriture configuration NVS.");
+    devLog("CONFIG | NVS config write ERROR");
+    return false;
+  }
 
   if (wifiSsid1.isEmpty()) wifiClearProfile(0);
   else wifiSetProfile(0, wifiSsid1.c_str(), wifiPassword1.c_str());
@@ -495,17 +511,18 @@ bool smsConfigApplyRemoteConfig(
   if (wifiSsid3.isEmpty()) wifiClearProfile(2);
   else wifiSetProfile(2, wifiSsid3.c_str(), wifiPassword3.c_str());
 
-  // Le timestamp doit etre persistant avant toute nouvelle tentative de
-  // synchronisation. Il est ecrit en U64 pour correspondre au type NVS
-  // historique de cette cle et eviter un conflit de type String/U64.
-  prefs.remove("last_config_timestamp_v2");
-  const bool timestampWritten = prefs.putULong64("last_config_timestamp_v2", configTimestamp);
+  // Ne pas supprimer la cle avant l'ecriture : cela ajoute une operation NVS
+  // inutile et peut aggraver un namespace deja fragile.
+  const size_t timestampWrittenBytes = prefs.putULong64("last_config_timestamp_v2", configTimestamp);
+  const bool timestampWritten = timestampWrittenBytes == sizeof(uint64_t);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%d | stocke=%llu | trackserver=%s\n",
+  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%d | bytes=%u | stocke=%llu | free=%u | trackserver=%s\\n",
                 (unsigned long long)configTimestamp,
                 timestampWritten ? 1 : 0,
+                (unsigned)timestampWrittenBytes,
                 (unsigned long long)storedTimestamp,
+                (unsigned)prefs.freeEntries(),
                 trackserverUrl.c_str());
 
   if (!timestampWritten || storedTimestamp != configTimestamp) {
@@ -515,4 +532,3 @@ bool smsConfigApplyRemoteConfig(
   }
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
   return true;
-}
