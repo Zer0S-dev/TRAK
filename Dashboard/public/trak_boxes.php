@@ -210,7 +210,7 @@ page_header('TRAK Box', $user);
 <?php endif; ?>
 </div>
 
-<div class="modal-backdrop" id="trakModal" hidden>
+<div class="modal-backdrop" id="trakModal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="trakModalTitle">
         <div class="modal-header">
             <div>
@@ -316,7 +316,7 @@ function openTrakModal() {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
-    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
     document.getElementById('trakFormUser').focus();
 }
@@ -338,7 +338,7 @@ function openEditModal(box) {
     document.getElementById('wifi_password_2').value = box.wifi_password_2 || '';
     document.getElementById('wifiSsid3').value = box.wifi_ssid_3 || '';
     document.getElementById('wifi_password_3').value = box.wifi_password_3 || '';
-    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
     document.getElementById('trakFormUser').focus();
 }
@@ -346,7 +346,7 @@ function openEditModal(box) {
 function closeTrakModal() {
     const modal = document.getElementById('trakModal');
     if (!modal) return;
-    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
 }
 
