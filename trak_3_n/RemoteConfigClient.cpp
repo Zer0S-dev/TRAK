@@ -202,7 +202,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     return false;
   }
 
-  const String header = String("Authorization: Bearer ") + smsConfigApiKey() + "\\r\\n";
+  const String header = String("Authorization: Bearer ") + smsConfigApiKey() + "\r\n";
   if (at(String("AT+HTTPPARA=\"USERDATA\",\"") + header + "\"", 3000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
     return false;
