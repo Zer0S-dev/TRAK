@@ -87,6 +87,10 @@ function db(): PDO {
         received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
     )');
+    $positionColumns = $pdo->query('PRAGMA table_info(trak_positions)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('altitude', $positionColumns, true)) {
+        $pdo->exec('ALTER TABLE trak_positions ADD COLUMN altitude REAL');
+    }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_positions_received ON trak_positions(received_at)');
 
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
