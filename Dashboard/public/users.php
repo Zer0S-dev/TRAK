@@ -77,7 +77,7 @@ if (isset($_GET['created'])) {
     $success = 'Utilisateur supprimé.';
 }
 
-$users = $pdo->query('SELECT id, username, email, phone, role, created_at FROM users ORDER BY id ASC')->fetchAll();
+$users = $pdo->query('SELECT id, username, email, pending_email, phone, role, created_at FROM users ORDER BY id ASC')->fetchAll();
 
 page_header('Users', $user);
 ?>
@@ -113,7 +113,7 @@ page_header('Users', $user);
                 <tr>
                     <td><?= (int)$row['id'] ?></td>
                     <td><?=htmlspecialchars($row['username'])?></td>
-                    <td><?=htmlspecialchars($row['email'] ?? '')?></td>
+                    <td><?=htmlspecialchars((string)($row['email'] ?: $row['pending_email'] ?: ''))?></td>
                     <td><?=htmlspecialchars($row['phone'] ?? '')?></td>
                     <td><?=htmlspecialchars($row['role'])?></td>
                     <td><?=htmlspecialchars($row['created_at'])?></td>
