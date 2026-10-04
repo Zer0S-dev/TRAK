@@ -1,10 +1,22 @@
 <?php
 declare(strict_types=1);
 
-// TEMP DEBUG — remove after diagnosis
+// TEMP DEBUG — capture fatal errors before loading dependencies
 ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
+
+register_shutdown_function(function (): void {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "TRAK PHP FATAL ERROR\n";
+        echo $error['message'] . "\n";
+        echo "File: " . $error['file'] . "\n";
+        echo "Line: " . $error['line'] . "\n";
+    }
+});
 
 require_once dirname(__DIR__, 2) . '/app/db.php';
 
