@@ -21,6 +21,8 @@ constexpr size_t MAX_trackserver_url_LEN = 160;
 constexpr size_t MAX_dashboard_url_LEN = 160;
 uint32_t lastPoll = 0;
 bool ready = false;
+String resetPendingSender;
+uint32_t resetPendingUntil = 0;
 
 bool putStringChecked(const char* key, const String& value) {
   const size_t written = prefs.putString(key, value);
@@ -382,9 +384,60 @@ bool processConfig4(const String& sender, const String& body) {
   return true;
 }
 
+bool processResetSms(const String& sender, const String& body) {
+  if (body.equalsIgnoreCase("RESET TRAK")) {
+    const String configuredPhone = prefs.getString("user_phone", "");
+    if (!phonesMatch(sender, configuredPhone)) {
+      Serial.println("[SMS] RESET TRAK refuse: expediteur non autorise.");
+      devLog("SMS | RESET TRAK | unauthorized");
+      return true;
+    }
+
+    resetPendingSender = sender;
+    resetPendingUntil = millis() + 120000UL;
+    Serial.println("[SMS] RESET TRAK demande | confirmation YES attendue.");
+    devLog("SMS | RESET TRAK | confirmation pending");
+    sendSms(sender, "TRAK: confirmation RESET NVS. Repondez YES dans les 2 minutes pour confirmer.");
+    return true;
+  }
+
+  if (body.equalsIgnoreCase("YES")) {
+    if (resetPendingSender.isEmpty() || millis() > resetPendingUntil ||
+        !phonesMatch(sender, resetPendingSender)) {
+      return false;
+    }
+
+    Serial.println("[SMS] RESET NVS confirme.");
+    devLog("SMS | RESET NVS | confirmed");
+    sendSms(sender, "TRAK: RESET NVS confirme. Effacement et redemarrage.");
+
+    resetPendingSender = "";
+    resetPendingUntil = 0;
+    clearPending();
+
+    if (prefs.clear() != ESP_OK) {
+      Serial.println("[SMS] RESET NVS erreur namespace trak_cfg.");
+      devLog("SMS | RESET NVS | trak_cfg clear ERROR");
+      return true;
+    }
+    prefs.end();
+    wifiResetProfiles();
+    WiFi.disconnect(false, false);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP.restart();
+    return true;
+  }
+
+  return false;
+}
+
 bool processSms(int index, const String& sender, const String& body) {
   String cleanBody = body;
   cleanBody.trim();
+  if (processResetSms(sender, cleanBody)) {
+    deleteSms(index);
+    return true;
+  }
   if (cleanBody.startsWith("TRAKCFG1|")) processConfig1(sender, cleanBody);
   else if (cleanBody.startsWith("TRAKCFG2|")) processConfig2(sender, cleanBody);
   else if (cleanBody.startsWith("TRAKCFG3|")) processConfig3(sender, cleanBody);
