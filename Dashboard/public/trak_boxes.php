@@ -11,6 +11,29 @@ $editId = 0;
 
 $users = $pdo->query('SELECT id, username, email, phone, pending_email FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
 
+// AJAX interne : permet à la page TRAK Box de suivre automatiquement
+// l'état de la configuration sans recharger toute la page.
+if (($_GET['ajax'] ?? '') === 'config_status') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+    $rows = $pdo->query(
+        'SELECT tb.id, tb.trak_id,
+                COALESCE(tc.config_pending, 0) AS config_pending,
+                COALESCE(tc.config_updated_at, 0) AS config_updated_at,
+                COALESCE(tc.firmware_version, \'\') AS firmware_version
+         FROM trak_boxes tb
+         LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id
+         ORDER BY tb.id'
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode([
+        'ok' => true,
+        'boxes' => $rows
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string)($_POST['action'] ?? '');
@@ -158,17 +181,17 @@ page_header('TRAK Box', $user);
 <thead><tr><th>Box ID</th><th>Username</th><th>Config</th><th>Firmware</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
-<tr>
+<tr data-trak-box-id="<?=(int)$box['id']?>">
 <td><strong><?=htmlspecialchars($box['trak_id'])?></strong></td>
 <td><?= $box['username'] !== null && $box['username'] !== '' ? htmlspecialchars((string)$box['username']) : '—' ?></td>
-<td>
+<td class="config-status-cell">
     <?php if ((int)($box['config_pending'] ?? 0) === 1): ?>
         <span class="config-status pending"><i class="fa-solid fa-clock"></i> En attente</span>
     <?php else: ?>
         <span class="config-status ready"><i class="fa-solid fa-check"></i> À jour</span>
     <?php endif; ?>
 </td>
-<td><?=htmlspecialchars((string)($box['firmware_version'] ?? '')) ?: '—'?></td>
+<td class="firmware-version-cell"><?=htmlspecialchars((string)($box['firmware_version'] ?? '')) ?: '—'?></td>
 <td>
     <?php
     $configUpdatedAt = (string)($box['config_updated_at'] ?? '');
@@ -336,5 +359,63 @@ function closeTrakModal() {
 }
 document.getElementById('trakModal')?.addEventListener('click', function(event) { if (event.target === this) closeTrakModal(); });
 document.addEventListener('keydown', function(event) { if (event.key === 'Escape') closeTrakModal(); });
+
+// ---------------------------------------------------------------------------
+// Synchronisation automatique du statut de configuration.
+// Le TRAK appelle /api/trak_config.php?action=ack lorsqu'il a appliqué
+// et vérifié la configuration en NVS. Cette fonction relit alors SQLite
+// toutes les 5 secondes et met uniquement la ligne concernée à jour.
+// ---------------------------------------------------------------------------
+let trakStatusPollBusy = false;
+
+function updateTrakStatusRow(box) {
+    const row = document.querySelector('[data-trak-box-id="' + String(box.id) + '"]');
+    if (!row) return;
+
+    const cell = row.querySelector('.config-status-cell');
+    if (cell) {
+        const pending = Number(box.config_pending) === 1;
+        cell.innerHTML = pending
+            ? '<span class="config-status pending"><i class="fa-solid fa-clock"></i> En attente</span>'
+            : '<span class="config-status ready"><i class="fa-solid fa-check"></i> À jour</span>';
+    }
+
+    const firmwareCell = row.querySelector('.firmware-version-cell');
+    if (firmwareCell && box.firmware_version !== undefined) {
+        firmwareCell.textContent = box.firmware_version || '—';
+    }
+}
+
+async function refreshTrakConfigStatus() {
+    if (trakStatusPollBusy || document.hidden) return;
+    trakStatusPollBusy = true;
+
+    try {
+        const response = await fetch('trak_boxes.php?ajax=config_status&_=' + Date.now(), {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data.ok || !Array.isArray(data.boxes)) return;
+
+        data.boxes.forEach(updateTrakStatusRow);
+    } catch (error) {
+        // La page reste fonctionnelle même si un rafraîchissement échoue.
+        console.debug('[TRAK] Synchronisation statut indisponible', error);
+    } finally {
+        trakStatusPollBusy = false;
+    }
+}
+
+// Vérification immédiate puis toutes les 5 secondes.
+// Dès que le TRAK acquitte sa configuration, "En attente" devient
+// automatiquement "À jour" sans rechargement de la page.
+refreshTrakConfigStatus();
+setInterval(refreshTrakConfigStatus, 5000);
 </script>
 <?php page_footer(); ?>
