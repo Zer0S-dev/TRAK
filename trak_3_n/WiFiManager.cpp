@@ -74,6 +74,7 @@ bool connectSlot(uint8_t slot){
 
   activeSlot=slot;
   active=true;
+  WiFi.setAutoReconnect(true);
   wifiLostSince=0;
   lastInternetCheck=0;
 
@@ -87,7 +88,7 @@ void wifiManagerBegin(){
   loadProfiles();
 
   WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(false);
+  WiFi.setAutoReconnect(true);
 
   activeSlot=-1;
   active=false;
@@ -150,6 +151,7 @@ void startReturnScan(){
   if(scanRunning||wifiProfileCount()==0)return;
 
   WiFi.mode(WIFI_AP_STA);
+  WiFi.setAutoReconnect(true);
 
   Serial.println("[WIFI] Scan de retour demarre...");
 
