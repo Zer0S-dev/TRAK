@@ -124,7 +124,12 @@ void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t 
       leds.setPixelColor(CENTER_LED, trakActiveNetworkCode() == 1 ? leds.Color(0, 80, 0) : (trakActiveNetworkCode() == 2 ? leds.Color(20, 0, 20) : 0));
     }
   } else {
-    leds.setPixelColor(CENTER_LED, (cellularReady || WiFi.status() == WL_CONNECTED) ? leds.Color(20, 0, 20) : 0);
+    const uint8_t network = trakActiveNetworkCode();
+    leds.setPixelColor(
+      CENTER_LED,
+      network == 1 ? leds.Color(0, 80, 0) :
+      (network == 2 ? leds.Color(20, 0, 20) : 0)
+    );
   }
   leds.show();
 }
