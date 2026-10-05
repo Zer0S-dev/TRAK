@@ -34,7 +34,7 @@ constexpr uint16_t CENTER_LED = 0;
 constexpr uint16_t RING_FIRST = 1;
 constexpr uint32_t LED_FRAME_MS = 10;
 constexpr uint32_t RING_STEP_MS = 100;
-constexpr uint32_t COMMUNICATION_FLASH_MS = 2000;
+constexpr uint32_t COMMUNICATION_FLASH_MS = 200;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
 uint16_t ringIndex = 0;
 
