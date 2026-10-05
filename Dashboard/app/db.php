@@ -94,6 +94,7 @@ function db(): PDO {
         wifi_password_2 TEXT NOT NULL DEFAULT '',
         wifi_ssid_3 TEXT NOT NULL DEFAULT '',
         wifi_password_3 TEXT NOT NULL DEFAULT '',
+        firmware_version TEXT NOT NULL DEFAULT '',
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
     )");
@@ -113,6 +114,7 @@ function db(): PDO {
         'wifi_password_2' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_2 TEXT NOT NULL DEFAULT ''",
         'wifi_ssid_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_ssid_3 TEXT NOT NULL DEFAULT ''",
         'wifi_password_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_3 TEXT NOT NULL DEFAULT ''",
+        'firmware_version' => "ALTER TABLE trak_configs ADD COLUMN firmware_version TEXT NOT NULL DEFAULT ''",
         'updated_at' => "ALTER TABLE trak_configs ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
     ];
     foreach ($configMigrations as $column => $sql) {
