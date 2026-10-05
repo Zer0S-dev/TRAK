@@ -60,11 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($dashboardUrl === '' || strlen($dashboardUrl) > 160 || !filter_var($dashboardUrl, FILTER_VALIDATE_URL) || !preg_match('#^https://#i', $dashboardUrl)) {
                 throw new RuntimeException('URL Dashboard invalide. Utilisez une URL HTTPS.');
             }
-            foreach ([
-                ['SSID Wi-Fi 1', $wifiSsid1, 64], ['Mot de passe Wi-Fi 1', $wifiPassword1, 128],
-                ['SSID Wi-Fi 2', $wifiSsid2, 64], ['Mot de passe Wi-Fi 2', $wifiPassword2, 128],
-                ['SSID Wi-Fi 3', $wifiSsid3, 64], ['Mot de passe Wi-Fi 3', $wifiPassword3, 128],
-            ] as [$label, $value, $max]) {
+            foreach ([['SSID Wi-Fi 1', $wifiSsid1, 64], ['Mot de passe Wi-Fi 1', $wifiPassword1, 128], ['SSID Wi-Fi 2', $wifiSsid2, 64], ['Mot de passe Wi-Fi 2', $wifiPassword2, 128], ['SSID Wi-Fi 3', $wifiSsid3, 64], ['Mot de passe Wi-Fi 3', $wifiPassword3, 128]] as [$label, $value, $max]) {
                 if (strlen($value) > $max) throw new RuntimeException($label . ' trop long.');
             }
             if ($apiKey === '') $apiKey = bin2hex(random_bytes(8));
@@ -80,9 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $editId = (int)$pdo->lastInsertId();
             }
 
-            // La configuration existe déjà pour une TRAK Box : on la met à jour.
-            // Sinon on la crée. Cette méthode évite ON CONFLICT/UPSERT pour
-            // rester compatible avec les SQLite des hébergements mutualisés.
             $configStmt = $pdo->prepare('UPDATE trak_configs SET
                 config_pending = 1,
                 config_updated_at = (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)),
@@ -93,11 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 wifi_ssid_3 = ?, wifi_password_3 = ?,
                 updated_at = CURRENT_TIMESTAMP
                 WHERE trak_box_id = ?');
-            $configStmt->execute([
-                $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl,
-                $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3,
-                $editId
-            ]);
+            $configStmt->execute([$apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3, $editId]);
 
             if ($configStmt->rowCount() === 0) {
                 $configStmt = $pdo->prepare('INSERT INTO trak_configs (
@@ -105,10 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
                     wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3
                 ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                $configStmt->execute([
-                    $editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl,
-                    $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3
-                ]);
+                $configStmt->execute([$editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3]);
             }
 
             if ($id === 0 && !empty($owner['email'])) {
@@ -168,12 +154,12 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table trak-box-table">
-<thead><tr><th>Box ID</th><th>User ID</th><th>Config</th><th>Firmware</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
+<thead><tr><th>Box ID</th><th>Username</th><th>Config</th><th>Firmware</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
 <td><strong><?=htmlspecialchars($box['trak_id'])?></strong></td>
-<td><?= $box['user_id'] !== null ? (int)$box['user_id'] : '—' ?></td>
+<td><?= $box['username'] !== null && $box['username'] !== '' ? htmlspecialchars((string)$box['username']) : '—' ?></td>
 <td>
     <?php if ((int)($box['config_pending'] ?? 0) === 1): ?>
         <span class="config-status pending"><i class="fa-solid fa-clock"></i> À envoyer</span>
@@ -189,35 +175,23 @@ page_header('TRAK Box', $user);
     if ($configUpdatedAt !== '' && ctype_digit($configUpdatedAt)) {
         $timestampMs = (int)$configUpdatedAt;
         $timestamp = (int)floor($timestampMs / 1000);
-        if ($timestamp > 0) {
-            $lastUpdate = date('d/m/Y H:i', $timestamp);
-        }
+        if ($timestamp > 0) $lastUpdate = date('d/m/Y H:i', $timestamp);
     } elseif ($configUpdatedAt !== '') {
         $timestamp = strtotime($configUpdatedAt);
-        if ($timestamp !== false) {
-            $lastUpdate = date('d/m/Y H:i', $timestamp);
-        }
+        if ($timestamp !== false) $lastUpdate = date('d/m/Y H:i', $timestamp);
     }
     ?>
     <?=htmlspecialchars($lastUpdate)?>
 </td>
 <td class="actions trak-actions">
-    <button type="button" class="table-action modify"
-        onclick="openEditModal(<?=htmlspecialchars(json_encode([
-            'id'=>(int)$box['id'],
-            'user_id'=>(int)$box['user_id'],
-            'trak_id'=>(string)$box['trak_id'],
-            'phone'=>(string)$box['phone'],
-            'api_key'=>(string)$box['api_key'],
-            'trakserver_url'=>(string)($box['trakserver_url'] ?? ''),
-            'dashboard_url'=>(string)($box['dashboard_url'] ?? ''),
-            'wifi_ssid_1'=>(string)($box['wifi_ssid_1'] ?? ''),
-            'wifi_password_1'=>(string)($box['wifi_password_1'] ?? ''),
-            'wifi_ssid_2'=>(string)($box['wifi_ssid_2'] ?? ''),
-            'wifi_password_2'=>(string)($box['wifi_password_2'] ?? ''),
-            'wifi_ssid_3'=>(string)($box['wifi_ssid_3'] ?? ''),
-            'wifi_password_3'=>(string)($box['wifi_password_3'] ?? '')
-        ], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT))?>)">
+    <button type="button" class="table-action modify" onclick="openEditModal(<?=htmlspecialchars(json_encode([
+        'id'=>(int)$box['id'],'user_id'=>(int)$box['user_id'],'trak_id'=>(string)$box['trak_id'],
+        'phone'=>(string)$box['phone'],'api_key'=>(string)$box['api_key'],
+        'trakserver_url'=>(string)($box['trakserver_url'] ?? ''),'dashboard_url'=>(string)($box['dashboard_url'] ?? ''),
+        'wifi_ssid_1'=>(string)($box['wifi_ssid_1'] ?? ''),'wifi_password_1'=>(string)($box['wifi_password_1'] ?? ''),
+        'wifi_ssid_2'=>(string)($box['wifi_ssid_2'] ?? ''),'wifi_password_2'=>(string)($box['wifi_password_2'] ?? ''),
+        'wifi_ssid_3'=>(string)($box['wifi_ssid_3'] ?? ''),'wifi_password_3'=>(string)($box['wifi_password_3'] ?? '')
+    ], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT))?>)">
         <i class="fa-solid fa-pen"></i> Modifier
     </button>
     <form method="post" onsubmit="return confirm('Supprimer cette TRAK Box ?');">
@@ -233,8 +207,6 @@ page_header('TRAK Box', $user);
 <?php endif; ?>
 </div>
 
-
-<!-- API déplacée sous la liste des TRAK Box -->
 <div class="api-page"
      data-api-users="<?=htmlspecialchars(json_encode($users, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8')?>"
      data-api-traks="<?=htmlspecialchars(json_encode($boxes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8')?>">
@@ -274,81 +246,38 @@ page_header('TRAK Box', $user);
 <div class="modal-backdrop" id="trakModal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="trakModalTitle">
         <div class="modal-header">
-            <div>
-                <span class="section-kicker">TRAK BOX</span>
-                <h2 id="trakModalTitle">Ajouter un TRAK</h2>
-            </div>
-            <button type="button" class="modal-close" onclick="closeTrakModal()" aria-label="Fermer">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <div><span class="section-kicker">TRAK BOX</span><h2 id="trakModalTitle">Ajouter un TRAK</h2></div>
+            <button type="button" class="modal-close" onclick="closeTrakModal()" aria-label="Fermer"><i class="fa-solid fa-xmark"></i></button>
         </div>
-
         <form method="post" id="trakBoxForm">
             <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="id" id="trakFormId" value="">
-
             <label>User ID propriétaire
-                <select name="user_id" id="trakFormUser" required>
-                    <option value="">Sélectionner un utilisateur</option>
-                    <?php foreach ($users as $u): ?>
-                    <option value="<?= (int)$u['id'] ?>"><?= (int)$u['id'] ?> — <?=htmlspecialchars($u['username'])?></option>
-                    <?php endforeach; ?>
+                <select name="user_id" id="trakFormUser" required><option value="">Sélectionner un utilisateur</option>
+                    <?php foreach ($users as $u): ?><option value="<?= (int)$u['id'] ?>"><?= (int)$u['id'] ?> — <?=htmlspecialchars($u['username'])?></option><?php endforeach; ?>
                 </select>
             </label>
-
-            <label>ID TRAK
-                <input type="text" name="trak_id" id="trakFormIdTrak" maxlength="5" required placeholder="TRK01">
-            </label>
-
-            <label>Numéro de téléphone du TRAK
-                <input type="tel" name="phone" id="trakFormPhone" maxlength="32" required placeholder="+33612345678">
-            </label>
-
-            <label>Clé API
-                <input type="text" name="api_key" id="trakFormApiKey" maxlength="16" pattern="[A-Za-z0-9]{16}" placeholder="Génération automatique" disabled>
-            </label>
-
+            <label>ID TRAK><input type="text" name="trak_id" id="trakFormIdTrak" maxlength="5" required placeholder="TRK01"></label>
+            <label>Numéro de téléphone du TRAK><input type="tel" name="phone" id="trakFormPhone" maxlength="32" required placeholder="+33612345678"></label>
+            <label>Clé API><input type="text" name="api_key" id="trakFormApiKey" maxlength="16" pattern="[A-Za-z0-9]{16}" placeholder="Génération automatique" disabled></label>
             <label>URL Trackserver, choisir OsmAnd profile <a href="https://github.com/tinuzz/wp-plugin-trackserver" target="_blank" rel="noopener">(WordPress Plugin)</a>
                 <input type="url" name="trakserver_url" id="trakFormTrackserver" maxlength="160" required placeholder="https://monsite.com/trackserver/username/password/?lat={0}&lon={1}&timestamp={2}&altitude={4}&speed={5}&bearing={6}">
                 <small class="muted">Pour l'API de position : {0}=latitude, {1}=longitude, {2}=timestamp, {3}=clé API, {7}=TRAK ID. L'URL doit rester en HTTPS.</small>
             </label>
-
             <label>URL Dashboard
                 <input type="url" name="dashboard_url" id="trakFormDashboard" maxlength="160" required placeholder="https://exemple.fr">
                 <small class="muted">Endpoint HTTPS utilisé pour la communication Dashboard ↔ TRAK.</small>
             </label>
-
-            <div class="section-heading compact" style="margin-top:24px">
-                <div><span class="section-kicker">CONFIGURATION DISTANTE</span><h3>Wi-Fi du TRAK</h3></div>
-            </div>
+            <div class="section-heading compact" style="margin-top:24px"><div><span class="section-kicker">CONFIGURATION DISTANTE</span><h3>Wi-Fi du TRAK</h3></div></div>
             <p class="muted">Ces paramètres sont stockés dans la configuration distante. Toute modification crée une nouvelle configuration en attente.</p>
-
-            <label>Wi-Fi 1 — SSID
-                <input type="text" name="wifi_ssid_1" id="wifiSsid1" maxlength="64" placeholder="Nom du réseau">
-            </label>
-            <label>Wi-Fi 1 — Mot de passe
-                <div class="password-field"><input type="password" id="wifi_password_1" name="wifi_password_1" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(1, this)">Voir</button></div>
-            </label>
-
-            <label>Wi-Fi 2 — SSID
-                <input type="text" name="wifi_ssid_2" id="wifiSsid2" maxlength="64" placeholder="Nom du réseau">
-            </label>
-            <label>Wi-Fi 2 — Mot de passe
-                <div class="password-field"><input type="password" id="wifi_password_2" name="wifi_password_2" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(2, this)">Voir</button></div>
-            </label>
-
-            <label>Wi-Fi 3 — SSID
-                <input type="text" name="wifi_ssid_3" id="wifiSsid3" maxlength="64" placeholder="Nom du réseau">
-            </label>
-            <label>Wi-Fi 3 — Mot de passe
-                <div class="password-field"><input type="password" id="wifi_password_3" name="wifi_password_3" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(3, this)">Voir</button></div>
-            </label>
-
-            <div class="modal-actions">
-                <button type="button" class="modal-cancel" onclick="closeTrakModal()">Annuler</button>
-                <button type="submit" class="modal-submit" id="trakSubmitButton">Enregistrer</button>
-            </div>
+            <label>Wi-Fi 1 — SSID><input type="text" name="wifi_ssid_1" id="wifiSsid1" maxlength="64" placeholder="Nom du réseau"></label>
+            <label>Wi-Fi 1 — Mot de passe<div class="password-field"><input type="password" id="wifi_password_1" name="wifi_password_1" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(1, this)">Voir</button></div></label>
+            <label>Wi-Fi 2 — SSID><input type="text" name="wifi_ssid_2" id="wifiSsid2" maxlength="64" placeholder="Nom du réseau"></label>
+            <label>Wi-Fi 2 — Mot de passe<div class="password-field"><input type="password" id="wifi_password_2" name="wifi_password_2" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(2, this)">Voir</button></div></label>
+            <label>Wi-Fi 3 — SSID><input type="text" name="wifi_ssid_3" id="wifiSsid3" maxlength="64" placeholder="Nom du réseau"></label>
+            <label>Wi-Fi 3 — Mot de passe<div class="password-field"><input type="password" id="wifi_password_3" name="wifi_password_3" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(3, this)">Voir</button></div></label>
+            <div class="modal-actions"><button type="button" class="modal-cancel" onclick="closeTrakModal()">Annuler</button><button type="submit" class="modal-submit" id="trakSubmitButton">Enregistrer</button></div>
         </form>
     </div>
 </div>
@@ -361,7 +290,6 @@ function toggleWifiPassword(slot, button) {
     input.type = visible ? 'password' : 'text';
     button.textContent = visible ? 'Voir' : 'Masquer';
 }
-
 function openTrakModal() {
     const modal = document.getElementById('trakModal');
     document.getElementById('trakModalTitle').textContent = 'Ajouter un TRAK';
@@ -373,15 +301,11 @@ function openTrakModal() {
     document.getElementById('trakFormApiKey').value = '';
     document.getElementById('trakFormTrackserver').value = '';
     document.getElementById('trakFormDashboard').value = '';
-    ['wifiSsid1','wifiSsid2','wifiSsid3','wifi_password_1','wifi_password_2','wifi_password_3'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-    });
+    ['wifiSsid1','wifiSsid2','wifiSsid3','wifi_password_1','wifi_password_2','wifi_password_3'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
     document.getElementById('trakFormUser').focus();
 }
-
 function openEditModal(box) {
     const modal = document.getElementById('trakModal');
     document.getElementById('trakModalTitle').textContent = 'Modifier une TRAK Box';
@@ -403,20 +327,13 @@ function openEditModal(box) {
     document.body.classList.add('modal-open');
     document.getElementById('trakFormUser').focus();
 }
-
 function closeTrakModal() {
     const modal = document.getElementById('trakModal');
     if (!modal) return;
     modal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
 }
-
-document.getElementById('trakModal')?.addEventListener('click', function(event) {
-    if (event.target === this) closeTrakModal();
-});
-
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') closeTrakModal();
-});
+document.getElementById('trakModal')?.addEventListener('click', function(event) { if (event.target === this) closeTrakModal(); });
+document.addEventListener('keydown', function(event) { if (event.key === 'Escape') closeTrakModal(); });
 </script>
 <?php page_footer(); ?>
