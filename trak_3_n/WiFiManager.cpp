@@ -32,10 +32,22 @@ void wifiClearProfile(uint8_t slot){if(slot>=MAX_WIFI_PROFILES)return;profiles[s
 
 void wifiResetProfiles(){
   for(uint8_t i=0;i<MAX_WIFI_PROFILES;++i){profiles[i].ssid="";profiles[i].password="";}
+
+  // Factory reset: efface les profils dans notre namespace ET les
+  // identifiants Wi-Fi que le driver ESP32 pourrait encore conserver.
   prefs.clear();
-  WiFi.disconnect(false,false);
+  prefs.end();
+
   activeSlot=-1;
   active=false;
   scanRunning=false;
-  Serial.println("[WIFI] Profils NVS effaces.");
+  wifiLostSince=0;
+  lastReturnScan=0;
+
+  WiFi.setAutoReconnect(false);
+  WiFi.scanDelete();
+  WiFi.disconnect(true, true);
+  WiFi.mode(WIFI_OFF);
+
+  Serial.println("[WIFI] Profils Wi-Fi et credentials driver effaces.");
 }
