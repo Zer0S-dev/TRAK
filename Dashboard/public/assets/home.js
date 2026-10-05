@@ -21,6 +21,7 @@
 
   let autoCenter = false;
   let mapOnly = false;
+  let initialMapCentered = false;
   let trakPosition = null;
   let latestReceivedAt = null;
   const trakMarkers = new Map();
@@ -167,6 +168,27 @@
 
       removeMissingMarkers(ids);
       emptyState.hidden = trakMarkers.size > 0;
+
+      // Au premier chargement, centrer automatiquement la carte sur les TRAK
+      // réellement disponibles. Ensuite, le polling ne recentre plus la carte
+      // afin de ne pas déplacer la vue de l'utilisateur.
+      if (!initialMapCentered && trakMarkers.size > 0) {
+        const positions = Array.from(trakMarkers.values()).map(marker => marker.getLatLng());
+
+        if (positions.length === 1) {
+          const point = positions[0];
+          map.setView([point.lat, point.lng], 15, { animate: false });
+        } else {
+          const bounds = L.latLngBounds(positions);
+          map.fitBounds(bounds, {
+            padding: [40, 40],
+            maxZoom: 15,
+            animate: false
+          });
+        }
+
+        initialMapCentered = true;
+      }
     } catch (_) {
       // Une erreur réseau ne doit pas perturber la carte.
       // Le prochain polling reprendra automatiquement.
