@@ -31,8 +31,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $apiKey = $apiKey !== '' ? $apiKey : bin2hex(random_bytes(8));
                 $stmt = $pdo->prepare('INSERT INTO trak_boxes (user_id, trak_id, phone, api_key, trakserver_url, dashboard_url) VALUES (?, ?, ?, ?, ?, ?)');
                 $stmt->execute([$wizardUserId, $trakId, $trakPhone, $apiKey, $trakServerUrl, $dashboardUrl]);
-                unset($_SESSION['wizard_user_id']);
-                header('Location: home.php?wizard=complete');
+                $trakBoxId = (int)$pdo->lastInsertId();
+
+                $configTimestamp = (int)floor(microtime(true) * 1000);
+                $userStmt = $pdo->prepare('SELECT phone FROM users WHERE id = ?');
+                $userStmt->execute([$wizardUserId]);
+                $userPhone = trim((string)$userStmt->fetchColumn());
+
+                $configStmt = $pdo->prepare('INSERT INTO trak_configs (
+                    trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
+                    trackserver_url, dashboard_url
+                ) VALUES (?, 1, ?, ?, ?, ?, ?, ?)');
+                $configStmt->execute([
+                    $trakBoxId, $configTimestamp, $apiKey, $trakPhone, $userPhone,
+                    $trakServerUrl, $dashboardUrl
+                ]);
+
+                $_SESSION['wizard_trak_box_id'] = $trakBoxId;
+                header('Location: sms.php');
                 exit;
             } catch (PDOException $e) {
                 $error = ((int)($e->errorInfo[1] ?? 0) === 19) ? 'Cet ID TRAK existe déjà.' : 'Impossible d’enregistrer le TRAK Box.';
