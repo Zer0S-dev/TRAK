@@ -21,7 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $email = trim((string)($_POST['email'] ?? ''));
         $phone = trim((string)($_POST['phone'] ?? ''));
 
-        if (!preg_match('/^[A-Za-z0-9_.-]{3,64}$/', $username)) $error = 'Identifiant invalide (3 à 64 caractères).';
+        if ($phone === '') $error = 'Le numéro de téléphone est obligatoire pour les SMS de configuration TRAK.';
+        elseif (!preg_match('/^[A-Za-z0-9_.-]{3,64}$/', $username)) $error = 'Identifiant invalide (3 à 64 caractères).';
         elseif (strlen($password) < 10) $error = 'Le mot de passe doit contenir au moins 10 caractères.';
         elseif ($password !== $confirm) $error = 'Les mots de passe ne correspondent pas.';
         elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $error = 'Adresse email invalide.';
@@ -159,7 +160,8 @@ page_header('Users', $user);
                 <input type="email" name="email" maxlength="254" autocomplete="email">
             </label>
             <label>Téléphone
-                <input type="tel" name="phone" maxlength="32" autocomplete="tel">
+                <input type="tel" name="phone" maxlength="32" autocomplete="tel" required>
+                <small class="muted">Obligatoire pour les SMS de configuration TRAK.</small>
             </label>
             <label>Mot de passe
                 <input type="password" name="password" id="user-password" minlength="10" autocomplete="new-password" required>
