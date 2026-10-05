@@ -12,7 +12,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim((string)($_POST['email'] ?? ''));
     $phone = trim((string)($_POST['phone'] ?? ''));
 
-    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if ($phone === '') {
+        $error = 'Le numéro de téléphone est obligatoire pour recevoir les SMS de configuration TRAK.';
+    } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Adresse email invalide.';
     } elseif (strlen($email) > 254) {
         $error = 'Adresse email trop longue.';
@@ -53,7 +55,7 @@ page_header('User account', $user);
 <form method="post">
 <input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>">
 <label>Email<input type="email" name="email" maxlength="254" autocomplete="email" value="<?=htmlspecialchars($user['email'] ?? ($user['pending_email'] ?? ''))?>"></label>
-<label>Téléphone<input type="tel" name="phone" maxlength="32" autocomplete="tel" value="<?=htmlspecialchars($user['phone'] ?? '')?>"></label>
+<label>Téléphone<input type="tel" name="phone" maxlength="32" autocomplete="tel" value="<?=htmlspecialchars($user['phone'] ?? '')?>" required><small class="muted">Obligatoire pour recevoir les SMS de configuration du TRAK.</small></label>
 <button type="submit">Enregistrer</button>
 </form>
 <?php if (!empty($user['email'])): ?><p>Email : <strong><?=htmlspecialchars($user['email'])?></strong> <?php if (!empty($user['email_verified_at'])): ?>✓ confirmé<?php else: ?><span class="muted">non confirmé</span><?php endif; ?></p><?php elseif (!empty($user['pending_email'])): ?><p>Email en attente : <strong><?=htmlspecialchars($user['pending_email'])?></strong></p><?php endif; ?>
