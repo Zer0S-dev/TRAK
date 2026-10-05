@@ -119,7 +119,7 @@ void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t 
       leds.setPixelColor(CENTER_LED, 0);
     } else {
       centerCommunicationOff = false;
-      leds.setPixelColor(CENTER_LED, (cellularReady || WiFi.status() == WL_CONNECTED) ? leds.Color(20, 0, 20) : 0);
+      leds.setPixelColor(CENTER_LED, WiFi.status() == WL_CONNECTED ? leds.Color(0, 80, 0) : (cellularReady ? leds.Color(20, 0, 20) : 0));
     }
   } else {
     leds.setPixelColor(CENTER_LED, (cellularReady || WiFi.status() == WL_CONNECTED) ? leds.Color(20, 0, 20) : 0);
