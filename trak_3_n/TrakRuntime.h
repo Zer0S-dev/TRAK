@@ -24,3 +24,5 @@ struct GnssPosition {
 void trakRuntimeInit();
 void trakCommunicationTask(void* parameter);
 void trakLedTask(void* parameter);
+
+void signalCommunicationSend();
