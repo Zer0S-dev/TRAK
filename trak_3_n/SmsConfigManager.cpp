@@ -596,5 +596,14 @@ bool smsConfigApplyRemoteConfig(
     return false;
   }
   devLog(String("CONFIG | NVS apply OK | timestamp=") + String((unsigned long)configTimestamp));
+
+  // Une nouvelle configuration distante est maintenant valide et verifiee
+  // dans la NVS. Le reboot garantit que tous les composants repartent avec
+  // la configuration nouvellement appliquee.
+  Serial.println("[CONFIG] Nouvelle configuration appliquee en NVS -> redemarrage.");
+  devLog("CONFIG | NVS apply OK | reboot");
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  ESP.restart();
+
   return true;
 }
