@@ -25,6 +25,7 @@ $altRaw = $_GET['altitude'] ?? $_GET['alt'] ?? $_POST['altitude'] ?? $_POST['alt
 $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
 $speedRaw = $_GET['speed'] ?? $_POST['speed'] ?? null;
 $bearingRaw = $_GET['bearing'] ?? $_POST['bearing'] ?? null;
+$firmwareVersion = trim((string)($_GET['firmware_version'] ?? $_POST['firmware_version'] ?? ''));
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
 if ($apiKey === '') $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $timestamp = $timestamp !== '' ? $timestamp : trim((string)($json['timestamp'] ?? ''));
         $speedRaw = $json['speed'] ?? $speedRaw;
         $bearingRaw = $json['bearing'] ?? $bearingRaw;
+        $firmwareVersion = $firmwareVersion !== '' ? trim((string)($json['firmware_version'] ?? '')) : trim((string)($json['firmware_version'] ?? ''));
     }
 }
 
@@ -87,6 +89,15 @@ try {
             received_at = CURRENT_TIMESTAMP'
     );
     $stmt->execute([(int)$trak['id'], $latitude, $longitude, $altitude, $speed, $bearing, $timestamp !== '' ? $timestamp : null]);
+
+    // La version du firmware est déclarée par le TRAK dans chaque requête de position.
+    // On n'écrit en SQLite que si la valeur est absente ou différente.
+    if ($firmwareVersion !== '' && strlen($firmwareVersion) <= 32) {
+        $fwStmt = $pdo->prepare('UPDATE trak_configs
+            SET firmware_version = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE trak_box_id = ? AND (firmware_version = \'\' OR firmware_version IS NULL OR firmware_version <> ?)');
+        $fwStmt->execute([$firmwareVersion, (int)$trak['id'], $firmwareVersion]);
+    }
 
     positionResponse(200, [
         'ok' => true,
