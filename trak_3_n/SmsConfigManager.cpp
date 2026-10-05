@@ -3,6 +3,7 @@
 #include <HardwareSerial.h>
 #include "Config.h"
 #include "SmsConfigManager.h"
+#include "TrakRuntime.h"
 #include "WiFiManager.h"
 #include <WiFi.h>
 
@@ -151,6 +152,7 @@ void sendSms(const String& phone, const String& text) {
     return;
   }
 
+  signalCommunicationSend();
   modem.print(text);
   modem.write(0x1A);
 
