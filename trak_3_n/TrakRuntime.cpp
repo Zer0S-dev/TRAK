@@ -111,7 +111,7 @@ void signalCommunicationSend() {
   leds.setPixelColor(CENTER_LED, 0);
   leds.show();
 
-  Serial.printf("[LED] DATA SEND -> OFF %lu ms\\n", (unsigned long)COMMUNICATION_FLASH_MS);
+  Serial.printf("[LED] DATA SEND -> OFF %lu ms\n", (unsigned long)COMMUNICATION_FLASH_MS);
 }
 
 void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t now = millis(); if (now - lastFrame < LED_FRAME_MS) return; lastFrame = now; if (!gnssFix && now - lastRing >= RING_STEP_MS) { lastRing = now; ++ringIndex; if (ringIndex >= WS2812_RING_COUNT) ringIndex = 0; for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) { const uint16_t previous = (ringIndex + WS2812_RING_COUNT - 1) % WS2812_RING_COUNT; const uint8_t level = i == ringIndex ? 255 : (i == previous ? 90 : 10); leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, level)); } } else if (gnssFix) for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, 80)); if (centerCommunicationOff) {
@@ -122,7 +122,7 @@ void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t 
       leds.setPixelColor(CENTER_LED, (cellularReady || WiFi.status() == WL_CONNECTED) ? leds.Color(20, 0, 20) : 0);
     }
   } else {
-    leds.setPixelColor(CENTER_LED, cellularReady ? leds.Color(20, 0, 20) : 0);
+    leds.setPixelColor(CENTER_LED, (cellularReady || WiFi.status() == WL_CONNECTED) ? leds.Color(20, 0, 20) : 0);
   }
   leds.show();
 }
