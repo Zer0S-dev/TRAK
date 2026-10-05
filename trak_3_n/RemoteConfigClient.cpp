@@ -7,6 +7,7 @@
 #include <HardwareSerial.h>
 #include <ctype.h>
 #include "SmsConfigManager.h"
+#include "TrakRuntime.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -155,6 +156,7 @@ bool postWiFi(const String& url, const String& body, String& response) {
 
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", String("Bearer ") + smsConfigApiKey());
+  signalCommunicationSend();
   const int code = http.POST(body);
   response = code > 0 ? http.getString() : "";
   http.end();
@@ -369,6 +371,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   Serial.println("[CONFIG] 4G HTTPDATA OK");
 
   while (modem.available()) modem.read();
+  signalCommunicationSend();
   modem.print("AT+HTTPACTION=1\r\n");
   Serial.println("[CONFIG] 4G -> AT+HTTPACTION=1");
 
