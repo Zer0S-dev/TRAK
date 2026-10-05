@@ -475,6 +475,25 @@ bool checkConfig() {
   const String apiKey = smsConfigApiKey();
   if (url.isEmpty() || trakId.isEmpty() || apiKey.isEmpty()) return false;
 
+  // Le reboot a interrompu l'envoi de l'ACK. On l'envoie maintenant
+  // avec la nouvelle configuration et la nouvelle clé API.
+  const uint64_t pendingAckTimestamp = smsConfigPendingRemoteAckTimestamp();
+  if (pendingAckTimestamp > 0) {
+    const String ack = String("{\"action\":\"ack\",\"trak_id\":\"") + trakId +
+                       "\",\"config_updated_at\":" +
+                       String((unsigned long long)pendingAckTimestamp) + "}";
+    String ackResponse;
+    if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
+      Serial.println("[CONFIG] ACK apres reboot indisponible.");
+      devLog("CONFIG | ACK after reboot ERROR");
+      return false;
+    }
+    smsConfigClearPendingRemoteAck();
+    Serial.println("[CONFIG] Configuration distante appliquee + ACK apres reboot.");
+    devLog("CONFIG | remote apply + ACK after reboot OK");
+    return true;
+  }
+
   const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId + "\"}";
   String response;
   if (!postRequest(url, body, response) || !responseOk(response)) {
