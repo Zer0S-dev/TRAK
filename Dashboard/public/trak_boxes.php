@@ -9,7 +9,7 @@ $message = '';
 $error = '';
 $editId = 0;
 
-$users = $pdo->query('SELECT id, username FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
+$users = $pdo->query('SELECT id, username, email, phone, pending_email FROM users ORDER BY username COLLATE NOCASE')->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
