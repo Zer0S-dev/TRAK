@@ -16,7 +16,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $newPassword = (string)($_POST['new_password'] ?? '');
     $confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
-    if ($action === 'password') {
+    if ($action === 'resend_email') {
+        $pdo = db();
+        $stmt = $pdo->prepare('SELECT pending_email FROM users WHERE id = ?');
+        $stmt->execute([(int)$user['id']]);
+        $pendingEmail = trim((string)$stmt->fetchColumn());
+
+        if ($pendingEmail === '' || !filter_var($pendingEmail, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Aucune adresse email en attente de confirmation.';
+        } else {
+            $token = bin2hex(random_bytes(32));
+            $stmt = $pdo->prepare('UPDATE users SET email_token_hash = ?, email_token_expires = ? WHERE id = ?');
+            $stmt->execute([hash('sha256', $token), time() + 86400, (int)$user['id']]);
+
+            if (send_email_verification($pendingEmail, $token)) {
+                $message = 'Un nouvel email de confirmation a été envoyé à ' . $pendingEmail . '.';
+            } else {
+                $error = 'Impossible d’envoyer l’email de confirmation. Vérifiez la configuration email du serveur.';
+            }
+        }
+    } elseif ($action === 'password') {
         $pdo = db();
         $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ?');
         $stmt->execute([(int)$user['id']]);
@@ -96,7 +115,7 @@ page_header('User account', $user);
 </form>
 </div>
 
-<?php if (!empty($user['email'])): ?><p>Email : <strong><?=htmlspecialchars($user['email'])?></strong> <?php if (!empty($user['email_verified_at'])): ?>✓ confirmé<?php else: ?><span class="muted">non confirmé</span><?php endif; ?></p><?php elseif (!empty($user['pending_email'])): ?><p>Email en attente : <strong><?=htmlspecialchars($user['pending_email'])?></strong></p><?php endif; ?>
+<?php if (!empty($user['email'])): ?><p>Email : <strong><?=htmlspecialchars($user['email'])?></strong> <?php if (!empty($user['email_verified_at'])): ?>✓ confirmé<?php else: ?><span class="muted">non confirmé</span> <form method="post" style="display:inline;"><input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>"><input type="hidden" name="action" value="resend_email"><button type="submit" class="button" style="margin-left:8px;">Renvoyer l'email de confirmation</button></form><?php endif; ?></p><?php elseif (!empty($user['pending_email'])): ?><p>Email en attente : <strong><?=htmlspecialchars($user['pending_email'])?></strong> <form method="post" style="display:inline;"><input type="hidden" name="csrf" value="<?=htmlspecialchars(csrf_token())?>"><input type="hidden" name="action" value="resend_email"><button type="submit" class="button" style="margin-left:8px;">Renvoyer l'email de confirmation</button></form></p><?php endif; ?>
 <p>Rôle : <strong><?=htmlspecialchars($user['role'])?></strong></p><p>Créé le : <?=htmlspecialchars($user['created_at'])?></p>
 <?php if ($user['role']==='admin' && isset($_GET['created'])): ?><div class="alert success">Utilisateur créé.</div><?php endif; ?>
 </div><script>
