@@ -90,7 +90,8 @@ page_header('User account', $user);
 <input type="hidden" name="action" value="password">
 <label>Mot de passe actuel<input type="password" name="current_password" autocomplete="current-password" required></label>
 <label>Nouveau mot de passe<input type="password" name="new_password" minlength="10" autocomplete="new-password" required></label>
-<label>Confirmation du nouveau mot de passe<input type="password" name="confirm_password" minlength="10" autocomplete="new-password" required></label>
+<label>Confirmation du nouveau mot de passe<input type="password" name="confirm_password" id="account-password-confirm" minlength="10" autocomplete="new-password" required></label>
+<label class="password-toggle"><input type="checkbox" id="show-account-password"> Voir le mot de passe</label>
 <button type="submit">Modifier le mot de passe</button>
 </form>
 </div>
@@ -98,4 +99,13 @@ page_header('User account', $user);
 <?php if (!empty($user['email'])): ?><p>Email : <strong><?=htmlspecialchars($user['email'])?></strong> <?php if (!empty($user['email_verified_at'])): ?>✓ confirmé<?php else: ?><span class="muted">non confirmé</span><?php endif; ?></p><?php elseif (!empty($user['pending_email'])): ?><p>Email en attente : <strong><?=htmlspecialchars($user['pending_email'])?></strong></p><?php endif; ?>
 <p>Rôle : <strong><?=htmlspecialchars($user['role'])?></strong></p><p>Créé le : <?=htmlspecialchars($user['created_at'])?></p>
 <?php if ($user['role']==='admin' && isset($_GET['created'])): ?><div class="alert success">Utilisateur créé.</div><?php endif; ?>
-</div><?php page_footer(); ?>
+</div><script>
+document.getElementById('show-account-password').addEventListener('change', function () {
+    const type = this.checked ? 'text' : 'password';
+    document.querySelector('input[name="current_password"]').type = type;
+    document.querySelector('input[name="new_password"]').type = type;
+    document.getElementById('account-password-confirm').type = type;
+});
+</script>
+
+<?php page_footer(); ?>
