@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include "SmsConfigManager.h"
+#include "TrakRuntime.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -141,6 +142,7 @@ TrackserverResult sendOverWiFi(const String& url) {
     return TrackserverResult::Failed;
   }
 
+  signalCommunicationSend();
   const int code = http.GET();
   http.end();
 
@@ -179,6 +181,7 @@ TrackserverResult sendOverCellular(const String& url) {
   }
 
   while (modem.available()) modem.read();
+  signalCommunicationSend();
   modem.print("AT+HTTPACTION=0\r\n");
 
   int statusCode = -1;
