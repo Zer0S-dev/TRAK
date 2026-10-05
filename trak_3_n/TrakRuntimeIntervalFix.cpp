@@ -232,7 +232,6 @@ void trakCommunicationTaskFixed(void*) {
       lastRecord = now;
       const size_t before = positionBuffer.size();
       if (positionBuffer.push(position)) {
-        centerBlinkUntil = now + 900;
         if (before == 0) devLog("FIFO | DATA_PENDING | first position queued");
       }
     }
@@ -266,7 +265,6 @@ void trakCommunicationTaskFixed(void*) {
 
         if (result == TrackserverResult::Success) {
           positionBuffer.pop();
-          centerBlinkUntil = now + 500;
           continue;
         }
 
