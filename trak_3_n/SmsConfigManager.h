@@ -28,3 +28,6 @@ bool smsConfigApplyRemoteConfig(
 
 uint64_t smsConfigPendingRemoteAckTimestamp();
 void smsConfigClearPendingRemoteAck();
+
+uint64_t smsConfigPendingRemoteAckTimestamp();
+void smsConfigClearPendingRemoteAck();
