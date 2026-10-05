@@ -30,7 +30,7 @@ constexpr uint16_t CENTER_LED = 0;
 constexpr uint16_t RING_FIRST = 1;
 constexpr uint32_t LED_FRAME_MS = 10;
 constexpr uint32_t RING_STEP_MS = 100;
-constexpr uint32_t BLINK_MS = 180;
+constexpr uint32_t COMMUNICATION_FLASH_MS = 180;
 constexpr uint32_t CELLULAR_RETRY_MS = 30000;
 uint16_t ringIndex = 0;
 
@@ -102,7 +102,10 @@ bool readGnss(GnssPosition& p) {
   if (!p.valid) { Serial.println("[GNSS] NO FIX | mode invalide"); return false; }
   Serial.printf("[GNSS] FIX | mode=%u | SAT visible=%u | USED=%u | GPS=%u GLO=%u GAL=%u BEI=%u | hdop=%.2f pdop=%.2f speed=%.2fkn course=%.1f\n", p.fixMode, p.totalSatellites, p.usedSatellites, p.gpsSatellites, p.glonassSatellites, p.galileoSatellites, p.beidouSatellites, p.hdop, p.pdop, p.speedKnots, p.courseDeg); return true;
 }
-void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t now = millis(); if (now - lastFrame < LED_FRAME_MS) return; lastFrame = now; if (!gnssFix && now - lastRing >= RING_STEP_MS) { lastRing = now; ++ringIndex; if (ringIndex >= WS2812_RING_COUNT) ringIndex = 0; for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) { const uint16_t previous = (ringIndex + WS2812_RING_COUNT - 1) % WS2812_RING_COUNT; const uint8_t level = i == ringIndex ? 255 : (i == previous ? 90 : 10); leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, level)); } } else if (gnssFix) for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, 80)); const bool blink = centerBlinkUntil > now && ((now / BLINK_MS) & 1U); leds.setPixelColor(CENTER_LED, cellularReady ? leds.Color(blink ? 255 : 20, 0, blink ? 255 : 20) : 0); leds.show(); }
+void signalCommunicationSend() { centerBlinkUntil = millis() + COMMUNICATION_FLASH_MS; }
+
+void updateLeds() { static uint32_t lastFrame = 0, lastRing = 0; const uint32_t now = millis(); if (now - lastFrame < LED_FRAME_MS) return; lastFrame = now; if (!gnssFix && now - lastRing >= RING_STEP_MS) { lastRing = now; ++ringIndex; if (ringIndex >= WS2812_RING_COUNT) ringIndex = 0; for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) { const uint16_t previous = (ringIndex + WS2812_RING_COUNT - 1) % WS2812_RING_COUNT; const uint8_t level = i == ringIndex ? 255 : (i == previous ? 90 : 10); leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, level)); } } else if (gnssFix) for (uint16_t i = 0; i < WS2812_RING_COUNT; ++i) leds.setPixelColor(RING_FIRST + i, leds.Color(0, 0, 80)); const bool communicationFlash = centerBlinkUntil > now;
+  leds.setPixelColor(CENTER_LED, communicationFlash ? 0 : (cellularReady ? leds.Color(20, 0, 20) : 0)); leds.show(); }
 void trakRuntimeInit() { Serial.begin(DEBUG_BAUD); vTaskDelay(pdMS_TO_TICKS(1000)); leds.begin(); leds.setBrightness(WS2812_BRIGHTNESS); leds.clear(); leds.show(); initDevLog(); devLog(String("Firmware ") + TRAK_VERSION); modem.begin(MODEM_BAUD, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN); vTaskDelay(pdMS_TO_TICKS(1000)); if (!powerOnModem()) return; detectApn(); attachCellular(); configureGnss(); }
 void trakCommunicationTask(void*) { for (;;) { vTaskDelay(pdMS_TO_TICKS(100)); } }
 void trakLedTask(void*) { for (;;) { updateLeds(); vTaskDelay(pdMS_TO_TICKS(1)); } }
