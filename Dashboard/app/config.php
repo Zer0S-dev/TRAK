@@ -29,12 +29,27 @@ function mail_from(): string {
 const MAIL_FROM_NAME = 'TRAK Connect';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    /*
+     * Session persistante pour le WebView Android.
+     *
+     * Le cookie reste présent après fermeture de l'application et
+     * redémarrage du téléphone. Il est supprimé par la déconnexion
+     * ou lorsque les données/cookies du WebView sont effacés.
+     */
+    $sessionLifetime = 10 * 365 * 24 * 60 * 60;
     $secure = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+
+    ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
+    ini_set('session.cookie_lifetime', (string) $sessionLifetime);
+
     session_set_cookie_params([
+        'lifetime' => $sessionLifetime,
+        'expires' => time() + $sessionLifetime,
         'httponly' => true,
         'secure' => $secure,
         'samesite' => 'Lax',
         'path' => '/',
     ]);
+
     session_start();
 }
