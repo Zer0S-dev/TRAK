@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $edit = null;
-$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at, tc.wifi_ssid_1, tc.wifi_password_1, tc.wifi_ssid_2, tc.wifi_password_2, tc.wifi_ssid_3, tc.wifi_password_3 FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
+$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at, tc.firmware_version, tc.wifi_ssid_1, tc.wifi_password_1, tc.wifi_ssid_2, tc.wifi_password_2, tc.wifi_ssid_3, tc.wifi_password_3 FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
 
 page_header('TRAK Box', $user);
 ?>
@@ -168,7 +168,7 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table trak-box-table">
-<thead><tr><th>Box ID</th><th>User ID</th><th>Config</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
+<thead><tr><th>Box ID</th><th>User ID</th><th>Config</th><th>Firmware</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
@@ -181,6 +181,7 @@ page_header('TRAK Box', $user);
         <span class="config-status ready"><i class="fa-solid fa-check"></i> À jour</span>
     <?php endif; ?>
 </td>
+<td><?=htmlspecialchars((string)($box['firmware_version'] ?? '')) ?: '—'?></td>
 <td>
     <?php
     $configUpdatedAt = (string)($box['config_updated_at'] ?? '');
