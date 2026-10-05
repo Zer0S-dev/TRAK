@@ -40,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkUser = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ?');
             $checkUser->execute([$userId]);
             if ((int)$checkUser->fetchColumn() !== 1) throw new RuntimeException('User ID invalide.');
+
+            $userStmt = $pdo->prepare('SELECT username, email, phone FROM users WHERE id = ?');
+            $userStmt->execute([$userId]);
+            $owner = $userStmt->fetch();
+            $userPhone = trim((string)($owner['phone'] ?? ''));
+            if ($userPhone === '') {
+                throw new RuntimeException('Le compte utilisateur ne possède pas de numéro de téléphone. USER_PHONE est obligatoire pour le SMS 1.');
+            }
             if (!preg_match('/^[A-Z0-9][A-Z0-9_-]{0,4}$/', $trakId)) {
                 throw new RuntimeException('ID TRAK invalide. Utilisez 1 à 5 caractères : A-Z, 0-9, _ ou -.');
             }
@@ -71,11 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute([$userId, $trakId, $phone, $apiKey, $trakserverUrl, $dashboardUrl]);
                 $editId = (int)$pdo->lastInsertId();
             }
-
-            $userStmt = $pdo->prepare('SELECT username, email, phone FROM users WHERE id = ?');
-            $userStmt->execute([$userId]);
-            $owner = $userStmt->fetch();
-            $userPhone = trim((string)($owner['phone'] ?? ''));
 
             // La configuration existe déjà pour une TRAK Box : on la met à jour.
             // Sinon on la crée. Cette méthode évite ON CONFLICT/UPSERT pour
