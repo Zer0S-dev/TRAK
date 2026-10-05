@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <HardwareSerial.h>
 #include "SmsConfigManager.h"
+#include "Config.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -67,6 +68,8 @@ String buildUrl(const GnssPosition& position) {
   url += String(speedKmh, 2);
   url += "&bearing=";
   url += String(position.courseDeg, 1);
+  url += "&firmware_version=";
+  url += urlEncode(String(TRAK_VERSION));
 
   return url;
 }
