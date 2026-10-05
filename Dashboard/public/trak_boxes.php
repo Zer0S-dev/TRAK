@@ -168,7 +168,7 @@ page_header('TRAK Box', $user);
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
 <div class="table-wrap"><table class="data-table trak-box-table">
-<thead><tr><th>Box ID</th><th>User ID</th><th>Config</th><th>Action</th></tr></thead>
+<thead><tr><th>Box ID</th><th>User ID</th><th>Config</th><th>Dernière MAJ</th><th>Action</th></tr></thead>
 <tbody>
 <?php foreach ($boxes as $box): ?>
 <tr>
@@ -180,6 +180,25 @@ page_header('TRAK Box', $user);
     <?php else: ?>
         <span class="config-status ready"><i class="fa-solid fa-check"></i> À jour</span>
     <?php endif; ?>
+</td>
+<td>
+    <?php
+    $configUpdatedAt = (string)($box['config_updated_at'] ?? '');
+    $lastUpdate = '—';
+    if ($configUpdatedAt !== '' && ctype_digit($configUpdatedAt)) {
+        $timestampMs = (int)$configUpdatedAt;
+        $timestamp = (int)floor($timestampMs / 1000);
+        if ($timestamp > 0) {
+            $lastUpdate = date('d/m/Y H:i', $timestamp);
+        }
+    } elseif ($configUpdatedAt !== '') {
+        $timestamp = strtotime($configUpdatedAt);
+        if ($timestamp !== false) {
+            $lastUpdate = date('d/m/Y H:i', $timestamp);
+        }
+    }
+    ?>
+    <?=htmlspecialchars($lastUpdate)?>
 </td>
 <td class="actions trak-actions">
     <button type="button" class="table-action modify"
