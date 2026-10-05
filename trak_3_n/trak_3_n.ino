@@ -16,14 +16,11 @@ uint8_t trakActiveNetworkCode();
 static TaskHandle_t communicationTaskHandle = nullptr;
 
 static void networkLedTask(void*) {
-  uint8_t rainbowOffset = 0;
   for (;;) {
+    // updateLeds() est l'unique proprietaire de la LED centrale.
+    // Aucun autre code ne doit ecrire le pixel 0, sinon le flash
+    // de communication est immediatement ecrase.
     updateLeds();
-    const uint8_t network = trakActiveNetworkCode();
-    if (network == 1) leds.setPixelColor(0, leds.Color(0, 80, 0));
-    else if (network == 2) leds.setPixelColor(0, leds.Color(80, 0, 80));
-    else leds.setPixelColor(0, 0);
-    leds.show();
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
