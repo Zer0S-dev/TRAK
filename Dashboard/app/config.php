@@ -44,7 +44,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
     session_set_cookie_params([
         'lifetime' => $sessionLifetime,
-        'expires' => time() + $sessionLifetime,
         'httponly' => true,
         'secure' => $secure,
         'samesite' => 'Lax',
