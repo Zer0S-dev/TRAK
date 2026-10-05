@@ -528,14 +528,6 @@ void smsConfigClearPendingRemoteAck() {
   prefs.remove("cfg_ack_ts");
 }
 
-uint64_t smsConfigPendingRemoteAckTimestamp() {
-  return prefs.getULong64("cfg_ack_ts", 0ULL);
-}
-
-void smsConfigClearPendingRemoteAck() {
-  prefs.remove("cfg_ack_ts");
-}
-
 uint64_t smsConfigLastConfigTimestamp() {
   // Le timestamp est stocke nativement en U64 dans NVS. Cela conserve les
   // millisecondes sans conversion intermediaire et reste compatible avec
@@ -611,16 +603,6 @@ bool smsConfigApplyRemoteConfig(
     devLog("CONFIG | timestamp NVS write ERROR");
     return false;
   }
-  // Le reboot interrompt cette fonction avant l'ACK. On conserve donc
-  // le timestamp a acquitter en NVS pour l'envoyer au boot suivant.
-  const size_t ackWrittenBytes = prefs.putULong64("cfg_ack_ts", configTimestamp);
-  const uint64_t storedAckTimestamp = prefs.getULong64("cfg_ack_ts", 0ULL);
-  if (ackWrittenBytes != sizeof(uint64_t) || storedAckTimestamp != configTimestamp) {
-    Serial.println("[CONFIG] ERREUR persistance ACK apres reboot.");
-    devLog("CONFIG | ACK timestamp NVS write ERROR");
-    return false;
-  }
-
   // Le reboot interrompt cette fonction avant l'ACK. On conserve donc
   // le timestamp a acquitter en NVS pour l'envoyer au boot suivant.
   const size_t ackWrittenBytes = prefs.putULong64("cfg_ack_ts", configTimestamp);
