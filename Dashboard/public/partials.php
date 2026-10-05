@@ -22,7 +22,6 @@ function page_header(string $title, array $user): void { ?>
     <a class="<?= $activePage === 'settings.php' ? 'active' : '' ?>" href="settings.php"><i class="fa-solid fa-gear"></i><span>Settings</span></a>
     <a class="<?= $activePage === 'account.php' ? 'active' : '' ?>" href="account.php"><i class="fa-solid fa-user"></i><span>Account</span></a>
     <a class="<?= $activePage === 'trak_boxes.php' ? 'active' : '' ?>" href="trak_boxes.php"><i class="fa-solid fa-location-dot"></i><span>TRAK Box</span></a>
-    <a class="<?= $activePage === 'api.php' ? 'active' : '' ?>" href="api.php"><i class="fa-solid fa-code"></i><span>API</span></a>
     <?php if ($user['role']==='admin'): ?>
       <a class="<?= $activePage === 'users.php' ? 'active' : '' ?>" href="users.php"><i class="fa-solid fa-users"></i><span>Users</span></a>
     <?php endif; ?>
@@ -51,9 +50,6 @@ function page_footer(): void { ?>
   </a>
   <a class="<?= basename($_SERVER['PHP_SELF']) === 'trak_boxes.php' ? 'active' : '' ?>" href="trak_boxes.php">
     <i class="fa-solid fa-wifi  tab-icon"></i><span>TRAK</span>
-  </a>
-  <a class="<?= basename($_SERVER['PHP_SELF']) === 'api.php' ? 'active' : '' ?>" href="api.php">
-    <i class="fa-solid fa-code tab-icon"></i><span>API</span>
   </a>
   <a class="<?= basename($_SERVER['PHP_SELF']) === 'settings.php' ? 'active' : '' ?>" href="settings.php">
     <i class="fa-solid fa-gear tab-icon"></i><span>Settings</span>
