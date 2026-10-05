@@ -19,8 +19,18 @@ function send_mail(string $to, string $subject, string $body): bool {
 }
 
 function app_mail_url(string $path): string {
-    // Utilise l'URL réelle d'installation du Dashboard, sans chemin codé en dur.
-    $baseUrl = app_url();
+    // Déduit le dossier d'installation depuis l'URL de la page qui envoie l'email.
+    // Exemple : /trak/account.php ou /trak/public/account.php -> /trak/
+    $scriptName = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    $directory = str_replace('\\', '/', dirname($scriptName));
+
+    if (basename($directory) === 'public') {
+        $directory = dirname($directory);
+    }
+
+    $directory = trim(str_replace('\\', '/', $directory), '/');
+    $baseUrl = rtrim(app_url(), '/') . ($directory !== '' && $directory !== '.' ? '/' . $directory : '');
+
     return rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
 }
 
