@@ -422,9 +422,20 @@ bool processResetSms(const String& sender, const String& body) {
       return true;
     }
     prefs.end();
+
+    // RESET TRAK = vrai retour usine :
+    // - configuration TRAK (trak_cfg)
+    // - profils Wi-Fi + credentials conserves par le driver ESP32
+    // - connexion Wi-Fi active immédiatement coupée
     wifiResetProfiles();
-    WiFi.disconnect(false, false);
+
+    Serial.println("[SMS] RESET TRAK | Wi-Fi coupe et credentials effaces.");
+    devLog("SMS | RESET TRAK | WiFi credentials erased");
+
+    // Laisser le stack Wi-Fi terminer sa deconnexion avant le reboot.
     vTaskDelay(pdMS_TO_TICKS(1000));
+
+    Serial.println("[SMS] RESET TRAK | redemarrage.");
     ESP.restart();
     return true;
   }
