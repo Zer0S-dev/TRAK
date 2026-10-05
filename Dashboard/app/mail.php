@@ -19,7 +19,9 @@ function send_mail(string $to, string $subject, string $body): bool {
 }
 
 function app_mail_url(string $path): string {
-    return rtrim(app_url(), '/') . '/' . ltrim($path, '/');
+    // Les liens envoyés par email doivent pointer vers le domaine public,
+    // et non vers le sous-dossier éventuel dans lequel le Dashboard est installé.
+    return 'https://surlereservoir.fr/' . ltrim($path, '/');
 }
 
 function send_email_verification(string $email, string $token): bool {
