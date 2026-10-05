@@ -19,9 +19,9 @@ function send_mail(string $to, string $subject, string $body): bool {
 }
 
 function app_mail_url(string $path): string {
-    // Le Dashboard est installé dans /trak : conserver ce sous-dossier
-    // dans les liens envoyés par email.
-    return 'https://surlereservoir.fr/trak/' . ltrim($path, '/');
+    // Utilise l'URL réelle d'installation du Dashboard, sans chemin codé en dur.
+    $baseUrl = app_url();
+    return rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
 }
 
 function send_email_verification(string $email, string $token): bool {
