@@ -25,3 +25,6 @@ bool smsConfigApplyRemoteConfig(
     const String& wifiSsid3,
     const String& wifiPassword3,
     uint64_t configTimestamp);
+
+uint64_t smsConfigPendingRemoteAckTimestamp();
+void smsConfigClearPendingRemoteAck();
