@@ -446,13 +446,15 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
 
   String trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl;
   String s1, p1, s2, p2, s3, p3;
-  uint64_t gyroSens = 3, sendInter = 5;
+  uint64_t gyroSens = 2, sendInter = 1;
   if (!jsonString(configObject, "trak_id", trakId) ||
       !jsonString(configObject, "trak_phone", trakPhone) ||
       !jsonString(configObject, "user_phone", userPhone) ||
       !jsonString(configObject, "api_key", apiKey) ||
       !jsonString(configObject, "trackserver_url", trackserverUrl) ||
       !jsonString(configObject, "dashboard_url", dashboardUrl) ||
+      !jsonUint64(configObject, "gyro_sens", gyroSens) ||
+      !jsonUint64(configObject, "send_inter", sendInter) ||
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
       !jsonWifiSlot(configObject, 3, s3, p3)) {
@@ -461,8 +463,25 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
     return false;
   }
 
-   Serial.printf("[CONFIG] Nouvelle configuration | TRAK_ID=%s | TRACKSERVER=%s | WIFI1=%s\n",
-                trakId.c_str(), trackserverUrl.c_str(), s1.c_str());
+   Serial.printf(
+      "[CONFIG] Nouvelle configuration recue | timestamp=%llu | TRAK_ID=%s | TRAK_PHONE=%s | USER_PHONE=%s | TRACKSERVER=%s | DASHBOARD=%s | WIFI1=%s | WIFI2=%s | WIFI3=%s | gyro_sens=%u (%.1f dps) | send_inter=%lu s\\n",
+      (unsigned long long)receivedTimestamp,
+      trakId.c_str(),
+      trakPhone.c_str(),
+      userPhone.c_str(),
+      trackserverUrl.c_str(),
+      dashboardUrl.c_str(),
+      s1.c_str(),
+      s2.c_str(),
+      s3.c_str(),
+      (unsigned)gyroSens,
+      (double)thresholdForLevel((uint8_t)gyroSens),
+      (unsigned long)(uint32_t)sendInter);
+  devLog(String("CONFIG | remote received | ts=") +
+         String((unsigned long long)receivedTimestamp) +
+         " | trak=" + trakId +
+         " | gyro=" + String((unsigned)gyroSens) +
+         " | send=" + String((unsigned long)sendInter) + "s");
 
   if (!smsConfigApplyRemoteConfig(
           trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
