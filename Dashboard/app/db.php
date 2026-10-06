@@ -50,6 +50,9 @@ function db(): PDO {
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token_hash)');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS remember_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, token_hash TEXT NOT NULL UNIQUE, expires_at INTEGER NOT NULL, created_at INTEGER NOT NULL, last_used_at INTEGER, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_remember_tokens_hash ON remember_tokens(token_hash)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_remember_tokens_user ON remember_tokens(user_id)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS trak_boxes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
