@@ -154,6 +154,8 @@ try {
                 'api_key' => (string)$config['api_key'],
                 'trackserver_url' => (string)$config['trackserver_url'],
                 'dashboard_url' => (string)$config['dashboard_url'],
+                'gyro_sens' => (int)($config['gyro_sens'] ?? 2),
+                'send_inter' => (int)($config['send_inter'] ?? 1),
                 'wifi' => [
                     [
                         'slot' => 1,
