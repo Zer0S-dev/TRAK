@@ -453,8 +453,6 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       !jsonString(configObject, "api_key", apiKey) ||
       !jsonString(configObject, "trackserver_url", trackserverUrl) ||
       !jsonString(configObject, "dashboard_url", dashboardUrl) ||
-      !jsonUint64(configObject, "gyro_sens", gyroSens) ||
-      !jsonUint64(configObject, "send_inter", sendInter) ||
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
       !jsonWifiSlot(configObject, 3, s3, p3)) {
