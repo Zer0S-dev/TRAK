@@ -18,7 +18,7 @@ extern void devLog(const String& message);
 namespace {
 constexpr uint32_t FIRST_CHECK_DELAY_MS = 0UL;
 constexpr uint32_t RETRY_INTERVAL_MS = 10000UL;
-constexpr uint32_t CHECK_INTERVAL_MS = 240000UL;
+constexpr uint32_t CHECK_INTERVAL_MS = 60000UL;
 constexpr uint32_t WIFI_TIMEOUT_MS = 2500UL;
 constexpr uint32_t CELLULAR_TIMEOUT_MS = 8000UL;
 constexpr size_t MAX_URL_LEN = 160;
