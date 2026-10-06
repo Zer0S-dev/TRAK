@@ -94,6 +94,8 @@ function db(): PDO {
         wifi_password_2 TEXT NOT NULL DEFAULT '',
         wifi_ssid_3 TEXT NOT NULL DEFAULT '',
         wifi_password_3 TEXT NOT NULL DEFAULT '',
+        gyro_sens INTEGER NOT NULL DEFAULT 2,
+        send_inter INTEGER NOT NULL DEFAULT 1,
         firmware_version TEXT NOT NULL DEFAULT '',
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
@@ -114,6 +116,8 @@ function db(): PDO {
         'wifi_password_2' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_2 TEXT NOT NULL DEFAULT ''",
         'wifi_ssid_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_ssid_3 TEXT NOT NULL DEFAULT ''",
         'wifi_password_3' => "ALTER TABLE trak_configs ADD COLUMN wifi_password_3 TEXT NOT NULL DEFAULT ''",
+        'gyro_sens' => "ALTER TABLE trak_configs ADD COLUMN gyro_sens INTEGER NOT NULL DEFAULT 2",
+        'send_inter' => "ALTER TABLE trak_configs ADD COLUMN send_inter INTEGER NOT NULL DEFAULT 1",
         'firmware_version' => "ALTER TABLE trak_configs ADD COLUMN firmware_version TEXT NOT NULL DEFAULT ''",
         'updated_at' => "ALTER TABLE trak_configs ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''",
     ];
