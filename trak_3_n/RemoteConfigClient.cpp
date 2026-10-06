@@ -492,7 +492,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
          String((unsigned long long)receivedTimestamp) +
          " | trak=" + trakId +
          " | gyro=" + String((unsigned)gyroSens) +
-         " | send=" + String((unsigned long)sendInter) + "s");
+         " | send=" + String((unsigned long)(sendInterLevel * 5UL)) + "s");
 
   if (!smsConfigApplyRemoteConfig(
           trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
