@@ -58,6 +58,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wifiPassword2 = (string)($_POST['wifi_password_2'] ?? '');
             $wifiSsid3 = trim((string)($_POST['wifi_ssid_3'] ?? ''));
             $wifiPassword3 = (string)($_POST['wifi_password_3'] ?? '');
+            $gyroSens = (int)($_POST['gyro_sens'] ?? 2);
+            $sendInter = (int)($_POST['send_inter'] ?? 1);
+            if ($gyroSens < 1 || $gyroSens > 5) throw new RuntimeException('Sensibilité mouvement invalide.');
+            if ($sendInter < 1 || $sendInter > 5) throw new RuntimeException('Intervalle d’envoi invalide.');
 
             if ($userId <= 0) throw new RuntimeException('Veuillez sélectionner un User ID.');
             $checkUser = $pdo->prepare('SELECT COUNT(*) FROM users WHERE id = ?');
@@ -107,17 +111,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 wifi_ssid_1 = ?, wifi_password_1 = ?,
                 wifi_ssid_2 = ?, wifi_password_2 = ?,
                 wifi_ssid_3 = ?, wifi_password_3 = ?,
+                gyro_sens = ?, send_inter = ?,
                 updated_at = CURRENT_TIMESTAMP
                 WHERE trak_box_id = ?');
-            $configStmt->execute([$apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3, $editId]);
+            $configStmt->execute([$apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3, $gyroSens, $sendInter, $editId]);
 
             if ($configStmt->rowCount() === 0) {
                 $configStmt = $pdo->prepare('INSERT INTO trak_configs (
                     trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
                     trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
-                    wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3
-                ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-                $configStmt->execute([$editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3]);
+                    wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3, gyro_sens, send_inter
+                ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $configStmt->execute([$editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3, $gyroSens, $sendInter]);
             }
 
             if ($id === 0 && !empty($owner['email'])) {
@@ -154,7 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $edit = null;
-$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at, tc.firmware_version, tc.wifi_ssid_1, tc.wifi_password_1, tc.wifi_ssid_2, tc.wifi_password_2, tc.wifi_ssid_3, tc.wifi_password_3 FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
+$boxes = $pdo->query('SELECT tb.*, u.username, tc.config_pending, tc.config_updated_at, tc.firmware_version, tc.wifi_ssid_1, tc.wifi_password_1, tc.wifi_ssid_2, tc.wifi_password_2, tc.wifi_ssid_3, tc.wifi_password_3,
+       tc.gyro_sens, tc.send_inter FROM trak_boxes tb LEFT JOIN users u ON u.id = tb.user_id LEFT JOIN trak_configs tc ON tc.trak_box_id = tb.id ORDER BY tb.trak_id COLLATE NOCASE')->fetchAll();
 
 page_header('TRAK Box', $user);
 ?>
@@ -214,7 +220,8 @@ page_header('TRAK Box', $user);
         'trakserver_url'=>(string)($box['trakserver_url'] ?? ''),'dashboard_url'=>(string)($box['dashboard_url'] ?? ''),
         'wifi_ssid_1'=>(string)($box['wifi_ssid_1'] ?? ''),'wifi_password_1'=>(string)($box['wifi_password_1'] ?? ''),
         'wifi_ssid_2'=>(string)($box['wifi_ssid_2'] ?? ''),'wifi_password_2'=>(string)($box['wifi_password_2'] ?? ''),
-        'wifi_ssid_3'=>(string)($box['wifi_ssid_3'] ?? ''),'wifi_password_3'=>(string)($box['wifi_password_3'] ?? '')
+        'wifi_ssid_3'=>(string)($box['wifi_ssid_3'] ?? ''),'wifi_password_3'=>(string)($box['wifi_password_3'] ?? ''),
+        'gyro_sens'=>(int)($box['gyro_sens'] ?? 2),'send_inter'=>(int)($box['send_inter'] ?? 1)
     ], JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT))?>)">
         <i class="fa-solid fa-pen"></i> Modifier
     </button>
@@ -301,6 +308,18 @@ page_header('TRAK Box', $user);
             <label>Wi-Fi 2 — Mot de passe<div class="password-field"><input type="password" id="wifi_password_2" name="wifi_password_2" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(2, this)">Voir</button></div></label>
             <label>Wi-Fi 3 — SSID><input type="text" name="wifi_ssid_3" id="wifiSsid3" maxlength="64" placeholder="Nom du réseau"></label>
             <label>Wi-Fi 3 — Mot de passe<div class="password-field"><input type="password" id="wifi_password_3" name="wifi_password_3" maxlength="128" placeholder="Mot de passe"><button type="button" class="password-toggle" onclick="toggleWifiPassword(3, this)">Voir</button></div></label>
+            <div id="advancedTrakConfig" style="display:none; margin-top:24px;">
+            <div class="section-heading compact"><div><span class="section-kicker">CONFIGURATION MOUVEMENT</span><h3>Paramètres du TRAK</h3></div></div>
+            <p class="muted">Ces réglages sont disponibles uniquement lors de la modification d’un TRAK. Le Wizard utilise les valeurs par défaut.</p>
+            <label>Sensibilité mouvement
+                <input type="range" name="gyro_sens" id="gyroSensSlider" min="1" max="5" step="1" value="2">
+                <span id="gyroSensValue" class="muted"></span>
+            </label>
+            <label>Intervalle d’envoi des données
+                <input type="range" name="send_inter" id="sendInterSlider" min="1" max="5" step="1" value="1">
+                <span id="sendInterValue" class="muted"></span>
+            </label>
+        </div>
             <div class="modal-actions"><button type="button" class="modal-cancel" onclick="closeTrakModal()">Annuler</button><button type="submit" class="modal-submit" id="trakSubmitButton">Enregistrer</button></div>
         </form>
     </div>
@@ -314,6 +333,29 @@ function toggleWifiPassword(slot, button) {
     input.type = visible ? 'password' : 'text';
     button.textContent = visible ? 'Voir' : 'Masquer';
 }
+const gyroLabels = {
+    1: 'Sensible — 4 °/s',
+    2: 'Sensible + — 6 °/s',
+    3: 'Moyen — 7 °/s',
+    4: 'Moyen + — 8 °/s',
+    5: 'Faible — 9 °/s'
+};
+const sendLabels = {
+    1: '5 s',
+    2: '10 s',
+    3: '15 s',
+    4: '20 s',
+    5: '25 s'
+};
+function updateTrakConfigSliders() {
+    const gyro = document.getElementById('gyroSensSlider');
+    const send = document.getElementById('sendInterSlider');
+    if (gyro) document.getElementById('gyroSensValue').textContent = gyroLabels[gyro.value] || '';
+    if (send) document.getElementById('sendInterValue').textContent = sendLabels[send.value] || '';
+}
+document.getElementById('gyroSensSlider')?.addEventListener('input', updateTrakConfigSliders);
+document.getElementById('sendInterSlider')?.addEventListener('input', updateTrakConfigSliders);
+
 function openTrakModal() {
     const modal = document.getElementById('trakModal');
     document.getElementById('trakModalTitle').textContent = 'Ajouter un TRAK';
@@ -325,6 +367,10 @@ function openTrakModal() {
     document.getElementById('trakFormApiKey').value = '';
     document.getElementById('trakFormTrackserver').value = '';
     document.getElementById('trakFormDashboard').value = '';
+    document.getElementById('gyroSensSlider').value = '2';
+    document.getElementById('sendInterSlider').value = '1';
+    document.getElementById('advancedTrakConfig').style.display = 'none';
+    updateTrakConfigSliders();
     ['wifiSsid1','wifiSsid2','wifiSsid3','wifi_password_1','wifi_password_2','wifi_password_3'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
@@ -341,6 +387,10 @@ function openEditModal(box) {
     document.getElementById('trakFormApiKey').value = box.api_key || '';
     document.getElementById('trakFormTrackserver').value = box.trakserver_url || '';
     document.getElementById('trakFormDashboard').value = box.dashboard_url || '';
+    document.getElementById('gyroSensSlider').value = String(box.gyro_sens || 2);
+    document.getElementById('sendInterSlider').value = String(box.send_inter || 1);
+    document.getElementById('advancedTrakConfig').style.display = 'block';
+    updateTrakConfigSliders();
     document.getElementById('wifiSsid1').value = box.wifi_ssid_1 || '';
     document.getElementById('wifi_password_1').value = box.wifi_password_1 || '';
     document.getElementById('wifiSsid2').value = box.wifi_ssid_2 || '';
