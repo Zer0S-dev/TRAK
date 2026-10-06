@@ -487,7 +487,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       s3.c_str(),
       (unsigned)gyroSens,
       (double)remoteGyroThreshold((uint8_t)gyroSens),
-      (unsigned long)(uint32_t)sendInterLevel);
+      (unsigned long)(sendInterLevel * 5UL));
   devLog(String("CONFIG | remote received | ts=") +
          String((unsigned long long)receivedTimestamp) +
          " | trak=" + trakId +
