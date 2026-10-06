@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     trak_box_id, config_pending, config_updated_at, api_key, trak_phone, user_phone,
                     trackserver_url, dashboard_url, wifi_ssid_1, wifi_password_1,
                     wifi_ssid_2, wifi_password_2, wifi_ssid_3, wifi_password_3, gyro_sens, send_inter
-                ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                ) VALUES (?, 1, (CAST(strftime(\'%s\',\'now\') AS INTEGER) * 1000 + CAST(substr(strftime(\'%f\',\'now\'), 4, 3) AS INTEGER)), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
                 $configStmt->execute([$editId, $apiKey, $phone, $userPhone, $trakserverUrl, $dashboardUrl, $wifiSsid1, $wifiPassword1, $wifiSsid2, $wifiPassword2, $wifiSsid3, $wifiPassword3, $gyroSens, $sendInter]);
             }
 
