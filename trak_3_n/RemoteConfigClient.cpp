@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include "SmsConfigManager.h"
 #include "TrakRuntime.h"
+#include "MotionManager.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -445,12 +446,15 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
 
   String trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl;
   String s1, p1, s2, p2, s3, p3;
+  uint64_t gyroSens = 3, sendInter = 5;
   if (!jsonString(configObject, "trak_id", trakId) ||
       !jsonString(configObject, "trak_phone", trakPhone) ||
       !jsonString(configObject, "user_phone", userPhone) ||
       !jsonString(configObject, "api_key", apiKey) ||
       !jsonString(configObject, "trackserver_url", trackserverUrl) ||
       !jsonString(configObject, "dashboard_url", dashboardUrl) ||
+      !jsonUint64(configObject, "gyro_sens", gyroSens) ||
+      !jsonUint64(configObject, "send_inter", sendInter) ||
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
       !jsonWifiSlot(configObject, 3, s3, p3)) {
@@ -464,7 +468,8 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
 
   if (!smsConfigApplyRemoteConfig(
           trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
-          s1, p1, s2, p2, s3, p3, receivedTimestamp)) {
+          s1, p1, s2, p2, s3, p3,
+          (uint8_t)gyroSens, (uint32_t)sendInter, receivedTimestamp)) {
     Serial.println("[CONFIG] Application refusee.");
     return false;
   }
