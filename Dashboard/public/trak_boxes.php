@@ -179,7 +179,7 @@ page_header('TRAK Box', $user);
 
 <div class="card trak-box-list">
 <h3>TRAK Box enregistrées</h3>
-<p class="warning"><i class="fa-solid fa-triangle-exclamation" style="color: #d29922;"></i> Quand une mise à jour est demandée, elle est appliquée maximum 4minutes après.</p>
+<p class="warning"><i class="fa-solid fa-triangle-exclamation" style="color: #d29922;"></i> Quand une mise à jour est demandée, elle est appliquée maximum 1 minute après.</p>
 <?php if (!$boxes): ?>
 <p class="muted">Aucune TRAK Box enregistrée.</p>
 <?php else: ?>
