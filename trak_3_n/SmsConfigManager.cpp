@@ -5,6 +5,7 @@
 #include "SmsConfigManager.h"
 #include "TrakRuntime.h"
 #include "WiFiManager.h"
+#include "MotionManager.h"
 #include <WiFi.h>
 
 extern HardwareSerial modem;
@@ -550,9 +551,13 @@ bool smsConfigApplyRemoteConfig(
     const String& wifiPassword2,
     const String& wifiSsid3,
     const String& wifiPassword3,
+    uint8_t gyroSensitivityLevel,
+    uint32_t sendIntervalSec,
     uint64_t configTimestamp) {
   // Le timestamp serveur est l'unique version de configuration.
   if (configTimestamp == 0 || configTimestamp <= smsConfigLastConfigTimestamp()) return false;
+  if (gyroSensitivityLevel < 1 || gyroSensitivityLevel > 5) return false;
+  if (!(sendIntervalSec == 5 || sendIntervalSec == 10 || sendIntervalSec == 15 || sendIntervalSec == 20 || sendIntervalSec == 25)) return false;
   if (!validTrakId(trakId) || trakPhone.isEmpty() || userPhone.isEmpty()) return false;
   if (!validAlphaNum(apiKey, API_KEY_LEN)) return false;
   if (!validTrackserverUrl(trackserverUrl)) return false;
@@ -568,6 +573,8 @@ bool smsConfigApplyRemoteConfig(
   }
 
   // Ecriture controlee : chaque valeur doit etre acceptee par NVS.
+  if (!setMotionSensitivityLevel(gyroSensitivityLevel) || !setMotionIntervals(sendIntervalSec, motionIdleIntervalSec())) return false;
+
   if (!putStringChecked("trak_id", trakId) ||
       !putStringChecked("trak_phone", trakPhone) ||
       !putStringChecked("user_phone", userPhone) ||
