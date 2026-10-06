@@ -20,11 +20,11 @@ constexpr float GYRO_SENSITIVITY_DPS_PER_LSB = 0.00875f;
 constexpr uint32_t GYRO_SAMPLE_INTERVAL_MS = 40;
 constexpr uint8_t GYRO_READ_RETRIES = 2;
 constexpr float GYRO_BIAS_ADAPT_ALPHA = 0.01f;
-constexpr float GYRO_THRESHOLD_1_DPS = 2.0f;
-constexpr float GYRO_THRESHOLD_2_DPS = 4.0f;
-constexpr float GYRO_THRESHOLD_3_DPS = 6.0f;
-constexpr float GYRO_THRESHOLD_4_DPS = 10.0f;
-constexpr float GYRO_THRESHOLD_5_DPS = 15.0f;
+constexpr float GYRO_THRESHOLD_1_DPS = 4.0f;
+constexpr float GYRO_THRESHOLD_2_DPS = 6.0f;
+constexpr float GYRO_THRESHOLD_3_DPS = 7.0f;
+constexpr float GYRO_THRESHOLD_4_DPS = 8.0f;
+constexpr float GYRO_THRESHOLD_5_DPS = 9.0f;
 constexpr float GYRO_STILL_RATIO = 0.70f;
 constexpr uint32_t DEFAULT_ACTIVE_INTERVAL_SEC = 10;
 constexpr uint32_t DEFAULT_IDLE_INTERVAL_SEC = 60;
@@ -40,7 +40,7 @@ uint32_t motionAboveThresholdSince = 0;
 float biasXDps = 0.0f, biasYDps = 0.0f, biasZDps = 0.0f;
 bool biasInitialized = false;
 
-bool allowedActive(uint32_t v) { return v == 5 || v == 10 || v == 15 || v == 20; }
+bool allowedActive(uint32_t v) { return v == 5 || v == 10 || v == 15 || v == 20 || v == 25; }
 bool allowedIdle(uint32_t v) { return v == 30 || v == 60 || v == 900 || v == 1800 || v == 3600; }
 
 bool writeRegister(uint8_t reg, uint8_t value) {
