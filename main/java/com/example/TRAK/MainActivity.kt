@@ -100,6 +100,15 @@ class MainActivity : AppCompatActivity() {
             ): Boolean {
                 return false
             }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+
+                // Force l'ecriture du magasin de cookies sur disque.
+                // Cela permet de conserver la session du dashboard
+                // apres fermeture/relance de l'application.
+                CookieManager.getInstance().flush()
+            }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
