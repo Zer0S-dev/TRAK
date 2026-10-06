@@ -599,13 +599,21 @@ bool smsConfigApplyRemoteConfig(
   const bool timestampWritten = timestampWrittenBytes == sizeof(uint64_t);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
-  Serial.printf("[CONFIG] NVS distante appliquee | timestamp=%llu | ecrit=%d | bytes=%u | stocke=%llu | free=%u | trackserver=%s\\n",
-                (unsigned long long)configTimestamp,
-                timestampWritten ? 1 : 0,
-                (unsigned)timestampWrittenBytes,
-                (unsigned long long)storedTimestamp,
-                (unsigned)prefs.freeEntries(),
-                trackserverUrl.c_str());
+  Serial.printf(
+      "[CONFIG] NOUVELLE CONFIG APPLIQUEE | timestamp=%llu | TRAK_ID=%s | TRAK_PHONE=%s | USER_PHONE=%s | TRACKSERVER=%s | DASHBOARD=%s | WIFI1=%s | WIFI2=%s | WIFI3=%s | gyro_sens=%u (%.1f dps) | send_inter=%lu s | NVS_ts=%llu\\n",
+      (unsigned long long)configTimestamp,
+      trakId.c_str(),
+      trakPhone.c_str(),
+      userPhone.c_str(),
+      trackserverUrl.c_str(),
+      dashboardUrl.c_str(),
+      wifiSsid1.c_str(),
+      wifiSsid2.c_str(),
+      wifiSsid3.c_str(),
+      (unsigned)gyroSensitivityLevel,
+      (double)motionSensitivityThresholdDps(),
+      (unsigned long)sendIntervalSec,
+      (unsigned long long)storedTimestamp);
 
   if (!timestampWritten || storedTimestamp != configTimestamp) {
     Serial.println("[CONFIG] ERREUR persistance timestamp NVS.");
