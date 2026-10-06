@@ -599,20 +599,13 @@ bool smsConfigApplyRemoteConfig(
   const bool timestampWritten = timestampWrittenBytes == sizeof(uint64_t);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
-  const uint8_t previousGyroLevel = motionSensitivityLevel();
-  const uint32_t previousSendInterval = motionActiveIntervalSec();
-  const bool gyroChanged = previousGyroLevel != gyroSensitivityLevel;
-  const bool sendIntervalChanged = previousSendInterval != sendIntervalSec;
-
-  Serial.printf(
-      "[CONFIG] NOUVELLE CONFIG APPLIQUEE | timestamp=%llu | TRAK_ID=%s | gyro_sens=%u (%.1f dps) [%s] | send_inter=%lu s [%s] | trackserver=[YES] | dashboard=[YES] | wifi=[%s] | NVS_ts=%llu\\n",
+    Serial.printf(
+      "[CONFIG] NOUVELLE CONFIG APPLIQUEE | timestamp=%llu | TRAK_ID=%s | gyro_sens=%u (%.1f dps) | send_inter=%lu s | trackserver=[YES] | dashboard=[YES] | wifi=[%s] | NVS_ts=%llu\\n",
       (unsigned long long)configTimestamp,
       trakId.c_str(),
       (unsigned)gyroSensitivityLevel,
       (double)motionSensitivityThresholdDps(),
-      gyroChanged ? "YES" : "NO",
       (unsigned long)sendIntervalSec,
-      sendIntervalChanged ? "YES" : "NO",
       (wifiSsid1 != "" || wifiSsid2 != "" || wifiSsid3 != "") ? "YES" : "NO",
       (unsigned long long)storedTimestamp);
 
