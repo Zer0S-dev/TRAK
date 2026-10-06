@@ -24,6 +24,8 @@ bool smsConfigApplyRemoteConfig(
     const String& wifiPassword2,
     const String& wifiSsid3,
     const String& wifiPassword3,
+    uint8_t gyroSensitivityLevel,
+    uint32_t sendIntervalSec,
     uint64_t configTimestamp);
 
 uint64_t smsConfigPendingRemoteAckTimestamp();
