@@ -457,7 +457,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
 
   String trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl;
   String s1, p1, s2, p2, s3, p3;
-  uint64_t gyroSens = 2, sendInter = 1;
+  uint64_t gyroSens = 2, sendInterLevel = 1;
   if (!jsonString(configObject, "trak_id", trakId) ||
       !jsonString(configObject, "trak_phone", trakPhone) ||
       !jsonString(configObject, "user_phone", userPhone) ||
@@ -465,7 +465,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       !jsonString(configObject, "trackserver_url", trackserverUrl) ||
       !jsonString(configObject, "dashboard_url", dashboardUrl) ||
       !jsonUint64(configObject, "gyro_sens", gyroSens) ||
-      !jsonUint64(configObject, "send_inter", sendInter) ||
+      !jsonUint64(configObject, "send_inter", sendInterLevel) ||
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
       !jsonWifiSlot(configObject, 3, s3, p3)) {
@@ -487,7 +487,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       s3.c_str(),
       (unsigned)gyroSens,
       (double)remoteGyroThreshold((uint8_t)gyroSens),
-      (unsigned long)(uint32_t)sendInter);
+      (unsigned long)(uint32_t)sendInterLevel);
   devLog(String("CONFIG | remote received | ts=") +
          String((unsigned long long)receivedTimestamp) +
          " | trak=" + trakId +
@@ -497,7 +497,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
   if (!smsConfigApplyRemoteConfig(
           trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
           s1, p1, s2, p2, s3, p3,
-          (uint8_t)gyroSens, (uint32_t)sendInter, receivedTimestamp)) {
+          (uint8_t)gyroSens, (uint32_t)(sendInterLevel * 5UL), receivedTimestamp)) {
     Serial.println("[CONFIG] Application refusee.");
     return false;
   }
