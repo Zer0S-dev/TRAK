@@ -140,6 +140,17 @@ bool jsonWifiSlot(const String& object, uint8_t slot, String& ssid, String& pass
   return jsonString(item, "ssid", ssid) && jsonString(item, "password", password);
 }
 
+float remoteGyroThreshold(uint8_t level) {
+  switch (level) {
+    case 1: return 4.0f;
+    case 2: return 6.0f;
+    case 3: return 7.0f;
+    case 4: return 8.0f;
+    case 5: return 9.0f;
+    default: return 0.0f;
+  }
+}
+
 bool responseOk(const String& response) {
   bool ok = false;
   return jsonBool(response, "ok", ok) && ok;
@@ -475,7 +486,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       s2.c_str(),
       s3.c_str(),
       (unsigned)gyroSens,
-      (double)thresholdForLevel((uint8_t)gyroSens),
+      (double)remoteGyroThreshold((uint8_t)gyroSens),
       (unsigned long)(uint32_t)sendInter);
   devLog(String("CONFIG | remote received | ts=") +
          String((unsigned long long)receivedTimestamp) +
