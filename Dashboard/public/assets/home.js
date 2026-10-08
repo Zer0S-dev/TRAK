@@ -5,6 +5,7 @@
   const fullscreenButton = document.getElementById('mapFullscreenBtn');
   const emptyState = document.getElementById('homeMapEmpty');
   const trakDatas = document.getElementById('trak-datas');
+  const trakOfflineStatus = document.getElementById('trakOfflineStatus');
 
   if (!page || !mapElement || typeof L === 'undefined') return;
 
@@ -65,6 +66,32 @@
       dateStyle: 'short',
       timeStyle: 'medium'
     }).format(date);
+  }
+
+  function parseTimestamp(value) {
+    if (value === null || value === undefined || String(value).trim() === '') {
+      return null;
+    }
+
+    const raw = String(value).trim();
+    let date;
+
+    if (/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/.test(raw)) {
+      date = new Date(raw.replace(' ', 'T') + 'Z');
+    } else {
+      date = new Date(raw);
+    }
+
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function updateOfflineStatus(receivedAt) {
+    if (!trakOfflineStatus) return;
+
+    const date = parseTimestamp(receivedAt);
+    const offline = date !== null && (Date.now() - date.getTime()) > (3 * 60 * 1000);
+
+    trakOfflineStatus.hidden = !offline;
   }
 
   function updateTrakDatas(latitude, longitude, altitude, gpsTimestamp) {
@@ -144,8 +171,13 @@
       if (!data.ok || !Array.isArray(data.positions)) return;
 
       const ids = new Set();
+      let newestReceivedAt = '';
 
       for (const item of data.positions) {
+        const receivedAtForStatus = item.received_at || '';
+        if (receivedAtForStatus && (!newestReceivedAt || receivedAtForStatus > newestReceivedAt)) {
+          newestReceivedAt = receivedAtForStatus;
+        }
         const trakId = String(item.trak_id || '').trim();
         if (!trakId) continue;
         ids.add(trakId);
@@ -168,6 +200,7 @@
 
       removeMissingMarkers(ids);
       emptyState.hidden = trakMarkers.size > 0;
+      updateOfflineStatus(newestReceivedAt);
 
       // Au premier chargement, centrer automatiquement la carte sur les TRAK
       // réellement disponibles. Ensuite, le polling ne recentre plus la carte
@@ -191,6 +224,7 @@
       }
     } catch (_) {
       // Une erreur réseau ne doit pas perturber la carte.
+      // On conserve l'état calculé au dernier retour valide.
       // Le prochain polling reprendra automatiquement.
     }
   }
