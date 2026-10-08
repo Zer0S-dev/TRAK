@@ -85,11 +85,12 @@
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  function updateOfflineStatus(receivedAt) {
+  function updateOfflineStatus(receivedAtEpoch) {
     if (!trakOfflineStatus) return;
 
-    const date = parseTimestamp(receivedAt);
-    const offline = date !== null && (Date.now() - date.getTime()) > (3 * 60 * 1000);
+    const epoch = Number(receivedAtEpoch);
+    const offline = Number.isFinite(epoch) && epoch > 0
+      && (Date.now() - (epoch * 1000)) > (3 * 60 * 1000);
 
     trakOfflineStatus.hidden = !offline;
   }
@@ -171,12 +172,12 @@
       if (!data.ok || !Array.isArray(data.positions)) return;
 
       const ids = new Set();
-      let newestReceivedAt = '';
+      let newestReceivedAtEpoch = 0;
 
       for (const item of data.positions) {
-        const receivedAtForStatus = item.received_at || '';
-        if (receivedAtForStatus && (!newestReceivedAt || receivedAtForStatus > newestReceivedAt)) {
-          newestReceivedAt = receivedAtForStatus;
+        const receivedAtEpochForStatus = Number(item.received_at_epoch);
+        if (Number.isFinite(receivedAtEpochForStatus) && receivedAtEpochForStatus > newestReceivedAtEpoch) {
+          newestReceivedAtEpoch = receivedAtEpochForStatus;
         }
         const trakId = String(item.trak_id || '').trim();
         if (!trakId) continue;
@@ -200,7 +201,7 @@
 
       removeMissingMarkers(ids);
       emptyState.hidden = trakMarkers.size > 0;
-      updateOfflineStatus(newestReceivedAt);
+      updateOfflineStatus(newestReceivedAtEpoch);
 
       // Au premier chargement, centrer automatiquement la carte sur les TRAK
       // réellement disponibles. Ensuite, le polling ne recentre plus la carte
