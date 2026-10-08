@@ -1,6 +1,10 @@
 <?php require_once __DIR__.'/partials.php'; $user=require_login(); page_header('Home',$user); ?>
 
 <div class="home-map-page" id="homeMapPage">
+  <div id="trakOfflineStatus" class="trak-offline-status" hidden role="status" aria-live="polite">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>TRAK offline</span>
+  </div>
   <div class="home-map-toolbar" id="homeMapToolbar">
     <div class="home-map-actions">
        <div id="trak-datas" class="map-control mobile">lat: - / long: - / alt: - / <i class="fa-regular fa-clock"></i> - </div>
