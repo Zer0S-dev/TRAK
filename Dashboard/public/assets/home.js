@@ -76,7 +76,7 @@
     const raw = String(value).trim();
     let date;
 
-    if (/^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/.test(raw)) {
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) {
       date = new Date(raw.replace(' ', 'T') + 'Z');
     } else {
       date = new Date(raw);
