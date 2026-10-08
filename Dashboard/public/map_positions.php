@@ -38,7 +38,8 @@ foreach ($stmt->fetchAll() as $row) {
         'longitude' => (float)$row['longitude'],
         'altitude' => $row['altitude'] !== null ? (float)$row['altitude'] : null,
         'gps_timestamp' => $row['gps_timestamp'] !== null ? (string)$row['gps_timestamp'] : null,
-        'received_at' => (string)$row['received_at'],
+        'received_at' => $row['received_at'] !== null ? (string)$row['received_at'] : null,
+        'received_at_epoch' => $row['received_at'] !== null ? strtotime((string)$row['received_at'] . ' UTC') : null,
     ];
 }
 
