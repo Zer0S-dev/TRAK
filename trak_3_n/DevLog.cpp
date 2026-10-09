@@ -21,9 +21,9 @@ SemaphoreHandle_t sdMutex = nullptr;
 void writeLogLine(const char* line) {
   if (!sdReady || !line || !sdMutex) return;
   // Le logger ne prend jamais le verrou en attente : la FIFO reste prioritaire.
-  if (xSemaphoreTakeRecursive(sdMutex, 0) != pdTRUE) return;
+  if (xSemaphoreTakeRecursive(sdMutex, 0) != pdTRUE) { ++droppedBytes; return; }
   File file = SD.open("/dev.log", FILE_APPEND);
-  if (!file) return;
+  if (!file) { ++droppedBytes; xSemaphoreGiveRecursive(sdMutex); return; }
   file.print(millis());
   file.print(' ');
   file.println(line);
