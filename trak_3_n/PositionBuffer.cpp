@@ -24,7 +24,9 @@ PositionBuffer::PositionBuffer()
     count(0),
     ready(false) {}
 
-bool PositionBuffer::ensureFile() {\n  SdLockGuard sdLock;\n  if (!sdLock.locked) return false;
+bool PositionBuffer::ensureFile() {
+  SdLockGuard sdLock;
+  if (!sdLock.locked) return false;
   if (!SD.exists("/buffer")) {
     if (!SD.mkdir("/buffer")) {
       DevSerial.println("[BUFFER] Impossible de creer /buffer sur SD.");
@@ -82,6 +84,8 @@ bool PositionBuffer::validRecord(const DiskRecord& record) const {
 }
 
 bool PositionBuffer::readRecord(size_t index, DiskRecord& record) const {
+  SdLockGuard sdLock;
+  if (!sdLock.locked) return false;
   if (index >= POSITION_BUFFER_CAPACITY) return false;
   File file = SD.open(path, FILE_READ);
   if (!file) return false;
@@ -96,6 +100,8 @@ bool PositionBuffer::readRecord(size_t index, DiskRecord& record) const {
 }
 
 bool PositionBuffer::writeRecord(size_t index, const DiskRecord& record) {
+  SdLockGuard sdLock;
+  if (!sdLock.locked) return false;
   if (index >= POSITION_BUFFER_CAPACITY) return false;
   File file = SD.open(path, FILE_WRITE);
   if (!file) return false;
@@ -150,8 +156,12 @@ void PositionBuffer::epochToIso(uint32_t epoch, String& output) {
 }
 
 bool PositionBuffer::begin() {
-  SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
-  if (!SD.begin(SD_CS_PIN, SPI, 10000000)) {
+  SdLockGuard sdLock(1000);
+  if (!sdLock.locked) return false;
+  if (!devLogSdReady()) {
+    SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
+  }
+  if (!devLogSdReady() && !SD.begin(SD_CS_PIN, SPI, 10000000)) {
     DevSerial.println("[BUFFER] SD indisponible: FIFO persistent inactive.");
     devLog("ERREUR buffer SD indisponible");
     return false;
