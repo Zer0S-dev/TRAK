@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <HardwareSerial.h>
 #include "Config.h"
+#include "DevLog.h"
 #include "TrakRuntime.h"
 #include "PositionBuffer.h"
 #include "MotionManager.h"
@@ -125,7 +126,7 @@ static int readCellularSignalPercent() {
   const int rssi = response.substring(cursor, end).toInt();
   if (rssi == 99 || rssi < 0 || rssi > 31) return -1;
   cachedCellularSignalPercent = (rssi * 100 + 15) / 31;
-  Serial.printf("[4G] Signal CSQ=%d -> %d%%\n", rssi, cachedCellularSignalPercent);
+  DevSerial.printf("[4G] Signal CSQ=%d -> %d%%\n", rssi, cachedCellularSignalPercent);
   devLog(String("4G signal: CSQ=") + String(rssi) + " -> " + String(cachedCellularSignalPercent) + "%");
   return cachedCellularSignalPercent;
 }
@@ -136,7 +137,7 @@ bool trakPositionBufferInit() {
   if (bufferReady) return true;
   bufferReady = positionBuffer.begin();
   if (bufferReady) {
-    Serial.printf("[BUFFER] FIFO SD actif: %u position(s) restauree(s)\n", (unsigned)positionBuffer.size());
+    DevSerial.printf("[BUFFER] FIFO SD actif: %u position(s) restauree(s)\n", (unsigned)positionBuffer.size());
     devLog(String("Buffer SD ready: count=") + String((unsigned)positionBuffer.size()));
   }
   return bufferReady;
@@ -213,7 +214,7 @@ void trakCommunicationTaskFixed(void*) {
         }
         if (now - lastLog >= GNSS_LOG_MS) {
           lastLog = now;
-          Serial.printf("[GNSS] FIX | SAT=%u USED=%u GPS=%u GLO=%u GAL=%u BEI=%u | lat=%.6f lon=%.6f alt=%.1f m\n",
+          DevSerial.printf("[GNSS] FIX | SAT=%u USED=%u GPS=%u GLO=%u GAL=%u BEI=%u | lat=%.6f lon=%.6f alt=%.1f m\n",
                         position.totalSatellites, position.usedSatellites,
                         position.gpsSatellites, position.glonassSatellites,
                         position.galileoSatellites, position.beidouSatellites,
@@ -223,7 +224,7 @@ void trakCommunicationTaskFixed(void*) {
         if (previousFix) devLog("GNSS | FIX_LOST");
         if (now - lastLog >= GNSS_LOG_MS) {
           lastLog = now;
-          Serial.println("[GNSS] RECHERCHE FIX");
+          DevSerial.println("[GNSS] RECHERCHE FIX");
         }
       }
     }
@@ -273,17 +274,17 @@ void trakCommunicationTaskFixed(void*) {
         break;
       }
       if (positionBuffer.empty() && bufferFlushActive) { bufferFlushActive = false; devLog("Buffer flush complete"); }
-      if (positionBuffer.size() >= POSITION_BUFFER_CAPACITY && !bufferWasFull) { bufferWasFull = true; Serial.println("[BUFFER] FIFO pleine."); devLog("Buffer full"); }
+      if (positionBuffer.size() >= POSITION_BUFFER_CAPACITY && !bufferWasFull) { bufferWasFull = true; DevSerial.println("[BUFFER] FIFO pleine."); devLog("Buffer full"); }
       if (positionBuffer.size() < POSITION_BUFFER_CAPACITY) bufferWasFull = false;
     }
 
     if (now - lastLog >= GNSS_LOG_MS) {
       lastLog = now;
-      Serial.printf("[TRAK] network=%s buffer=%u motion=%s\n", activeNetwork == NetworkPath::WiFi ? "WiFi" : activeNetwork == NetworkPath::Cellular ? "4G" : "None", (unsigned)positionBuffer.size(), motionIsMobile() ? "MOBILE" : "IMMOBILE");
+      DevSerial.printf("[TRAK] network=%s buffer=%u motion=%s\n", activeNetwork == NetworkPath::WiFi ? "WiFi" : activeNetwork == NetworkPath::Cellular ? "4G" : "None", (unsigned)positionBuffer.size(), motionIsMobile() ? "MOBILE" : "IMMOBILE");
     }
 
     // One compact SD snapshot every 10 s. This is intentionally independent
-    // from the Serial GNSS log cadence and contains the complete field state.
+    // from the DevSerial GNSS log cadence and contains the complete field state.
     if (now - lastTerrainLog >= TERRAIN_LOG_MS) {
       lastTerrainLog = now;
       if (activeNetwork == NetworkPath::Cellular) readCellularSignalPercent();
