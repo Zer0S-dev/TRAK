@@ -4,6 +4,9 @@
 #include <SPI.h>
 #include <SD.h>
 #include <stdarg.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
 #include <stdio.h>
 
 namespace {
@@ -13,15 +16,19 @@ QueueHandle_t logQueue = nullptr;
 TaskHandle_t logTaskHandle = nullptr;
 volatile uint32_t droppedBytes = 0;
 bool sdReady = false;
+SemaphoreHandle_t sdMutex = nullptr;
 
 void writeLogLine(const char* line) {
-  if (!sdReady || !line) return;
+  if (!sdReady || !line || !sdMutex) return;
+  // Le logger ne prend jamais le verrou en attente : la FIFO reste prioritaire.
+  if (xSemaphoreTakeRecursive(sdMutex, 0) != pdTRUE) return;
   File file = SD.open("/dev.log", FILE_APPEND);
   if (!file) return;
   file.print(millis());
   file.print(' ');
   file.println(line);
   file.close();
+  xSemaphoreGiveRecursive(sdMutex);
 }
 
 void devLogWriterTask(void*) {
@@ -84,14 +91,17 @@ void TrakDevLogger::flush() {
 
 void devLogInit() {
   if (logTaskHandle) return;
+  sdMutex = xSemaphoreCreateRecursiveMutex();
   logQueue = xQueueCreate(LOG_QUEUE_BYTES, sizeof(char));
   if (!logQueue) {
     Serial.println("[DEV-LOG] File RAM indisponible; logs SD desactives.");
     return;
   }
 
+  if (sdMutex) xSemaphoreTakeRecursive(sdMutex, portMAX_DELAY);
   SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
   sdReady = SD.begin(SD_CS_PIN, SPI, 10000000);
+  if (sdMutex) xSemaphoreGiveRecursive(sdMutex);
   if (!sdReady) {
     Serial.println("[DEV-LOG] SD indisponible; logs Serial conserves.");
     vQueueDelete(logQueue);
@@ -118,11 +128,17 @@ void devLog(const String& message) {
 }
 
 uint32_t devLogDroppedBytes() { return droppedBytes; }
+bool devLogSdLock(uint32_t timeoutMs) { return sdMutex && xSemaphoreTakeRecursive(sdMutex, pdMS_TO_TICKS(timeoutMs)) == pdTRUE; }
+void devLogSdUnlock() { if (sdMutex) xSemaphoreGiveRecursive(sdMutex); }
+bool devLogSdReady() { return sdReady; }
 
 #else
 
 void devLogInit() {}
 void devLog(const String&) {}
 uint32_t devLogDroppedBytes() { return 0; }
+bool devLogSdLock(uint32_t) { return true; }
+void devLogSdUnlock() {}
+bool devLogSdReady() { return false; }
 
 #endif
