@@ -6,6 +6,7 @@
 #include <HardwareSerial.h>
 #include "SmsConfigManager.h"
 #include "Config.h"
+#include "DevLog.h"
 #include "TrakRuntime.h"
 
 extern HardwareSerial modem;
@@ -45,7 +46,7 @@ String buildUrl(const GnssPosition& position) {
   const String trakId = smsConfigTrakId();
   const String apiKey = smsConfigApiKey();
   if (trakId.isEmpty() || apiKey.isEmpty()) {
-    Serial.println("[DASHBOARD] TRAK ID ou cle API absente.");
+    DevSerial.println("[DASHBOARD] TRAK ID ou cle API absente.");
     devLog("DASHBOARD | identite/auth absente");
     return "";
   }
@@ -115,7 +116,7 @@ DashboardResult sendOverWiFi(const String& url) {
   http.setTimeout(WIFI_HTTP_TIMEOUT_MS);
 
   if (!http.begin(client, url)) {
-    Serial.println("[DASHBOARD] Wi-Fi HTTP begin ERROR");
+    DevSerial.println("[DASHBOARD] Wi-Fi HTTP begin ERROR");
     devLog("DASHBOARD | WiFi | begin ERROR");
     return DashboardResult::Failed;
   }
@@ -125,12 +126,12 @@ DashboardResult sendOverWiFi(const String& url) {
   http.end();
 
   if (code >= 200 && code < 300) {
-    Serial.printf("[DASHBOARD] Wi-Fi GET OK | HTTP=%d\n", code);
+    DevSerial.printf("[DASHBOARD] Wi-Fi GET OK | HTTP=%d\n", code);
     devLog(String("DASHBOARD | WiFi | HTTP=") + String(code) + " | OK");
     return DashboardResult::Success;
   }
 
-  Serial.printf("[DASHBOARD] Wi-Fi GET ERROR | HTTP=%d\n", code);
+  DevSerial.printf("[DASHBOARD] Wi-Fi GET ERROR | HTTP=%d\n", code);
   devLog(String("DASHBOARD | WiFi | HTTP=") + String(code) + " | ERROR");
   return DashboardResult::Failed;
 }
@@ -155,7 +156,7 @@ DashboardResult sendOverCellular(const String& url) {
   }
 
   if (init.indexOf("OK") < 0) {
-    Serial.println("[DASHBOARD] 4G HTTPINIT ERROR");
+    DevSerial.println("[DASHBOARD] 4G HTTPINIT ERROR");
     devLog("DASHBOARD | 4G | HTTPINIT ERROR");
     return DashboardResult::Failed;
   }
@@ -164,7 +165,7 @@ DashboardResult sendOverCellular(const String& url) {
   const String urlCommand = String("AT+HTTPPARA=\"URL\",\"") + url + "\"";
   if (at(urlCommand, 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
-    Serial.println("[DASHBOARD] 4G HTTP URL ERROR");
+    DevSerial.println("[DASHBOARD] 4G HTTP URL ERROR");
     devLog("DASHBOARD | 4G | URL ERROR");
     return DashboardResult::Failed;
   }
@@ -178,12 +179,12 @@ DashboardResult sendOverCellular(const String& url) {
   at("AT+HTTPTERM", 3000);
 
   if (gotAction && statusCode >= 200 && statusCode < 300) {
-    Serial.printf("[DASHBOARD] 4G GET OK | HTTP=%d\n", statusCode);
+    DevSerial.printf("[DASHBOARD] 4G GET OK | HTTP=%d\n", statusCode);
     devLog(String("DASHBOARD | 4G | HTTP=") + String(statusCode) + " | OK");
     return DashboardResult::Success;
   }
 
-  Serial.printf("[DASHBOARD] 4G GET ERROR | HTTP=%d\n", statusCode);
+  DevSerial.printf("[DASHBOARD] 4G GET ERROR | HTTP=%d\n", statusCode);
   devLog(String("DASHBOARD | 4G | HTTP=") + String(statusCode) + " | ERROR");
   return DashboardResult::Failed;
 }
@@ -192,10 +193,10 @@ DashboardResult sendOverCellular(const String& url) {
 void dashboardBegin() {
   const String url = smsConfigDashboardUrl();
   if (url.length()) {
-    Serial.printf("[DASHBOARD] URL configuree : %s\n", url.c_str());
+    DevSerial.printf("[DASHBOARD] URL configuree : %s\n", url.c_str());
     devLog(String("DASHBOARD | configured | url=") + url);
   } else {
-    Serial.println("[DASHBOARD] Pas encore configure.");
+    DevSerial.println("[DASHBOARD] Pas encore configure.");
   }
 }
 
@@ -206,12 +207,12 @@ DashboardResult dashboardSend(const GnssPosition& position) {
 
   const String url = buildUrl(position);
   if (url.isEmpty()) {
-    Serial.println("[DASHBOARD] URL invalide ou absente.");
+    DevSerial.println("[DASHBOARD] URL invalide ou absente.");
     devLog("DASHBOARD | URL invalide");
     return DashboardResult::Failed;
   }
 
-  Serial.printf("[DASHBOARD] GET %s\n", url.c_str());
+  DevSerial.printf("[DASHBOARD] GET %s\n", url.c_str());
 
   if (WiFi.status() == WL_CONNECTED) {
     return sendOverWiFi(url);

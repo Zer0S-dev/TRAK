@@ -1,3 +1,4 @@
+#include "DevLog.h"
 #include "TrackserverClient.h"
 
 #include <WiFi.h>
@@ -137,7 +138,7 @@ TrackserverResult sendOverWiFi(const String& url) {
   http.setTimeout(WIFI_HTTP_TIMEOUT_MS);
 
   if (!http.begin(client, url)) {
-    Serial.println("[TRACKSERVER] Wi-Fi HTTP begin ERROR");
+    DevSerial.println("[TRACKSERVER] Wi-Fi HTTP begin ERROR");
     devLog("TRACKSERVER | WiFi | begin ERROR");
     return TrackserverResult::Failed;
   }
@@ -147,12 +148,12 @@ TrackserverResult sendOverWiFi(const String& url) {
   http.end();
 
   if (code >= 200 && code < 300) {
-    Serial.printf("[TRACKSERVER] Wi-Fi GET OK | HTTP=%d\n", code);
+    DevSerial.printf("[TRACKSERVER] Wi-Fi GET OK | HTTP=%d\n", code);
     devLog(String("TRACKSERVER | WiFi | HTTP=") + String(code) + " | OK");
     return TrackserverResult::Success;
   }
 
-  Serial.printf("[TRACKSERVER] Wi-Fi GET ERROR | HTTP=%d\n", code);
+  DevSerial.printf("[TRACKSERVER] Wi-Fi GET ERROR | HTTP=%d\n", code);
   devLog(String("TRACKSERVER | WiFi | HTTP=") + String(code) + " | ERROR");
   return TrackserverResult::Failed;
 }
@@ -166,7 +167,7 @@ TrackserverResult sendOverCellular(const String& url) {
   at("AT+HTTPTERM", 1000);
   const String init = at("AT+HTTPINIT", 3000);
   if (init.indexOf("OK") < 0) {
-    Serial.println("[TRACKSERVER] 4G HTTPINIT ERROR");
+    DevSerial.println("[TRACKSERVER] 4G HTTPINIT ERROR");
     devLog("TRACKSERVER | 4G | HTTPINIT ERROR");
     return TrackserverResult::Failed;
   }
@@ -175,7 +176,7 @@ TrackserverResult sendOverCellular(const String& url) {
   const String urlCommand = String("AT+HTTPPARA=\"URL\",\"") + url + "\"";
   if (at(urlCommand, 5000).indexOf("OK") < 0) {
     at("AT+HTTPTERM", 1000);
-    Serial.println("[TRACKSERVER] 4G HTTP URL ERROR");
+    DevSerial.println("[TRACKSERVER] 4G HTTP URL ERROR");
     devLog("TRACKSERVER | 4G | URL ERROR");
     return TrackserverResult::Failed;
   }
@@ -189,12 +190,12 @@ TrackserverResult sendOverCellular(const String& url) {
   at("AT+HTTPTERM", 3000);
 
   if (gotAction && statusCode >= 200 && statusCode < 300) {
-    Serial.printf("[TRACKSERVER] 4G GET OK | HTTP=%d\n", statusCode);
+    DevSerial.printf("[TRACKSERVER] 4G GET OK | HTTP=%d\n", statusCode);
     devLog(String("TRACKSERVER | 4G | HTTP=") + String(statusCode) + " | OK");
     return TrackserverResult::Success;
   }
 
-  Serial.printf("[TRACKSERVER] 4G GET ERROR | HTTP=%d\n", statusCode);
+  DevSerial.printf("[TRACKSERVER] 4G GET ERROR | HTTP=%d\n", statusCode);
   devLog(String("TRACKSERVER | 4G | HTTP=") + String(statusCode) + " | ERROR");
   return TrackserverResult::Failed;
 }
@@ -203,10 +204,10 @@ TrackserverResult sendOverCellular(const String& url) {
 void trackserverBegin() {
   const String url = smsConfigTrackserverUrl();
   if (smsConfigIsConfigured()) {
-    Serial.printf("[TRACKSERVER] URL configuree : %s\n", url.c_str());
+    DevSerial.printf("[TRACKSERVER] URL configuree : %s\n", url.c_str());
     devLog(String("TRACKSERVER | configured | url=") + url);
   } else {
-    Serial.println("[TRACKSERVER] Pas encore configure.");
+    DevSerial.println("[TRACKSERVER] Pas encore configure.");
   }
 }
 
@@ -217,12 +218,12 @@ TrackserverResult trackserverSend(const GnssPosition& position) {
 
   const String url = buildUrl(position);
   if (url.isEmpty()) {
-    Serial.println("[TRACKSERVER] URL invalide ou absente.");
+    DevSerial.println("[TRACKSERVER] URL invalide ou absente.");
     devLog("TRACKSERVER | URL invalide");
     return TrackserverResult::Failed;
   }
 
-  Serial.printf("[TRACKSERVER] GET %s\n", url.c_str());
+  DevSerial.printf("[TRACKSERVER] GET %s\n", url.c_str());
 
   if (WiFi.status() == WL_CONNECTED) {
     return sendOverWiFi(url);
