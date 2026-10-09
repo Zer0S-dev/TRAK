@@ -10,6 +10,7 @@
 // write() ne fait jamais d'acces SD et n'attend jamais si la file est pleine.
 class TrakDevLogger : public Print {
 public:
+  using Print::write;
   void begin(unsigned long baud);
   size_t write(uint8_t value) override;
   int printf(const char* format, ...);
