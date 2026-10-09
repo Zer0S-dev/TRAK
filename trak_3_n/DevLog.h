@@ -21,7 +21,7 @@ extern TrakDevLogger DevSerial;
 #else
 class TrakDevLogger {
 public:
-  void begin(unsigned long) {}
+  void begin(unsigned long baud) { Serial.begin(baud); }
   template <typename T> void print(const T&) {}
   template <typename T> void println(const T&) {}
   template <typename T, typename U> void print(const T&, U) {}
