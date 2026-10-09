@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include "Config.h"
+#include "DevLog.h"
 #include "WiFiManager.h"
 
 constexpr uint8_t MAX_WIFI_PROFILES=3;
@@ -25,7 +26,7 @@ void loadProfiles(){
     profiles[i].ssid=prefs.getString((String("s")+i).c_str(),"");
     profiles[i].password=prefs.getString((String("p")+i).c_str(),"");
     if(profiles[i].ssid.length()>0)
-      Serial.printf("[WIFI] Profil #%u charge : %s\n",i+1,profiles[i].ssid.c_str());
+      DevSerial.printf("[WIFI] Profil #%u charge : %s\n",i+1,profiles[i].ssid.c_str());
   }
 }
 
@@ -46,7 +47,7 @@ int findVisibleSlot(int count){
     if(!validSlot(slot))continue;
     for(int i=0;i<count;++i){
       if(WiFi.SSID(i)==profiles[slot].ssid){
-        Serial.printf("[WIFI] Profil #%u visible : %s\n",slot+1,profiles[slot].ssid.c_str());
+        DevSerial.printf("[WIFI] Profil #%u visible : %s\n",slot+1,profiles[slot].ssid.c_str());
         return slot;
       }
     }
@@ -57,7 +58,7 @@ int findVisibleSlot(int count){
 bool connectSlot(uint8_t slot){
   if(!validSlot(slot))return false;
 
-  Serial.printf("[WIFI] Tentative connexion profil #%u : %s\n",slot+1,profiles[slot].ssid.c_str());
+  DevSerial.printf("[WIFI] Tentative connexion profil #%u : %s\n",slot+1,profiles[slot].ssid.c_str());
 
   WiFi.disconnect(false,false);
   vTaskDelay(pdMS_TO_TICKS(50));
@@ -68,7 +69,7 @@ bool connectSlot(uint8_t slot){
     vTaskDelay(pdMS_TO_TICKS(100));
 
   if(WiFi.status()!=WL_CONNECTED){
-    Serial.printf("[WIFI] Echec connexion profil #%u : status=%d\n",slot+1,(int)WiFi.status());
+    DevSerial.printf("[WIFI] Echec connexion profil #%u : status=%d\n",slot+1,(int)WiFi.status());
     return false;
   }
 
@@ -78,7 +79,7 @@ bool connectSlot(uint8_t slot){
   wifiLostSince=0;
   lastInternetCheck=0;
 
-  Serial.printf("[WIFI] Connecte : %s | IP %s\n",
+  DevSerial.printf("[WIFI] Connecte : %s | IP %s\n",
                 profiles[slot].ssid.c_str(),
                 WiFi.localIP().toString().c_str());
   return true;
@@ -97,7 +98,7 @@ void wifiManagerBegin(){
   lastReturnScan=millis();
   scanRunning=false;
 
-  Serial.printf("[WIFI] Gestionnaire initialise | profils=%u\n",wifiProfileCount());
+  DevSerial.printf("[WIFI] Gestionnaire initialise | profils=%u\n",wifiProfileCount());
 }
 
 uint8_t wifiProfileCount(){
@@ -109,35 +110,35 @@ uint8_t wifiProfileCount(){
 
 bool wifiConnectBestSaved(){
   if(wifiProfileCount()==0){
-    Serial.println("[WIFI] Aucun profil sauvegarde au demarrage.");
+    DevSerial.println("[WIFI] Aucun profil sauvegarde au demarrage.");
     return false;
   }
 
   WiFi.mode(WIFI_STA);
 
-  Serial.println("[WIFI] Scan initial demarre...");
+  DevSerial.println("[WIFI] Scan initial demarre...");
   const int count=WiFi.scanNetworks(false,true,false,300);
 
   if(count<0){
-    Serial.printf("[WIFI] Scan initial impossible : resultat=%d\n",count);
+    DevSerial.printf("[WIFI] Scan initial impossible : resultat=%d\n",count);
     WiFi.scanDelete();
     return false;
   }
 
-  Serial.printf("[WIFI] Scan initial termine : %d reseau(x)\n",count);
+  DevSerial.printf("[WIFI] Scan initial termine : %d reseau(x)\n",count);
 
   const int slot=findVisibleSlot(count);
   WiFi.scanDelete();
 
   if(slot<0){
-    Serial.println("[WIFI] Aucun profil du dashboard visible au demarrage.");
+    DevSerial.println("[WIFI] Aucun profil du dashboard visible au demarrage.");
     return false;
   }
 
   if(!connectSlot((uint8_t)slot))return false;
 
   lastInternetResult=true;
-  Serial.println("[NET] Wi-Fi prioritaire actif.");
+  DevSerial.println("[NET] Wi-Fi prioritaire actif.");
   return true;
 }
 
@@ -153,19 +154,19 @@ void startReturnScan(){
   WiFi.mode(WIFI_AP_STA);
   WiFi.setAutoReconnect(true);
 
-  Serial.println("[WIFI] Scan de retour demarre...");
+  DevSerial.println("[WIFI] Scan de retour demarre...");
 
   const int result=WiFi.scanNetworks(true,true,false,300);
   scanStartedAt=millis();
 
   if(result==WIFI_SCAN_RUNNING){
     scanRunning=true;
-    Serial.println("[WIFI] Scan asynchrone en cours...");
+    DevSerial.println("[WIFI] Scan asynchrone en cours...");
     return;
   }
 
   if(result>=0){
-    Serial.printf("[WIFI] Scan de retour termine immediatement : %d reseau(x)\n",result);
+    DevSerial.printf("[WIFI] Scan de retour termine immediatement : %d reseau(x)\n",result);
 
     const int slot=findVisibleSlot(result);
     WiFi.scanDelete();
@@ -173,20 +174,20 @@ void startReturnScan(){
     if(slot>=0){
       if(connectSlot((uint8_t)slot)){
         lastInternetResult=true;
-        Serial.println("[NET] Wi-Fi retrouve -> prioritaire sur 4G.");
+        DevSerial.println("[NET] Wi-Fi retrouve -> prioritaire sur 4G.");
       }else{
         active=false;
         activeSlot=-1;
-        Serial.println("[NET] Wi-Fi visible mais connexion impossible -> 4G conservee.");
+        DevSerial.println("[NET] Wi-Fi visible mais connexion impossible -> 4G conservee.");
       }
     }else{
-      Serial.println("[WIFI] Aucun profil sauvegarde visible.");
+      DevSerial.println("[WIFI] Aucun profil sauvegarde visible.");
     }
     return;
   }
 
   WiFi.scanDelete();
-  Serial.printf("[WIFI] Echec lancement scan de retour : resultat=%d\n",result);
+  DevSerial.printf("[WIFI] Echec lancement scan de retour : resultat=%d\n",result);
 }
 
 void finishReturnScan(){
@@ -196,7 +197,7 @@ void finishReturnScan(){
 
   if(result==WIFI_SCAN_RUNNING){
     if(millis()-scanStartedAt>WIFI_SCAN_WATCHDOG_MS){
-      Serial.println("[WIFI] Watchdog scan depasse -> abandon du scan.");
+      DevSerial.println("[WIFI] Watchdog scan depasse -> abandon du scan.");
       WiFi.scanDelete();
       scanRunning=false;
     }
@@ -206,31 +207,31 @@ void finishReturnScan(){
   scanRunning=false;
 
   if(result<0){
-    Serial.printf("[WIFI] Scan de retour termine en erreur : resultat=%d\n",result);
+    DevSerial.printf("[WIFI] Scan de retour termine en erreur : resultat=%d\n",result);
     WiFi.scanDelete();
     return;
   }
 
-  Serial.printf("[WIFI] Scan de retour termine : %d reseau(x)\n",result);
+  DevSerial.printf("[WIFI] Scan de retour termine : %d reseau(x)\n",result);
 
   const int slot=findVisibleSlot(result);
   WiFi.scanDelete();
 
   if(slot<0){
-    Serial.println("[WIFI] Aucun profil sauvegarde visible.");
+    DevSerial.println("[WIFI] Aucun profil sauvegarde visible.");
     return;
   }
 
   if(connectSlot((uint8_t)slot)){
     active=true;
     lastInternetResult=true;
-    Serial.println("[NET] Wi-Fi retrouve -> prioritaire sur 4G.");
+    DevSerial.println("[NET] Wi-Fi retrouve -> prioritaire sur 4G.");
     return;
   }
 
   active=false;
   activeSlot=-1;
-  Serial.println("[NET] Wi-Fi visible mais connexion impossible -> 4G conservee.");
+  DevSerial.println("[NET] Wi-Fi visible mais connexion impossible -> 4G conservee.");
 }
 
 int wifiSignalPercent(){
@@ -246,7 +247,7 @@ void wifiNetworkTick(bool){
 
   if(active){
     if(!validSlot((uint8_t)activeSlot)){
-      Serial.println("[NET] Profil Wi-Fi actif retire -> recherche Wi-Fi immediate.");
+      DevSerial.println("[NET] Profil Wi-Fi actif retire -> recherche Wi-Fi immediate.");
       active=false;
       activeSlot=-1;
       WiFi.disconnect(false,false);
@@ -260,7 +261,7 @@ void wifiNetworkTick(bool){
     else wifiLostSince=0;
 
     if(wifiLostSince!=0&&now-wifiLostSince>=WIFI_LOSS_CONFIRM_MS){
-      Serial.println("[NET] Wi-Fi perdu -> recherche Wi-Fi immediate, sinon 4G.");
+      DevSerial.println("[NET] Wi-Fi perdu -> recherche Wi-Fi immediate, sinon 4G.");
       active=false;
       activeSlot=-1;
       WiFi.disconnect(false,false);
@@ -277,7 +278,7 @@ void wifiNetworkTick(bool){
 
   if(!scanRunning&&now-lastReturnScan>=WIFI_RETURN_SCAN_MS){
     lastReturnScan=now;
-    Serial.println("[NET] 4G active -> lancement recherche Wi-Fi periodique.");
+    DevSerial.println("[NET] 4G active -> lancement recherche Wi-Fi periodique.");
     startReturnScan();
   }
 }
@@ -291,7 +292,7 @@ void wifiSetProfile(uint8_t slot,const char* ssid,const char* password){
 
   lastReturnScan=0;
 
-  Serial.printf("[WIFI] Profil #%u enregistre -> recherche Wi-Fi immediate : %s\n",
+  DevSerial.printf("[WIFI] Profil #%u enregistre -> recherche Wi-Fi immediate : %s\n",
                 slot+1,profiles[slot].ssid.c_str());
 
   if(!active&&!scanRunning)startReturnScan();
@@ -304,7 +305,7 @@ void wifiClearProfile(uint8_t slot){
   profiles[slot].password="";
   saveProfile(slot);
 
-  Serial.printf("[WIFI] Profil #%u efface.\n",slot+1);
+  DevSerial.printf("[WIFI] Profil #%u efface.\n",slot+1);
 }
 
 void wifiResetProfiles(){
@@ -329,5 +330,5 @@ void wifiResetProfiles(){
   WiFi.disconnect(true,true);
   WiFi.mode(WIFI_OFF);
 
-  Serial.println("[WIFI] Profils Wi-Fi et credentials driver effaces.");
+  DevSerial.println("[WIFI] Profils Wi-Fi et credentials driver effaces.");
 }
