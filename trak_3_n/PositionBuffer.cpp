@@ -1,3 +1,4 @@
+#include "DevLog.h"
 #include "PositionBuffer.h"
 #include <SPI.h>
 #include <SD.h>
@@ -18,7 +19,7 @@ PositionBuffer::PositionBuffer()
 bool PositionBuffer::ensureFile() {
   if (!SD.exists("/buffer")) {
     if (!SD.mkdir("/buffer")) {
-      Serial.println("[BUFFER] Impossible de creer /buffer sur SD.");
+      DevSerial.println("[BUFFER] Impossible de creer /buffer sur SD.");
       return false;
     }
   }
@@ -27,7 +28,7 @@ bool PositionBuffer::ensureFile() {
   if (!file) {
     file = SD.open(path, FILE_WRITE);
     if (!file) {
-      Serial.println("[BUFFER] Impossible de creer positions.dat.");
+      DevSerial.println("[BUFFER] Impossible de creer positions.dat.");
       return false;
     }
     const uint32_t totalSize = static_cast<uint32_t>(POSITION_BUFFER_CAPACITY * RECORD_SIZE);
@@ -45,7 +46,7 @@ bool PositionBuffer::ensureFile() {
   const uint32_t actual = file.size();
   file.close();
   if (actual != expected) {
-    Serial.printf("[BUFFER] Taille positions.dat invalide: %u, attendu=%u. Reinitialisation.\n",
+    DevSerial.printf("[BUFFER] Taille positions.dat invalide: %u, attendu=%u. Reinitialisation.\n",
                   (unsigned)actual, (unsigned)expected);
     SD.remove(path);
     return ensureFile();
@@ -143,7 +144,7 @@ void PositionBuffer::epochToIso(uint32_t epoch, String& output) {
 bool PositionBuffer::begin() {
   SPI.begin(SD_SCK_PIN, SD_MISO_PIN, SD_MOSI_PIN, SD_CS_PIN);
   if (!SD.begin(SD_CS_PIN, SPI, 10000000)) {
-    Serial.println("[BUFFER] SD indisponible: FIFO persistent inactive.");
+    DevSerial.println("[BUFFER] SD indisponible: FIFO persistent inactive.");
     devLog("ERREUR buffer SD indisponible");
     return false;
   }
@@ -156,7 +157,7 @@ bool PositionBuffer::begin() {
   // opened/closed the SD file 8192 times, which could starve the ESP32 watchdog.
   File file = SD.open(path, FILE_READ);
   if (!file) {
-    Serial.println("[BUFFER] Impossible d'ouvrir positions.dat pour restauration.");
+    DevSerial.println("[BUFFER] Impossible d'ouvrir positions.dat pour restauration.");
     devLog("ERREUR lecture positions.dat");
     return false;
   }
@@ -193,7 +194,7 @@ bool PositionBuffer::begin() {
   }
 
   ready = true;
-  Serial.printf("[BUFFER] SD FIFO pret: %u position(s)\n", (unsigned)count);
+  DevSerial.printf("[BUFFER] SD FIFO pret: %u position(s)\n", (unsigned)count);
   if (count > 0) devLog(String("Buffer restored: count=") + String((unsigned)count));
   return true;
 }
@@ -215,7 +216,7 @@ bool PositionBuffer::push(const GnssPosition& position) {
   record.crc32 = calculateCrc(record);
 
   if (!writeRecord(head, record)) {
-    Serial.println("[BUFFER] Erreur ecriture SD.");
+    DevSerial.println("[BUFFER] Erreur ecriture SD.");
     devLog("ERREUR ecriture buffer SD");
     return false;
   }
