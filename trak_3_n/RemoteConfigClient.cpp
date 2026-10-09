@@ -1,3 +1,4 @@
+#include "DevLog.h"
 #include <Arduino.h>
 #include "RemoteConfigClient.h"
 
@@ -174,7 +175,7 @@ bool postWiFi(const String& url, const String& body, String& response) {
   http.end();
 
   if (code >= 200 && code < 300) return true;
-  Serial.printf("[CONFIG] Wi-Fi HTTP=%d\n", code);
+  DevSerial.printf("[CONFIG] Wi-Fi HTTP=%d\n", code);
   devLog(String("CONFIG | WiFi | HTTP=") + String(code));
   return false;
 }
@@ -201,7 +202,7 @@ bool readHttpAction(int& statusCode, uint32_t& dataLen, uint32_t timeoutMs) {
           } else {
             dataLen = (uint32_t)response.substring(c2 + 1).toInt();
           }
-          Serial.printf("[CONFIG] 4G HTTPACTION status=%d dataLen=%lu\n",
+          DevSerial.printf("[CONFIG] 4G HTTPACTION status=%d dataLen=%lu\n",
                         statusCode, (unsigned long)dataLen);
           devLog(String("CONFIG | 4G | HTTPACTION status=") + String(statusCode) +
                  " datalen=" + String((unsigned long)dataLen));
@@ -212,7 +213,7 @@ bool readHttpAction(int& statusCode, uint32_t& dataLen, uint32_t timeoutMs) {
       if (response.indexOf("+CME ERROR:") >= 0 ||
           response.indexOf("+CMS ERROR:") >= 0 ||
           response.indexOf("\r\nERROR\r\n") >= 0) {
-        Serial.println("[CONFIG] 4G HTTPACTION ERROR");
+        DevSerial.println("[CONFIG] 4G HTTPACTION ERROR");
         devLog("CONFIG | 4G | HTTPACTION ERROR");
         return false;
       }
@@ -220,7 +221,7 @@ bool readHttpAction(int& statusCode, uint32_t& dataLen, uint32_t timeoutMs) {
     vTaskDelay(pdMS_TO_TICKS(5));
   }
 
-  Serial.println("[CONFIG] 4G HTTPACTION TIMEOUT");
+  DevSerial.println("[CONFIG] 4G HTTPACTION TIMEOUT");
   devLog("CONFIG | 4G | HTTPACTION TIMEOUT");
   return false;
 }
@@ -252,7 +253,7 @@ bool readHttpBody(uint32_t requestedLen, String& response) {
           payloadLen = (uint32_t)lenText.toInt();
 
           if (payloadLen == 0) {
-            Serial.println("[CONFIG] 4G HTTPREAD payload=0");
+            DevSerial.println("[CONFIG] 4G HTTPREAD payload=0");
             return true;
           }
 
@@ -263,7 +264,7 @@ bool readHttpBody(uint32_t requestedLen, String& response) {
 
       if (stream.indexOf("\r\nERROR\r\n") >= 0 ||
           stream.indexOf("\r\n+CME ERROR:") >= 0) {
-        Serial.println("[CONFIG] 4G HTTPREAD ERROR");
+        DevSerial.println("[CONFIG] 4G HTTPREAD ERROR");
         return false;
       }
     }
@@ -273,7 +274,7 @@ bool readHttpBody(uint32_t requestedLen, String& response) {
   }
 
   if (payloadLen == 0) {
-    Serial.println("[CONFIG] 4G HTTPREAD timeout (no payload header)");
+    DevSerial.println("[CONFIG] 4G HTTPREAD timeout (no payload header)");
     return false;
   }
 
@@ -285,14 +286,14 @@ bool readHttpBody(uint32_t requestedLen, String& response) {
   }
 
   if (response.length() < payloadLen) {
-    Serial.printf("[CONFIG] 4G HTTPREAD timeout payload=%lu/%lu\n",
+    DevSerial.printf("[CONFIG] 4G HTTPREAD timeout payload=%lu/%lu\n",
                   (unsigned long)response.length(),
                   (unsigned long)payloadLen);
     return false;
   }
 
   response = response.substring(0, payloadLen);
-  Serial.printf("[CONFIG] 4G HTTPREAD payload=%lu => %s\n",
+  DevSerial.printf("[CONFIG] 4G HTTPREAD payload=%lu => %s\n",
                 (unsigned long)payloadLen, response.c_str());
 
   // Nettoie la fin de réponse (+HTTPREAD: 0 / OK).
@@ -311,7 +312,7 @@ bool readHttpBody(uint32_t requestedLen, String& response) {
 bool postCellular(const String& url, const String& body, String& response) {
   if (!modemReady || !cellularReady) return false;
 
-  Serial.printf("[CONFIG] 4G POST url=%s bodyLen=%lu\n",
+  DevSerial.printf("[CONFIG] 4G POST url=%s bodyLen=%lu\n",
                 url.c_str(), (unsigned long)body.length());
   devLog(String("CONFIG | 4G | POST bodyLen=") +
          String((unsigned long)body.length()));
@@ -338,7 +339,7 @@ bool postCellular(const String& url, const String& body, String& response) {
 
   const String dataCommand =
       String("AT+HTTPDATA=") + String(body.length()) + ",10000\r\n";
-  Serial.printf("[CONFIG] 4G -> %s", dataCommand.c_str());
+  DevSerial.printf("[CONFIG] 4G -> %s", dataCommand.c_str());
   modem.print(dataCommand);
 
   String prompt;
@@ -347,7 +348,7 @@ bool postCellular(const String& url, const String& body, String& response) {
     while (modem.available()) prompt += (char)modem.read();
     if (prompt.indexOf("DOWNLOAD") >= 0) break;
     if (prompt.indexOf("ERROR") >= 0) {
-      Serial.printf("[CONFIG] 4G HTTPDATA ERROR: %s\n", prompt.c_str());
+      DevSerial.printf("[CONFIG] 4G HTTPDATA ERROR: %s\n", prompt.c_str());
       devLog("CONFIG | 4G | HTTPDATA ERROR");
       at("AT+HTTPTERM", 1000);
       return false;
@@ -356,7 +357,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   }
 
   if (prompt.indexOf("DOWNLOAD") < 0) {
-    Serial.printf("[CONFIG] 4G HTTPDATA timeout: %s\n", prompt.c_str());
+    DevSerial.printf("[CONFIG] 4G HTTPDATA timeout: %s\n", prompt.c_str());
     devLog("CONFIG | 4G | HTTPDATA TIMEOUT");
     at("AT+HTTPTERM", 1000);
     return false;
@@ -374,18 +375,18 @@ bool postCellular(const String& url, const String& body, String& response) {
   }
 
   if (uploadAck.indexOf("OK") < 0) {
-    Serial.printf("[CONFIG] 4G HTTPDATA upload ERROR: %s\n", uploadAck.c_str());
+    DevSerial.printf("[CONFIG] 4G HTTPDATA upload ERROR: %s\n", uploadAck.c_str());
     devLog("CONFIG | 4G | HTTPDATA upload ERROR");
     at("AT+HTTPTERM", 1000);
     return false;
   }
 
-  Serial.println("[CONFIG] 4G HTTPDATA OK");
+  DevSerial.println("[CONFIG] 4G HTTPDATA OK");
 
   while (modem.available()) modem.read();
   signalCommunicationSend();
   modem.print("AT+HTTPACTION=1\r\n");
-  Serial.println("[CONFIG] 4G -> AT+HTTPACTION=1");
+  DevSerial.println("[CONFIG] 4G -> AT+HTTPACTION=1");
 
   int statusCode = -1;
   uint32_t dataLen = 0;
@@ -396,7 +397,7 @@ bool postCellular(const String& url, const String& body, String& response) {
 
   if (statusCode < 200 || statusCode >= 300) {
     at("AT+HTTPTERM", 3000);
-    Serial.printf("[CONFIG] 4G HTTP=%d\n", statusCode);
+    DevSerial.printf("[CONFIG] 4G HTTP=%d\n", statusCode);
     devLog(String("CONFIG | 4G | HTTP=") + String(statusCode));
     return false;
   }
@@ -405,7 +406,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   // est pourtant disponible. HTTPREAD? donne la longueur réelle en buffer.
   const uint32_t readLen = dataLen > 0 ? dataLen : 1024UL;
   const String readInfo = at("AT+HTTPREAD?", 3000);
-  Serial.printf("[CONFIG] 4G HTTPREAD? => %s\n", readInfo.c_str());
+  DevSerial.printf("[CONFIG] 4G HTTPREAD? => %s\n", readInfo.c_str());
 
   if (!readHttpBody(readLen, response)) {
     devLog(String("CONFIG | 4G | HTTPREAD ERROR datalen=") +
@@ -415,7 +416,7 @@ bool postCellular(const String& url, const String& body, String& response) {
   }
 
   if (response.length() == 0) {
-    Serial.printf("[CONFIG] 4G HTTP=%d sans corps apres HTTPREAD\n", statusCode);
+    DevSerial.printf("[CONFIG] 4G HTTP=%d sans corps apres HTTPREAD\n", statusCode);
     devLog(String("CONFIG | 4G | HTTP=") + String(statusCode) +
            " no body after HTTPREAD");
   }
@@ -438,7 +439,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
 
   String response;
   if (!postRequest(url, body, response) || !responseOk(response)) {
-    Serial.println("[CONFIG] Recuperation impossible.");
+    DevSerial.println("[CONFIG] Recuperation impossible.");
     devLog("CONFIG | fetch ERROR");
     return false;
   }
@@ -450,7 +451,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       !jsonUint64(response, "config_updated_at", receivedTimestamp) ||
       receivedTimestamp != serverTimestamp ||
       !jsonObjectForKey(response, "config", configObject)) {
-    Serial.println("[CONFIG] Reponse configuration invalide.");
+    DevSerial.println("[CONFIG] Reponse configuration invalide.");
     devLog("CONFIG | invalid config response");
     return false;
   }
@@ -469,12 +470,12 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
       !jsonWifiSlot(configObject, 1, s1, p1) ||
       !jsonWifiSlot(configObject, 2, s2, p2) ||
       !jsonWifiSlot(configObject, 3, s3, p3)) {
-    Serial.println("[CONFIG] Champs configuration manquants.");
+    DevSerial.println("[CONFIG] Champs configuration manquants.");
     devLog("CONFIG | validation ERROR");
     return false;
   }
 
-   Serial.printf(
+   DevSerial.printf(
       "[CONFIG] Nouvelle configuration recue | timestamp=%llu | TRAK_ID=%s | TRAK_PHONE=%s | USER_PHONE=%s | TRACKSERVER=%s | DASHBOARD=%s | WIFI1=%s | WIFI2=%s | WIFI3=%s | gyro_sens=%u (%.1f dps) | send_inter=%lu s\\n",
       (unsigned long long)receivedTimestamp,
       trakId.c_str(),
@@ -498,7 +499,7 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
           trakId, trakPhone, userPhone, apiKey, trackserverUrl, dashboardUrl,
           s1, p1, s2, p2, s3, p3,
           (uint8_t)gyroSens, (uint32_t)(sendInterLevel * 5UL), receivedTimestamp)) {
-    Serial.println("[CONFIG] Application refusee.");
+    DevSerial.println("[CONFIG] Application refusee.");
     return false;
   }
 
@@ -520,12 +521,12 @@ bool checkConfig() {
                        String((unsigned long long)pendingAckTimestamp) + "}";
     String ackResponse;
     if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
-      Serial.println("[CONFIG] ACK apres reboot indisponible.");
+      DevSerial.println("[CONFIG] ACK apres reboot indisponible.");
       devLog("CONFIG | ACK after reboot ERROR");
       return false;
     }
     smsConfigClearPendingRemoteAck();
-    Serial.println("[CONFIG] Configuration distante appliquee + ACK apres reboot.");
+    DevSerial.println("[CONFIG] Configuration distante appliquee + ACK apres reboot.");
     devLog("CONFIG | remote apply + ACK after reboot OK");
     return true;
   }
@@ -533,7 +534,7 @@ bool checkConfig() {
   const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId + "\"}";
   String response;
   if (!postRequest(url, body, response) || !responseOk(response)) {
-    Serial.println("[CONFIG] STATUS indisponible.");
+    DevSerial.println("[CONFIG] STATUS indisponible.");
     devLog("CONFIG | status ERROR");
     return false;
   }
@@ -542,12 +543,12 @@ bool checkConfig() {
   uint64_t serverTimestamp = 0;
   if (!jsonBool(response, "config_pending", pending) ||
       !jsonUint64(response, "config_updated_at", serverTimestamp)) {
-    Serial.println("[CONFIG] STATUS invalide.");
+    DevSerial.println("[CONFIG] STATUS invalide.");
     return false;
   }
 
   const uint64_t localTimestamp = smsConfigLastConfigTimestamp();
-  Serial.printf("[CONFIG] status pending=%d server=%llu local=%llu\n",
+  DevSerial.printf("[CONFIG] status pending=%d server=%llu local=%llu\n",
                 pending ? 1 : 0,
                 (unsigned long long)serverTimestamp,
                 (unsigned long long)localTimestamp);
@@ -561,12 +562,12 @@ bool checkConfig() {
                      String((unsigned long long)serverTimestamp) + "}";
   String ackResponse;
   if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
-    Serial.println("[CONFIG] ACK indisponible.");
+    DevSerial.println("[CONFIG] ACK indisponible.");
     devLog("CONFIG | ACK ERROR");
     return false;
   }
 
-  Serial.println("[CONFIG] Configuration distante appliquee + ACK.");
+  DevSerial.println("[CONFIG] Configuration distante appliquee + ACK.");
   devLog("CONFIG | remote apply + ACK OK");
   return true;
 }
