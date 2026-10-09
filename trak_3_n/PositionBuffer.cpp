@@ -8,6 +8,14 @@
 
 extern void devLog(const String& message);
 
+namespace {
+struct SdLockGuard {
+  bool locked;
+  explicit SdLockGuard(uint32_t timeoutMs = 10) : locked(devLogSdLock(timeoutMs)) {}
+  ~SdLockGuard() { if (locked) devLogSdUnlock(); }
+};
+}
+
 PositionBuffer::PositionBuffer()
   : path("/buffer/positions.dat"),
     nextSequence(1),
@@ -16,7 +24,7 @@ PositionBuffer::PositionBuffer()
     count(0),
     ready(false) {}
 
-bool PositionBuffer::ensureFile() {
+bool PositionBuffer::ensureFile() {\n  SdLockGuard sdLock;\n  if (!sdLock.locked) return false;
   if (!SD.exists("/buffer")) {
     if (!SD.mkdir("/buffer")) {
       DevSerial.println("[BUFFER] Impossible de creer /buffer sur SD.");
