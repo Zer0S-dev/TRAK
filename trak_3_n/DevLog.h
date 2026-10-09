@@ -40,3 +40,8 @@ void devLog(const String& message);
 
 // Statistiques de diagnostic, sans effet sur le fonctionnement du TRAK.
 uint32_t devLogDroppedBytes();
+
+// Verrou partage pour eviter que le writer de logs entre en collision avec la FIFO SD.
+bool devLogSdLock(uint32_t timeoutMs = 0);
+void devLogSdUnlock();
+bool devLogSdReady();
