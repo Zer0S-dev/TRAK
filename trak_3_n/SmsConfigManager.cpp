@@ -2,6 +2,7 @@
 #include <Preferences.h>
 #include <HardwareSerial.h>
 #include "Config.h"
+#include "DevLog.h"
 #include "SmsConfigManager.h"
 #include "TrakRuntime.h"
 #include "WiFiManager.h"
@@ -30,7 +31,7 @@ uint32_t resetPendingUntil = 0;
 bool putStringChecked(const char* key, const String& value) {
   const size_t written = prefs.putString(key, value);
   if (written == 0 && !value.isEmpty()) {
-    Serial.printf("[CONFIG] NVS erreur ecriture | key=%s | len=%u | free=%u\\n", key, (unsigned)value.length(), (unsigned)prefs.freeEntries());
+    DevSerial.printf("[CONFIG] NVS erreur ecriture | key=%s | len=%u | free=%u\\n", key, (unsigned)value.length(), (unsigned)prefs.freeEntries());
     return false;
   }
   return true;
@@ -223,7 +224,7 @@ bool tryCommitPending() {
   const String usedNonce = prefs.getString("nonce", "");
   if ((usedConfig.length() && usedConfig == configId) ||
       (usedNonce.length() && usedNonce == nonce)) {
-    Serial.println("[SMS] Rejeu detecte: CONFIG_ID ou NONCE deja utilise.");
+    DevSerial.println("[SMS] Rejeu detecte: CONFIG_ID ou NONCE deja utilise.");
     sendSms(sender, "TRAK: configuration deja utilisee.");
     clearPending();
     return true;
@@ -239,7 +240,7 @@ bool tryCommitPending() {
   prefs.putString("nonce", nonce);
   clearPending();
 
-  Serial.printf("[SMS] Configuration acceptee | CONFIG_ID=%s | trackserver_url=%s\n",
+  DevSerial.printf("[SMS] Configuration acceptee | CONFIG_ID=%s | trackserver_url=%s\n",
                 configId.c_str(), trackserverUrl.c_str());
   devLog(String("SMS | config OK | config_id=") + configId);
   sendSms(userPhone, String("TRAK ") + trakId + ": configuration recue et valide. CONFIG_ID=" + configId);
@@ -255,13 +256,13 @@ bool processConfig1(const String& sender, const String& body) {
   if (!validConfigId(fields[2]) || !validTrakId(fields[3]) ||
       fields[4].isEmpty() || fields[5].isEmpty() ||
       !phonesMatch(sender, fields[5])) {
-    Serial.println("[SMS] TRAKCFG1 invalide ou USER_PHONE different de l'expediteur.");
+    DevSerial.println("[SMS] TRAKCFG1 invalide ou USER_PHONE different de l'expediteur.");
     return true;
   }
 
   const String usedConfig = prefs.getString("config_id", "");
   if (usedConfig.length() && usedConfig == fields[2]) {
-    Serial.println("[SMS] TRAKCFG1 rejete: CONFIG_ID deja utilise.");
+    DevSerial.println("[SMS] TRAKCFG1 rejete: CONFIG_ID deja utilise.");
     return true;
   }
 
@@ -272,7 +273,7 @@ bool processConfig1(const String& sender, const String& body) {
   prefs.putString("p_trak_phone", fields[4]);
   prefs.putString("p_user_phone", fields[5]);
 
-  Serial.printf("[SMS] TRAKCFG1 recu | CONFIG_ID=%s | TRAK_ID=%s\n",
+  DevSerial.printf("[SMS] TRAKCFG1 recu | CONFIG_ID=%s | TRAK_ID=%s\n",
                 fields[2].c_str(), fields[3].c_str());
   devLog(String("SMS | CFG1 | config_id=") + fields[2]);
   tryCommitPending();
@@ -287,13 +288,13 @@ bool processConfig3(const String& sender, const String& body) {
 
   if (!validConfigId(fields[2]) || !validAlphaNum(fields[3], API_KEY_LEN) ||
       !validNonce(fields[4]) || !pendingMatches(fields[2], sender)) {
-    Serial.println("[SMS] TRAKCFG3 invalide ou configuration correspondante absente.");
+    DevSerial.println("[SMS] TRAKCFG3 invalide ou configuration correspondante absente.");
     return true;
   }
 
   prefs.putString("p_api_key", fields[3]);
   prefs.putString("p_nonce", fields[4]);
-  Serial.printf("[SMS] TRAKCFG3 recu | CONFIG_ID=%s | API_KEY=%u | NONCE=%u\n", fields[2].c_str(), (unsigned)fields[3].length(), (unsigned)fields[4].length());
+  DevSerial.printf("[SMS] TRAKCFG3 recu | CONFIG_ID=%s | API_KEY=%u | NONCE=%u\n", fields[2].c_str(), (unsigned)fields[3].length(), (unsigned)fields[4].length());
   devLog(String("SMS | CFG3 | config_id=") + fields[2]);
   tryCommitPending();
   return true;
@@ -312,7 +313,7 @@ bool processConfig2(const String& sender, const String& body) {
   const bool isFinal = fields[4] == "1";
   if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
       !pendingMatches(fields[2], sender)) {
-    Serial.println("[SMS] TRAKCFG2 invalide ou configuration correspondante absente.");
+    DevSerial.println("[SMS] TRAKCFG2 invalide ou configuration correspondante absente.");
     return true;
   }
 
@@ -322,18 +323,18 @@ bool processConfig2(const String& sender, const String& body) {
   const size_t combinedLength = prefs.getString("p_url1", "").length() +
                                 prefs.getString("p_url2", "").length();
   if (combinedLength > MAX_trackserver_url_LEN) {
-    Serial.println("[SMS] trackserver_url trop longue.");
+    DevSerial.println("[SMS] trackserver_url trop longue.");
     clearPending();
     return true;
   }
 
-  Serial.printf("[SMS] TRAKCFG2 partie %d recu | FIN=%d | CONFIG_ID=%s\n",
+  DevSerial.printf("[SMS] TRAKCFG2 partie %d recu | FIN=%d | CONFIG_ID=%s\n",
                 part, isFinal ? 1 : 0, fields[2].c_str());
   devLog(String("SMS | CFG2 part=") + String(part) + " | fin=" + String(isFinal ? 1 : 0) + " | config_id=" + fields[2]);
 
   if (isFinal) {
     if (part == 2 && prefs.getString("p_url1", "").isEmpty()) {
-      Serial.println("[SMS] TRAKCFG2 finale refusee: partie 1 absente.");
+      DevSerial.println("[SMS] TRAKCFG2 finale refusee: partie 1 absente.");
       return true;
     }
     tryCommitPending();
@@ -354,7 +355,7 @@ bool processConfig4(const String& sender, const String& body) {
   const bool isFinal = fields[4] == "1";
   if (!validConfigId(fields[2]) || fields[3].isEmpty() ||
       !pendingMatches(fields[2], sender)) {
-    Serial.println("[SMS] TRAKCFG4 invalide ou configuration correspondante absente.");
+    DevSerial.println("[SMS] TRAKCFG4 invalide ou configuration correspondante absente.");
     return true;
   }
 
@@ -364,25 +365,25 @@ bool processConfig4(const String& sender, const String& body) {
   const size_t combinedLength = prefs.getString("p_dash1", "").length() +
                                 prefs.getString("p_dash2", "").length();
   if (combinedLength > MAX_dashboard_url_LEN) {
-    Serial.println("[SMS] dashboard_url trop longue.");
+    DevSerial.println("[SMS] dashboard_url trop longue.");
     clearPending();
     return true;
   }
 
-  Serial.printf("[SMS] TRAKCFG4 partie %d recu | FIN=%d | CONFIG_ID=%s\\n",
+  DevSerial.printf("[SMS] TRAKCFG4 partie %d recu | FIN=%d | CONFIG_ID=%s\\n",
                 part, isFinal ? 1 : 0, fields[2].c_str());
   devLog(String("SMS | CFG4 part=") + String(part) + " | fin=" + String(isFinal ? 1 : 0) + " | config_id=" + fields[2]);
 
   if (isFinal) {
     if (part == 2 && prefs.getString("p_dash1", "").isEmpty()) {
-      Serial.println("[SMS] TRAKCFG4 finale refusee: partie 1 absente.");
+      DevSerial.println("[SMS] TRAKCFG4 finale refusee: partie 1 absente.");
       return true;
     }
     if (part == 1 && prefs.getString("p_dash1", "").isEmpty()) {
       return true;
     }
     if (tryCommitPending()) {
-      Serial.println("[SMS] Configuration complete: Trackserver + Dashboard.");
+      DevSerial.println("[SMS] Configuration complete: Trackserver + Dashboard.");
     }
   }
   return true;
@@ -392,14 +393,14 @@ bool processResetSms(const String& sender, const String& body) {
   if (body.equalsIgnoreCase("RESET TRAK")) {
     const String configuredPhone = prefs.getString("user_phone", "");
     if (!phonesMatch(sender, configuredPhone)) {
-      Serial.println("[SMS] RESET TRAK refuse: expediteur non autorise.");
+      DevSerial.println("[SMS] RESET TRAK refuse: expediteur non autorise.");
       devLog("SMS | RESET TRAK | unauthorized");
       return true;
     }
 
     resetPendingSender = sender;
     resetPendingUntil = millis() + 120000UL;
-    Serial.println("[SMS] RESET TRAK demande | confirmation YES attendue.");
+    DevSerial.println("[SMS] RESET TRAK demande | confirmation YES attendue.");
     devLog("SMS | RESET TRAK | confirmation pending");
     sendSms(sender, "TRAK: confirmation RESET NVS. Repondez YES dans les 2 minutes pour confirmer.");
     return true;
@@ -411,7 +412,7 @@ bool processResetSms(const String& sender, const String& body) {
       return false;
     }
 
-    Serial.println("[SMS] RESET NVS confirme.");
+    DevSerial.println("[SMS] RESET NVS confirme.");
     devLog("SMS | RESET NVS | confirmed");
     sendSms(sender, "TRAK: RESET NVS confirme. Effacement et redemarrage.");
 
@@ -420,7 +421,7 @@ bool processResetSms(const String& sender, const String& body) {
     clearPending();
 
     if (prefs.clear() != ESP_OK) {
-      Serial.println("[SMS] RESET NVS erreur namespace trak_cfg.");
+      DevSerial.println("[SMS] RESET NVS erreur namespace trak_cfg.");
       devLog("SMS | RESET NVS | trak_cfg clear ERROR");
       return true;
     }
@@ -432,13 +433,13 @@ bool processResetSms(const String& sender, const String& body) {
     // - connexion Wi-Fi active immédiatement coupée
     wifiResetProfiles();
 
-    Serial.println("[SMS] RESET TRAK | Wi-Fi coupe et credentials effaces.");
+    DevSerial.println("[SMS] RESET TRAK | Wi-Fi coupe et credentials effaces.");
     devLog("SMS | RESET TRAK | WiFi credentials erased");
 
     // Laisser le stack Wi-Fi terminer sa deconnexion avant le reboot.
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    Serial.println("[SMS] RESET TRAK | redemarrage.");
+    DevSerial.println("[SMS] RESET TRAK | redemarrage.");
     ESP.restart();
     return true;
   }
@@ -489,7 +490,7 @@ void pollSms() {
 
 void smsConfigBegin() {
   if (!prefs.begin(PREF_NS, false)) {
-    Serial.println("[CONFIG] ERREUR ouverture NVS trak_cfg.");
+    DevSerial.println("[CONFIG] ERREUR ouverture NVS trak_cfg.");
     devLog("CONFIG | NVS begin ERROR");
     return;
   }
@@ -499,7 +500,7 @@ void smsConfigBegin() {
   at("AT+CNMI=2,1,0,0,0", 3000);
   ready = true;
   lastPoll = millis() - SMS_POLL_MS;
-  Serial.println("[SMS] Configuration SMS active.");
+  DevSerial.println("[SMS] Configuration SMS active.");
   devLog("SMS | configuration listener active");
 }
 
@@ -581,7 +582,7 @@ bool smsConfigApplyRemoteConfig(
       !putStringChecked("trackserver_url", trackserverUrl) ||
       !putStringChecked("api_key", apiKey) ||
       !putStringChecked("dashboard_url", dashboardUrl)) {
-    Serial.println("[CONFIG] ERREUR ecriture configuration NVS.");
+    DevSerial.println("[CONFIG] ERREUR ecriture configuration NVS.");
     devLog("CONFIG | NVS config write ERROR");
     return false;
   }
@@ -599,7 +600,7 @@ bool smsConfigApplyRemoteConfig(
   const bool timestampWritten = timestampWrittenBytes == sizeof(uint64_t);
   const uint64_t storedTimestamp = smsConfigLastConfigTimestamp();
 
-    Serial.printf(
+    DevSerial.printf(
       "[CONFIG] NOUVELLE CONFIG APPLIQUEE | timestamp=%llu | TRAK_ID=%s | gyro_sens=%u (%.1f dps) | send_inter=%lu s | trackserver=[YES] | dashboard=[YES] | wifi=[%s] | NVS_ts=%llu\\n",
       (unsigned long long)configTimestamp,
       trakId.c_str(),
@@ -610,7 +611,7 @@ bool smsConfigApplyRemoteConfig(
       (unsigned long long)storedTimestamp);
 
   if (!timestampWritten || storedTimestamp != configTimestamp) {
-    Serial.println("[CONFIG] ERREUR persistance timestamp NVS.");
+    DevSerial.println("[CONFIG] ERREUR persistance timestamp NVS.");
     devLog("CONFIG | timestamp NVS write ERROR");
     return false;
   }
@@ -619,7 +620,7 @@ bool smsConfigApplyRemoteConfig(
   const size_t ackWrittenBytes = prefs.putULong64("cfg_ack_ts", configTimestamp);
   const uint64_t storedAckTimestamp = prefs.getULong64("cfg_ack_ts", 0ULL);
   if (ackWrittenBytes != sizeof(uint64_t) || storedAckTimestamp != configTimestamp) {
-    Serial.println("[CONFIG] ERREUR persistance ACK apres reboot.");
+    DevSerial.println("[CONFIG] ERREUR persistance ACK apres reboot.");
     devLog("CONFIG | ACK timestamp NVS write ERROR");
     return false;
   }
@@ -629,7 +630,7 @@ bool smsConfigApplyRemoteConfig(
   // Une nouvelle configuration distante est maintenant valide et verifiee
   // dans la NVS. Le reboot garantit que tous les composants repartent avec
   // la configuration nouvellement appliquee.
-  Serial.println("[CONFIG] Nouvelle configuration appliquee en NVS -> redemarrage.");
+  DevSerial.println("[CONFIG] Nouvelle configuration appliquee en NVS -> redemarrage.");
   devLog("CONFIG | NVS apply OK | reboot");
   vTaskDelay(pdMS_TO_TICKS(1000));
   ESP.restart();
