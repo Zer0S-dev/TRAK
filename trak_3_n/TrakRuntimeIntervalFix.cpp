@@ -34,20 +34,16 @@ static TaskHandle_t dashboardTaskHandle = nullptr;
 static volatile bool dashboardPending = false;
 static volatile bool dashboardSending = false;
 static GnssPosition dashboardPendingPosition;
-static ElectricalSample dashboardPendingSample;
-static String dashboardPendingHealthTimestamp;
 
 static void dashboardAsyncTask(void*) {
   for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     if (!dashboardPending) continue;
     const GnssPosition pending = dashboardPendingPosition;
-    const ElectricalSample pendingSample = dashboardPendingSample;
-    const String pendingHealthTimestamp = dashboardPendingHealthTimestamp;
     dashboardPending = false;
     if (WiFi.status() == WL_CONNECTED) {
       dashboardSending = true;
-      dashboardSend(pending, pendingSample, pendingHealthTimestamp);
+      dashboardSend(pending);
       dashboardSending = false;
     }
   }
@@ -55,10 +51,8 @@ static void dashboardAsyncTask(void*) {
 
 static bool dashboardIsBusy() { return dashboardPending || dashboardSending; }
 
-static void dashboardQueueAsync(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
+static void dashboardQueueAsync(const GnssPosition& position) {
   dashboardPendingPosition = position;
-  dashboardPendingSample = sample;
-  dashboardPendingHealthTimestamp = healthTimestamp;
   dashboardPending = true;
   if (dashboardTaskHandle) xTaskNotifyGive(dashboardTaskHandle);
 }
@@ -156,7 +150,7 @@ bool trakPositionBufferInit() {
 
 void trakCommunicationTaskFixed(void*) {
   GnssPosition position;
-  GnssPosition latestGnssDiagnostics; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
+  GnssPosition latestGnssDiagnostics; bool gnssDiagnosticsRead = false; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
   uint32_t lastBufferRetry = 0, lastBufferInitRetry = millis(), previousMotionReturnMs = 0, lastTerrainLog = 0;
   bool bufferFlushActive = false, bufferWasFull = false;
 
@@ -182,7 +176,7 @@ void trakCommunicationTaskFixed(void*) {
   for (;;) {
     const uint32_t now = millis();
     smsConfigTick();
-    if (positionBuffer.empty() && !dashboardIsBusy()) remoteConfigTick(latestGnssDiagnostics, gnssFix, electricalMonitorSnapshot());
+    if (gnssDiagnosticsRead && positionBuffer.empty() && !dashboardIsBusy()) remoteConfigTick(latestGnssDiagnostics, gnssFix, electricalMonitorSnapshot());
     wifiNetworkTick(true);
     const NetworkPath previousNetwork = activeNetwork;
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
@@ -210,6 +204,7 @@ void trakCommunicationTaskFixed(void*) {
       GnssPosition next;
       const bool gnssResponse = readGnss(next);
       latestGnssDiagnostics = next;
+      gnssDiagnosticsRead = true;
       gnssFix = gnssResponse && next.valid;
       if (gnssFix) {
         position = next;
@@ -264,24 +259,14 @@ void trakCommunicationTaskFixed(void*) {
         GnssPosition buffered;
         if (!positionBuffer.peek(buffered)) break;
 
-        // Les mesures electriques ne sont jointes qu'a la derniere entree
-        // FIFO, jamais aux positions historiques rejouees. Leur horodatage
-        // est celui de la position GNSS courante, distinct de buffered.timestamp.
-        ElectricalSample electricalSample;
-        String healthTimestamp;
-        if (positionBuffer.size() == 1 && gnssFix && position.valid && !position.timestamp.isEmpty()) {
-          electricalSample = electricalMonitorSnapshot();
-          if (electricalSample.valid) healthTimestamp = position.timestamp;
-        }
-
-        // Trackserver reste synchrone et son protocole ne change pas.
-        // Le Dashboard Wi-Fi reste dans sa tache dediee.
+        // Les positions sont transmises sans mesures électriques.
+        // U/I et le diagnostic GNSS partent ensemble pendant le check de configuration.
         const TrackserverResult result = trackserverSend(buffered);
         if (WiFi.status() == WL_CONNECTED) {
-          dashboardQueueAsync(buffered, electricalSample, healthTimestamp);
+          dashboardQueueAsync(buffered);
         } else {
           // En 4G, conserver l'acces AT dans la tache de communication.
-          dashboardSend(buffered, electricalSample, healthTimestamp);
+          dashboardSend(buffered);
         }
 
         if (result == TrackserverResult::Success) {
