@@ -181,6 +181,48 @@ function db(): PDO {
     )');
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_health_trak_received ON health(trak_box_id, received_at)');
 
+    // Dernier diagnostic reçu par TRAK, indépendamment des positions GNSS.
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_diagnostics (
+        trak_box_id INTEGER PRIMARY KEY,
+        gnss_fix INTEGER,
+        fix_mode INTEGER,
+        satellites_total INTEGER,
+        satellites_used INTEGER,
+        gps_satellites INTEGER,
+        glonass_satellites INTEGER,
+        galileo_satellites INTEGER,
+        beidou_satellites INTEGER,
+        hdop REAL,
+        pdop REAL,
+        vdop REAL,
+        gnss_timestamp TEXT,
+        volt REAL,
+        amp REAL,
+        received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_diagnostics_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trak_box_id INTEGER NOT NULL,
+        gnss_fix INTEGER,
+        fix_mode INTEGER,
+        satellites_total INTEGER,
+        satellites_used INTEGER,
+        gps_satellites INTEGER,
+        glonass_satellites INTEGER,
+        galileo_satellites INTEGER,
+        beidou_satellites INTEGER,
+        hdop REAL,
+        pdop REAL,
+        vdop REAL,
+        gnss_timestamp TEXT,
+        volt REAL,
+        amp REAL,
+        received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_diag_history_received ON trak_diagnostics_history(trak_box_id, received_at)');
+
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
     if ($userCount === 1) {
         $onlyUserId = (int)$pdo->query('SELECT id FROM users LIMIT 1')->fetchColumn();
