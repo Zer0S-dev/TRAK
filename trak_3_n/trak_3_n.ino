@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "TrakRuntime.h"
 #include "MotionManager.h"
+#include "ElectricalMonitor.h"
 #include "WiFiManager.h"
 #include "SmsConfigManager.h"
 
@@ -34,6 +35,9 @@ void setup() {
   trakRuntimeInit();
   smsConfigBegin();
   motionBegin();
+  // MotionManager a deja initialise Wire pour le LSM6DS3 : le moniteur
+  // INA219 reutilise ce meme bus sans rappeler Wire.begin().
+  electricalMonitorBegin();
   trakPositionBufferInit();
 
   TaskHandle_t networkLedTaskHandle = nullptr;
