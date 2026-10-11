@@ -236,7 +236,8 @@ page_header('Santé', $user);
             type: 'linear', position: 'right',
             title: { display: true, text: 'P (W)' },
             grid: { drawOnChartArea: false },
-            display: false
+            offset: true,
+            display: true
           }
         }
       }
