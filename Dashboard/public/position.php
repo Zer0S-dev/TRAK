@@ -166,7 +166,9 @@ try {
             return is_finite($number) && $number >= 0 && $number <= 999 ? $number : null;
         };
         $fixMode = $intValue($fixModeRaw, 0, 3);
-        $gnssFix = (($gnssFixRaw !== null && in_array((string)$gnssFixRaw, ['1', 'true'], true)) || ($fixMode !== null && $fixMode >= 2)) ? 1 : 0;
+        $gnssFix = $gnssFixRaw !== null
+            ? (in_array(strtolower(trim((string)$gnssFixRaw)), ['1', 'true'], true) ? 1 : 0)
+            : (($fixMode !== null && $fixMode >= 2) ? 1 : 0);
         $satTotal = $intValue($satTotalRaw, 0, 100);
         $satUsed = $intValue($satUsedRaw, 0, 100);
         $gps = $intValue($gpsRaw, 0, 100);
