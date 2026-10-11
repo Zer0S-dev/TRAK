@@ -321,13 +321,23 @@ page_header('Santé', $user);
         }
       }
     });
+    syncAxisVisibility();
+  }
+
+  function syncAxisVisibility() {
+    if (!chart) return;
+    const visible = chart.data.datasets.map((dataset, index) => chart.isDatasetVisible(index));
+    chart.options.scales.yVoltage.display = visible[0];
+    chart.options.scales.yCurrent.display = visible[1];
+    chart.options.scales.yPower.display = visible[2];
+    chart.update('none');
   }
 
   toggles.forEach((toggle, index) => {
     toggle.addEventListener('change', () => {
       if (!chart) return;
       chart.setDatasetVisibility(index, toggle.checked);
-      chart.update();
+      syncAxisVisibility();
     });
   });
 
