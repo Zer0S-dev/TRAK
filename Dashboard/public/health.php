@@ -65,10 +65,15 @@ if (($_GET['live'] ?? '') === '1') {
 
 $boxes = $pdo->query(
     'SELECT tb.id AS trak_box_id, tb.trak_id, tb.phone, u.username,
-            th.volt, th.amp, th.health_timestamp, th.received_at
+            th.volt, th.amp, th.health_timestamp, th.received_at,
+            td.gnss_fix, td.fix_mode, td.satellites_total, td.satellites_used,
+            td.gps_satellites, td.glonass_satellites, td.galileo_satellites,
+            td.beidou_satellites, td.hdop, td.pdop, td.vdop,
+            td.gnss_timestamp, td.received_at AS diagnostic_received_at
      FROM trak_boxes tb
      LEFT JOIN users u ON u.id = tb.user_id
      LEFT JOIN trak_health th ON th.trak_box_id = tb.id
+     LEFT JOIN trak_diagnostics td ON td.trak_box_id = tb.id
      ORDER BY tb.trak_id COLLATE NOCASE'
 )->fetchAll();
 
@@ -107,7 +112,7 @@ page_header('Santé', $user);
   <div>
     <span class="section-kicker">SURVEILLANCE</span>
     <h2>Santé</h2>
-    <p class="muted">Dernières mesures électriques. Les graphiques affichent l'historique de la dernière heure.</p>
+    <p class="muted">Dernières mesures électriques et dernier diagnostic GNSS par TRAK ID. Les graphiques affichent l'historique électrique de la dernière heure.</p>
   </div>
 </div>
 
@@ -121,12 +126,17 @@ page_header('Santé', $user);
           <th>Utilisateur</th>
           <th>Volt (V)</th>
           <th>Amp (A)</th>
-          <th>Dernière réception (heure locale)</th>
+          <th>GNSS</th>
+          <th>Satellites (vus / utilisés)</th>
+          <th>Constellations (GPS / GAL / GLO / BDS)</th>
+          <th>DOP (H / P / V)</th>
+          <th>Dernier diagnostic GNSS</th>
+          <th>Dernière réception électrique (heure locale)</th>
         </tr>
       </thead>
       <tbody>
       <?php if (!$boxes): ?>
-        <tr><td colspan="6">Aucun TRAK enregistré.</td></tr>
+        <tr><td colspan="11">Aucun TRAK enregistré.</td></tr>
       <?php else: ?>
         <?php foreach ($boxes as $box): ?>
           <?php
@@ -143,6 +153,30 @@ page_header('Santé', $user);
                 $historyByTrak[(int)$box['trak_box_id']] ?? [],
                 JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
             );
+            $gnssFixLabel = $box['diagnostic_received_at'] === null
+                ? 'Aucun diagnostic'
+                : ((int)($box['gnss_fix'] ?? 0) === 1
+                    ? ((int)($box['fix_mode'] ?? 0) === 3 ? 'FIX 3D' : 'FIX')
+                    : 'Sans fix');
+            $satelliteLabel = $box['diagnostic_received_at'] === null
+                ? '—'
+                : (string)($box['satellites_total'] ?? '—') . ' / ' . (string)($box['satellites_used'] ?? '—');
+            $constellationLabel = $box['diagnostic_received_at'] === null
+                ? '—'
+                : (string)($box['gps_satellites'] ?? '—') . ' / ' . (string)($box['galileo_satellites'] ?? '—') . ' / ' .
+                  (string)($box['glonass_satellites'] ?? '—') . ' / ' . (string)($box['beidou_satellites'] ?? '—');
+            $dopLabel = $box['diagnostic_received_at'] === null
+                ? '—'
+                : (string)($box['hdop'] ?? '—') . ' / ' . (string)($box['pdop'] ?? '—') . ' / ' . (string)($box['vdop'] ?? '—');
+            $diagnosticReceivedLocal = '—';
+            if ($box['diagnostic_received_at'] !== null) {
+                try {
+                    $diagnosticReceivedLocal = (new DateTimeImmutable((string)$box['diagnostic_received_at'], $utcZone))
+                        ->setTimezone($localZone)->format('Y-m-d H:i:s');
+                } catch (Throwable $e) {
+                    $diagnosticReceivedLocal = (string)$box['diagnostic_received_at'];
+                }
+            }
           ?>
           <tr>
             <td>
@@ -155,6 +189,11 @@ page_header('Santé', $user);
             <td><?=htmlspecialchars((string)($box['username'] ?? '—'))?></td>
             <td><?= $box['volt'] !== null ? number_format((float)$box['volt'], 3, ',', ' ') . ' V' : '—' ?></td>
             <td><?= $box['amp'] !== null ? number_format((float)$box['amp'], 4, ',', ' ') . ' A' : '—' ?></td>
+            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && (int)($box['gnss_fix'] ?? 0) === 1 ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
+            <td><?=htmlspecialchars($satelliteLabel, ENT_QUOTES, 'UTF-8')?></td>
+            <td title="GPS / Galileo / GLONASS / BeiDou"><?=htmlspecialchars($constellationLabel, ENT_QUOTES, 'UTF-8')?></td>
+            <td title="HDOP / PDOP / VDOP"><?=htmlspecialchars($dopLabel, ENT_QUOTES, 'UTF-8')?></td>
+            <td><?=htmlspecialchars($diagnosticReceivedLocal, ENT_QUOTES, 'UTF-8')?></td>
             <td><?=htmlspecialchars($receivedLocal, ENT_QUOTES, 'UTF-8')?></td>
           </tr>
         <?php endforeach; ?>
@@ -189,6 +228,11 @@ page_header('Santé', $user);
 <style>
 .health-view-btn{border:0;border-radius:7px;padding:7px 13px;background:var(--accent,#6d35ff);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 .health-view-btn:hover{filter:brightness(.94)}
+.health-gnss-status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:.82rem;font-weight:600;white-space:nowrap;background:#e5e7eb;color:#374151}
+.health-gnss-status.is-fixed{background:#dcfce7;color:#166534}
+.health-gnss-status.is-no-fix{background:#fef3c7;color:#92400e}
+.data-table td{vertical-align:middle}
+.table-wrap{overflow-x:auto}
 .health-dialog{width:min(1000px,94vw);max-width:1000px;max-height:90vh;overflow:auto;border:0;border-radius:16px;padding:22px;background:var(--bg,#fff);color:var(--text,#14161d);box-shadow:0 20px 70px #0004}
 .health-dialog::backdrop{background:#10131acc;backdrop-filter:blur(3px)}
 .health-dialog-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}
