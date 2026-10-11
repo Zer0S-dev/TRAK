@@ -165,6 +165,30 @@ page_header('Santé', $user);
   function renderChart(series) {
     destroyChart();
     const canvas = document.getElementById('healthCombinedChart');
+
+    // Axes adapt to the actual measurements, with a little breathing room.
+    // Voltage is kept in a narrow, readable range; current and power start at zero
+    // only when that does not flatten the useful variations.
+    function paddedRange(values, minimumSpan, paddingRatio = 0.18, floor = null) {
+      const valid = values.filter(Number.isFinite);
+      if (!valid.length) return { min: 0, max: minimumSpan };
+      let low = Math.min(...valid);
+      let high = Math.max(...valid);
+      if (high - low < minimumSpan) {
+        const middle = (high + low) / 2;
+        low = middle - minimumSpan / 2;
+        high = middle + minimumSpan / 2;
+      }
+      const pad = (high - low) * paddingRatio;
+      low -= pad;
+      high += pad;
+      if (floor !== null) low = Math.max(floor, low);
+      return { min: low, max: high };
+    }
+
+    const voltageRange = paddedRange(series.map(p => p.volt), 0.08, 0.18);
+    const currentRange = paddedRange(series.map(p => p.amp), 0.04, 0.16, 0);
+    const powerRange = paddedRange(series.map(p => p.power), 0.20, 0.16, 0);
     chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -180,7 +204,7 @@ page_header('Santé', $user);
             pointRadius: series.length > 90 ? 0 : 2,
             pointHoverRadius: 4,
             borderWidth: 2,
-            tension: .18,
+            tension: .28,
             spanGaps: false
           },
           {
@@ -224,17 +248,23 @@ page_header('Santé', $user);
           x: { title: { display: true, text: 'Heure locale' }, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
           yVoltage: {
             type: 'linear', position: 'left',
+            min: voltageRange.min, max: voltageRange.max,
             title: { display: true, text: 'U (V)' },
+            ticks: { maxTicksLimit: 7, precision: 2 },
             grid: { drawOnChartArea: true }
           },
           yCurrent: {
             type: 'linear', position: 'right',
+            min: currentRange.min, max: currentRange.max,
             title: { display: true, text: 'I (A)' },
+            ticks: { maxTicksLimit: 7, precision: 2 },
             grid: { drawOnChartArea: false }
           },
           yPower: {
             type: 'linear', position: 'right',
+            min: powerRange.min, max: powerRange.max,
             title: { display: true, text: 'P (W)' },
+            ticks: { maxTicksLimit: 7, precision: 2 },
             grid: { drawOnChartArea: false },
             offset: true,
             display: true
