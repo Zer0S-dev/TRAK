@@ -10,7 +10,9 @@ struct ElectricalSample {
 };
 
 // Le bus Wire est initialise par MotionManager::motionBegin().
-// Ce module ne doit jamais appeler Wire.begin() ni Wire.setClock().
+// Ne pas initialiser explicitement le bus ici. Adafruit BusIO appelle
+// Wire.begin() en interne, mais sur ESP32 cela reste sans effet si le bus
+// est deja initialise : les broches et la frequence du LSM6DS3 sont conservees.
 bool electricalMonitorBegin();
 void electricalMonitorUpdate(uint32_t now);
 ElectricalSample electricalMonitorSnapshot();
