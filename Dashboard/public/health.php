@@ -247,6 +247,6 @@ page_header('Santé', $user);
 <link rel="stylesheet" href="assets/health.css?v=1">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="assets/health.js?v=1"></script>
+<script src="assets/health.js?v=2"></script>
 
 <?php page_footer(); ?>
