@@ -9,6 +9,7 @@
 #include "SmsConfigManager.h"
 #include "TrackserverClient.h"
 #include "DashboardClient.h"
+#include "ElectricalMonitor.h"
 #include "RemoteConfigClient.h"
 
 extern HardwareSerial modem;
@@ -33,16 +34,20 @@ static TaskHandle_t dashboardTaskHandle = nullptr;
 static volatile bool dashboardPending = false;
 static volatile bool dashboardSending = false;
 static GnssPosition dashboardPendingPosition;
+static ElectricalSample dashboardPendingSample;
+static String dashboardPendingHealthTimestamp;
 
 static void dashboardAsyncTask(void*) {
   for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     if (!dashboardPending) continue;
     const GnssPosition pending = dashboardPendingPosition;
+    const ElectricalSample pendingSample = dashboardPendingSample;
+    const String pendingHealthTimestamp = dashboardPendingHealthTimestamp;
     dashboardPending = false;
     if (WiFi.status() == WL_CONNECTED) {
       dashboardSending = true;
-      dashboardSend(pending);
+      dashboardSend(pending, pendingSample, pendingHealthTimestamp);
       dashboardSending = false;
     }
   }
@@ -50,8 +55,10 @@ static void dashboardAsyncTask(void*) {
 
 static bool dashboardIsBusy() { return dashboardPending || dashboardSending; }
 
-static void dashboardQueueAsync(const GnssPosition& position) {
+static void dashboardQueueAsync(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
   dashboardPendingPosition = position;
+  dashboardPendingSample = sample;
+  dashboardPendingHealthTimestamp = healthTimestamp;
   dashboardPending = true;
   if (dashboardTaskHandle) xTaskNotifyGive(dashboardTaskHandle);
 }
@@ -189,7 +196,11 @@ void trakCommunicationTaskFixed(void*) {
     else if (modemReady && !cellularReady && now - lastRecovery >= CELLULAR_RETRY_MS) { lastRecovery = now; attachCellular(); }
 
 
-    motionUpdate(now); sendIntervalMs = currentSendIntervalMs();
+    motionUpdate(now);
+    // La lecture INA219 est faite dans la meme tache que le LSM6DS3 :
+    // les acces au bus Wire partage ne sont donc pas concurrents.
+    electricalMonitorUpdate(now);
+    sendIntervalMs = currentSendIntervalMs();
     const uint32_t motionReturnMs = motionStationaryConfirmationRemainingMs(); const bool motionReturnStarted = (previousMotionReturnMs == 0 && motionReturnMs > 0); previousMotionReturnMs = motionReturnMs;
 
     if (now - lastGnssPoll >= GNSS_POLL_MS) {
@@ -251,16 +262,24 @@ void trakCommunicationTaskFixed(void*) {
         GnssPosition buffered;
         if (!positionBuffer.peek(buffered)) break;
 
-        // Trackserver reste synchrone dans le runtime.
-        // Le Dashboard Wi-Fi est lance dans une tache dediee pour ne jamais
-        // bloquer GNSS, gyro, SMS ou la boucle principale.
+        // Les mesures electriques ne sont jointes qu'a la derniere entree
+        // FIFO, jamais aux positions historiques rejouees. Leur horodatage
+        // est celui de la position GNSS courante, distinct de buffered.timestamp.
+        ElectricalSample electricalSample;
+        String healthTimestamp;
+        if (positionBuffer.size() == 1 && gnssFix && position.valid && !position.timestamp.isEmpty()) {
+          electricalSample = electricalMonitorSnapshot();
+          if (electricalSample.valid) healthTimestamp = position.timestamp;
+        }
+
+        // Trackserver reste synchrone et son protocole ne change pas.
+        // Le Dashboard Wi-Fi reste dans sa tache dediee.
         const TrackserverResult result = trackserverSend(buffered);
         if (WiFi.status() == WL_CONNECTED) {
-          dashboardQueueAsync(buffered);
+          dashboardQueueAsync(buffered, electricalSample, healthTimestamp);
         } else {
-          // En 4G, on conserve pour l'instant l'envoi direct afin de ne pas
-          // concurrencer les acces AT du modem depuis une seconde tache.
-          dashboardSend(buffered);
+          // En 4G, conserver l'acces AT dans la tache de communication.
+          dashboardSend(buffered, electricalSample, healthTimestamp);
         }
 
         if (result == TrackserverResult::Success) {
