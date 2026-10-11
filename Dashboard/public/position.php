@@ -119,6 +119,13 @@ try {
                 $amp,
                 $healthTimestamp !== '' ? $healthTimestamp : ($timestamp !== '' ? $timestamp : null)
             ]);
+
+            // Conserve chaque mesure reçue pour les graphiques de la page Santé.
+            $historyStmt = $pdo->prepare(
+                'INSERT INTO health (trak_box_id, volt, amp, received_at)
+                 VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+            );
+            $historyStmt->execute([(int)$trak['id'], $volt, $amp]);
         }
     }
 
