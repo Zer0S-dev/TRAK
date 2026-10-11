@@ -201,7 +201,9 @@
           ['healthGnssVisible','healthGnssUsed','healthGnssGps','healthGnssGalileo','healthGnssGlonass','healthGnssBeidou','healthGnssHdop','healthGnssPdop','healthGnssVdop'].forEach(id => setValue(id, null));
           if (fixBadge) { fixBadge.textContent = 'Aucune donnée'; fixBadge.className = 'health-gnss-status'; }
         } else {
-          const fixed = diagnostic.gnss_fix === true || Number(diagnostic.fix_mode) >= 2;
+          const fixed = diagnostic.gnss_fix !== null && diagnostic.gnss_fix !== undefined
+            ? diagnostic.gnss_fix === true
+            : Number(diagnostic.fix_mode) >= 2;
           const fix = fixed ? (Number(diagnostic.fix_mode) === 3 ? 'FIX 3D' : 'FIX') : 'Sans fix';
           if (fixBadge) { fixBadge.textContent = fix; fixBadge.className = 'health-gnss-status ' + (fixed ? 'is-fixed' : 'is-no-fix'); }
           setValue('healthGnssReceived', diagnostic.received_at ? 'Reçu le ' + new Date(diagnostic.received_at.replace(' ', 'T') + 'Z').toLocaleString('fr-FR') : 'Dernier diagnostic');
