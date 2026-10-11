@@ -101,6 +101,95 @@ try {
     $configStmt->execute([(int)$trak['id']]);
     $config = $configStmt->fetch();
 
+    // Diagnostic périodique envoyé avec l'action STATUS du check de configuration.
+    // Les anciens firmwares qui n'envoient pas ce bloc restent compatibles.
+    $diagnostic = $input['diagnostic'] ?? null;
+    if (is_array($diagnostic)) {
+        $number = static function (array $data, string $key, float $min, float $max): ?float {
+            if (!array_key_exists($key, $data) || $data[$key] === null || $data[$key] === '' || !is_numeric($data[$key])) {
+                return null;
+            }
+            $value = (float)$data[$key];
+            return is_finite($value) && $value >= $min && $value <= $max ? $value : null;
+        };
+        $integer = static function (array $data, string $key, int $min, int $max): ?int {
+            $value = $number($data, $key, $min, $max);
+            return $value === null ? null : (int)$value;
+        };
+
+        $gnssFix = !empty($diagnostic['gnss_fix']) ? 1 : 0;
+        $fixMode = $integer($diagnostic, 'fix_mode', 0, 3);
+        $satTotal = $integer($diagnostic, 'satellites_total', 0, 100);
+        $satUsed = $integer($diagnostic, 'satellites_used', 0, 100);
+        $gps = $integer($diagnostic, 'gps_satellites', 0, 100);
+        $glonass = $integer($diagnostic, 'glonass_satellites', 0, 100);
+        $galileo = $integer($diagnostic, 'galileo_satellites', 0, 100);
+        $beidou = $integer($diagnostic, 'beidou_satellites', 0, 100);
+        $hdop = $number($diagnostic, 'hdop', 0, 999);
+        $pdop = $number($diagnostic, 'pdop', 0, 999);
+        $vdop = $number($diagnostic, 'vdop', 0, 999);
+        $volt = $number($diagnostic, 'volt', 0, 1000);
+        $amp = $number($diagnostic, 'amp', -1000, 1000);
+        $gnssTimestamp = trim((string)($diagnostic['gnss_timestamp'] ?? ''));
+        if ($gnssTimestamp === '' || strlen($gnssTimestamp) > 40) $gnssTimestamp = null;
+
+        $diagnosticValues = [
+            (int)$trak['id'], $gnssFix, $fixMode, $satTotal, $satUsed,
+            $gps, $glonass, $galileo, $beidou, $hdop, $pdop, $vdop,
+            $gnssTimestamp, $volt, $amp
+        ];
+        $columns = 'trak_box_id, gnss_fix, fix_mode, satellites_total, satellites_used,
+            gps_satellites, glonass_satellites, galileo_satellites, beidou_satellites,
+            hdop, pdop, vdop, gnss_timestamp, volt, amp';
+
+        $historyStmt = $pdo->prepare(
+            "INSERT INTO trak_diagnostics_history ($columns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        );
+        $historyStmt->execute($diagnosticValues);
+
+        $currentStmt = $pdo->prepare(
+            "INSERT INTO trak_diagnostics ($columns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(trak_box_id) DO UPDATE SET
+                gnss_fix = excluded.gnss_fix,
+                fix_mode = excluded.fix_mode,
+                satellites_total = excluded.satellites_total,
+                satellites_used = excluded.satellites_used,
+                gps_satellites = excluded.gps_satellites,
+                glonass_satellites = excluded.glonass_satellites,
+                galileo_satellites = excluded.galileo_satellites,
+                beidou_satellites = excluded.beidou_satellites,
+                hdop = excluded.hdop,
+                pdop = excluded.pdop,
+                vdop = excluded.vdop,
+                gnss_timestamp = excluded.gnss_timestamp,
+                volt = excluded.volt,
+                amp = excluded.amp,
+                received_at = CURRENT_TIMESTAMP"
+        );
+        $currentStmt->execute($diagnosticValues);
+
+        // Alimenter les graphiques électriques existants uniquement si U et I sont valides.
+        if ($volt !== null && $amp !== null) {
+            $healthTimestamp = $gnssFix === 1 ? $gnssTimestamp : null;
+            $healthStmt = $pdo->prepare(
+                'INSERT INTO trak_health (trak_box_id, volt, amp, health_timestamp, received_at)
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(trak_box_id) DO UPDATE SET
+                    volt = excluded.volt,
+                    amp = excluded.amp,
+                    health_timestamp = excluded.health_timestamp,
+                    received_at = CURRENT_TIMESTAMP'
+            );
+            $healthStmt->execute([(int)$trak['id'], $volt, $amp, $healthTimestamp]);
+
+            $historyHealthStmt = $pdo->prepare(
+                'INSERT INTO health (trak_box_id, volt, amp, received_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+            );
+            $historyHealthStmt->execute([(int)$trak['id'], $volt, $amp]);
+        }
+    }
+
+
     /*
      * STATUS must always be available once the TRAK itself is known.
      * This is important for the A7670 client: HTTP 200 with an empty body
