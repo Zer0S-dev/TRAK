@@ -326,10 +326,15 @@ page_header('Santé', $user);
 
   function syncAxisVisibility() {
     if (!chart) return;
-    const visible = chart.data.datasets.map((dataset, index) => chart.isDatasetVisible(index));
-    chart.options.scales.yVoltage.display = visible[0];
-    chart.options.scales.yCurrent.display = visible[1];
-    chart.options.scales.yPower.display = visible[2];
+    const visibleByAxis = { yVoltage: false, yCurrent: false, yPower: false };
+    chart.data.datasets.forEach((dataset, index) => {
+      if (dataset.yAxisID && Object.prototype.hasOwnProperty.call(visibleByAxis, dataset.yAxisID)) {
+        visibleByAxis[dataset.yAxisID] = chart.isDatasetVisible(index);
+      }
+    });
+    Object.entries(visibleByAxis).forEach(([axisId, visible]) => {
+      chart.options.scales[axisId].display = visible;
+    });
     chart.update('none');
   }
 
@@ -387,7 +392,7 @@ page_header('Santé', $user);
           chart.options.scales.yCurrent.max = ranges[1].max;
           chart.options.scales.yPower.min = ranges[2].min;
           chart.options.scales.yPower.max = ranges[2].max;
-          chart.update('none');
+          syncAxisVisibility();
           noData.hidden = true;
           chartArea.hidden = false;
           document.querySelector('.health-chart-controls').hidden = false;
