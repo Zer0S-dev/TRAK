@@ -198,7 +198,7 @@
         const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = n(value); };
         const fixBadge = document.getElementById('healthGnssFix');
         if (isOffline) {
-          setValue('healthGnssReceived', payload.last_position_received_at ? 'Dernier contact : ' + new Date(payload.last_position_received_at.replace(' ', 'T') + 'Z').toLocaleString('fr-FR') : 'Aucun contact reçu');
+          setValue('healthGnssReceived', payload.diagnostic && payload.diagnostic.received_at ? 'Dernier diagnostic : ' + new Date(payload.diagnostic.received_at.replace(' ', 'T') + 'Z').toLocaleString('fr-FR') : 'Aucun diagnostic reçu');
           ['healthGnssVisible','healthGnssUsed','healthGnssGps','healthGnssGalileo','healthGnssGlonass','healthGnssBeidou','healthGnssHdop','healthGnssPdop','healthGnssVdop'].forEach(id => setValue(id, null));
           if (fixBadge) { fixBadge.textContent = 'Hors ligne'; fixBadge.className = 'health-gnss-status is-no-fix'; }
         } else if (!diagnostic) {
