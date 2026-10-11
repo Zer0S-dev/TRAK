@@ -359,25 +359,33 @@ page_header('Santé', $user);
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.error || 'Réponse invalide');
       const series = Array.isArray(payload.series) ? payload.series : [];
-      if (series.length && chart) {
-        chart.data.labels = series.map(point => point.time);
-        chart.data.datasets[0].data = series.map(point => point.volt);
-        chart.data.datasets[1].data = series.map(point => point.amp);
-        chart.data.datasets[2].data = series.map(point => point.power);
-        const ranges = [
-          paddedRangeForLive(series.map(point => point.volt), 0.20, 0.10),
-          paddedRangeForLive(series.map(point => point.amp), 0.10, 0.10, 0),
-          paddedRangeForLive(series.map(point => point.power), 0.50, 0.10, 0)
-        ];
-        chart.options.scales.yVoltage.min = ranges[0].min;
-        chart.options.scales.yVoltage.max = ranges[0].max;
-        chart.options.scales.yCurrent.min = ranges[1].min;
-        chart.options.scales.yCurrent.max = ranges[1].max;
-        chart.options.scales.yPower.min = ranges[2].min;
-        chart.options.scales.yPower.max = ranges[2].max;
-        chart.update('none');
-        noData.hidden = true;
-        chartArea.hidden = false;
+      if (series.length) {
+        if (!chart && typeof Chart !== 'undefined') renderChart(series);
+        if (chart) {
+          chart.data.labels = series.map(point => point.time);
+          chart.data.datasets[0].data = series.map(point => point.volt);
+          chart.data.datasets[1].data = series.map(point => point.amp);
+          chart.data.datasets[2].data = series.map(point => point.power);
+          const ranges = [
+            paddedRangeForLive(series.map(point => point.volt), 0.20, 0.10),
+            paddedRangeForLive(series.map(point => point.amp), 0.10, 0.10, 0),
+            paddedRangeForLive(series.map(point => point.power), 0.50, 0.10, 0)
+          ];
+          chart.options.scales.yVoltage.min = ranges[0].min;
+          chart.options.scales.yVoltage.max = ranges[0].max;
+          chart.options.scales.yCurrent.min = ranges[1].min;
+          chart.options.scales.yCurrent.max = ranges[1].max;
+          chart.options.scales.yPower.min = ranges[2].min;
+          chart.options.scales.yPower.max = ranges[2].max;
+          chart.update('none');
+          noData.hidden = true;
+          chartArea.hidden = false;
+          document.querySelector('.health-chart-controls').hidden = false;
+        }
+      } else if (!chart) {
+        noData.hidden = false;
+        chartArea.hidden = true;
+        document.querySelector('.health-chart-controls').hidden = true;
       }
       setLiveStatus('LIVE — actualisé à ' + new Date().toLocaleTimeString('fr-FR'));
     } catch (error) {
