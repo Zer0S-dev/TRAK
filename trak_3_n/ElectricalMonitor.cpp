@@ -1,8 +1,8 @@
 #include "ElectricalMonitor.h"
 
 #include <Wire.h>
+#include <math.h>
 #include <Adafruit_INA219.h>
-#include "Config.h"
 
 namespace {
 constexpr uint32_t ELECTRICAL_MEASURE_INTERVAL_MS = 1000UL;
