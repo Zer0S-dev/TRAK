@@ -192,11 +192,16 @@
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.error || 'Réponse invalide');
       const diagnostic = payload.diagnostic;
+      const isOffline = payload.online === false;
       if (gnssDiagnostic) {
         const n = value => value === null || value === undefined || value === '' ? '—' : value;
         const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = n(value); };
         const fixBadge = document.getElementById('healthGnssFix');
-        if (!diagnostic) {
+        if (isOffline) {
+          setValue('healthGnssReceived', payload.last_position_received_at ? 'Dernier contact : ' + new Date(payload.last_position_received_at.replace(' ', 'T') + 'Z').toLocaleString('fr-FR') : 'Aucun contact reçu');
+          ['healthGnssVisible','healthGnssUsed','healthGnssGps','healthGnssGalileo','healthGnssGlonass','healthGnssBeidou','healthGnssHdop','healthGnssPdop','healthGnssVdop'].forEach(id => setValue(id, null));
+          if (fixBadge) { fixBadge.textContent = 'Hors ligne'; fixBadge.className = 'health-gnss-status is-no-fix'; }
+        } else if (!diagnostic) {
           setValue('healthGnssReceived', 'Aucun diagnostic reçu');
           ['healthGnssVisible','healthGnssUsed','healthGnssGps','healthGnssGalileo','healthGnssGlonass','healthGnssBeidou','healthGnssHdop','healthGnssPdop','healthGnssVdop'].forEach(id => setValue(id, null));
           if (fixBadge) { fixBadge.textContent = 'Aucune donnée'; fixBadge.className = 'health-gnss-status'; }
