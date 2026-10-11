@@ -29,6 +29,18 @@ $firmwareVersion = trim((string)($_GET['firmware_version'] ?? $_POST['firmware_v
 $voltRaw = $_GET['volt'] ?? $_POST['volt'] ?? null;
 $ampRaw = $_GET['amp'] ?? $_POST['amp'] ?? null;
 $healthTimestamp = trim((string)($_GET['health_timestamp'] ?? $_POST['health_timestamp'] ?? ''));
+$gnssFixRaw = $_GET['gnss_fix'] ?? $_POST['gnss_fix'] ?? null;
+$fixModeRaw = $_GET['fix_mode'] ?? $_POST['fix_mode'] ?? null;
+$satTotalRaw = $_GET['satellites_total'] ?? $_POST['satellites_total'] ?? null;
+$satUsedRaw = $_GET['satellites_used'] ?? $_POST['satellites_used'] ?? null;
+$gpsRaw = $_GET['gps_satellites'] ?? $_POST['gps_satellites'] ?? null;
+$glonassRaw = $_GET['glonass_satellites'] ?? $_POST['glonass_satellites'] ?? null;
+$galileoRaw = $_GET['galileo_satellites'] ?? $_POST['galileo_satellites'] ?? null;
+$beidouRaw = $_GET['beidou_satellites'] ?? $_POST['beidou_satellites'] ?? null;
+$hdopRaw = $_GET['hdop'] ?? $_POST['hdop'] ?? null;
+$pdopRaw = $_GET['pdop'] ?? $_POST['pdop'] ?? null;
+$vdopRaw = $_GET['vdop'] ?? $_POST['vdop'] ?? null;
+$gnssTimestamp = trim((string)($_GET['gnss_timestamp'] ?? $_POST['gnss_timestamp'] ?? ''));
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
 if ($apiKey === '') $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
@@ -48,6 +60,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $voltRaw = $json['volt'] ?? $voltRaw;
         $ampRaw = $json['amp'] ?? $ampRaw;
         $healthTimestamp = $healthTimestamp !== '' ? $healthTimestamp : trim((string)($json['health_timestamp'] ?? ''));
+        $gnssFixRaw = $json['gnss_fix'] ?? $gnssFixRaw;
+        $fixModeRaw = $json['fix_mode'] ?? $fixModeRaw;
+        $satTotalRaw = $json['satellites_total'] ?? $satTotalRaw;
+        $satUsedRaw = $json['satellites_used'] ?? $satUsedRaw;
+        $gpsRaw = $json['gps_satellites'] ?? $gpsRaw;
+        $glonassRaw = $json['glonass_satellites'] ?? $glonassRaw;
+        $galileoRaw = $json['galileo_satellites'] ?? $galileoRaw;
+        $beidouRaw = $json['beidou_satellites'] ?? $beidouRaw;
+        $hdopRaw = $json['hdop'] ?? $hdopRaw;
+        $pdopRaw = $json['pdop'] ?? $pdopRaw;
+        $vdopRaw = $json['vdop'] ?? $vdopRaw;
+        $gnssTimestamp = $gnssTimestamp !== '' ? $gnssTimestamp : trim((string)($json['gnss_timestamp'] ?? ''));
     }
 }
 
@@ -127,6 +151,44 @@ try {
             );
             $historyStmt->execute([(int)$trak['id'], $volt, $amp]);
         }
+    }
+
+    // Diagnostic GNSS envoyé avec chaque position pour alimenter immédiatement la page Santé.
+    if ($fixModeRaw !== null || $satTotalRaw !== null || $gpsRaw !== null || $hdopRaw !== null) {
+        $intValue = static function ($value, int $min, int $max): ?int {
+            if ($value === null || $value === '' || !is_numeric($value)) return null;
+            $number = (float)$value;
+            return is_finite($number) && $number >= $min && $number <= $max ? (int)$number : null;
+        };
+        $floatValue = static function ($value): ?float {
+            if ($value === null || $value === '' || !is_numeric($value)) return null;
+            $number = (float)$value;
+            return is_finite($number) && $number >= 0 && $number <= 999 ? $number : null;
+        };
+        $fixMode = $intValue($fixModeRaw, 0, 3);
+        $gnssFix = (($gnssFixRaw !== null && in_array((string)$gnssFixRaw, ['1', 'true'], true)) || ($fixMode !== null && $fixMode >= 2)) ? 1 : 0;
+        $satTotal = $intValue($satTotalRaw, 0, 100);
+        $satUsed = $intValue($satUsedRaw, 0, 100);
+        $gps = $intValue($gpsRaw, 0, 100);
+        $glonass = $intValue($glonassRaw, 0, 100);
+        $galileo = $intValue($galileoRaw, 0, 100);
+        $beidou = $intValue($beidouRaw, 0, 100);
+        $hdop = $floatValue($hdopRaw);
+        $pdop = $floatValue($pdopRaw);
+        $vdop = $floatValue($vdopRaw);
+        if ($gnssTimestamp === '' || strlen($gnssTimestamp) > 40) $gnssTimestamp = $timestamp !== '' ? $timestamp : null;
+        $diagValues = [(int)$trak['id'], $gnssFix, $fixMode, $satTotal, $satUsed, $gps, $glonass, $galileo, $beidou, $hdop, $pdop, $vdop, $gnssTimestamp, null, null];
+        $diagColumns = 'trak_box_id, gnss_fix, fix_mode, satellites_total, satellites_used, gps_satellites, glonass_satellites, galileo_satellites, beidou_satellites, hdop, pdop, vdop, gnss_timestamp, volt, amp';
+        $diagHistory = $pdo->prepare("INSERT INTO trak_diagnostics_history ($diagColumns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $diagHistory->execute($diagValues);
+        $diagCurrent = $pdo->prepare("INSERT INTO trak_diagnostics ($diagColumns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(trak_box_id) DO UPDATE SET gnss_fix=excluded.gnss_fix, fix_mode=excluded.fix_mode,
+            satellites_total=excluded.satellites_total, satellites_used=excluded.satellites_used,
+            gps_satellites=excluded.gps_satellites, glonass_satellites=excluded.glonass_satellites,
+            galileo_satellites=excluded.galileo_satellites, beidou_satellites=excluded.beidou_satellites,
+            hdop=excluded.hdop, pdop=excluded.pdop, vdop=excluded.vdop,
+            gnss_timestamp=excluded.gnss_timestamp, received_at=CURRENT_TIMESTAMP");
+        $diagCurrent->execute($diagValues);
     }
 
     // La version du firmware est déclarée par le TRAK dans chaque requête de position.
