@@ -72,16 +72,8 @@ String buildUrl(const GnssPosition& position, const ElectricalSample& sample, co
   url += "&firmware_version=";
   url += urlEncode(String(TRAK_VERSION));
 
-  // Les mesures électriques ont leur propre horodatage : elles ne doivent
-  // pas hériter de celui d’une position éventuellement rejouée depuis le FIFO.
-  if (sample.valid && !healthTimestamp.isEmpty()) {
-    url += "&volt=";
-    url += String(sample.volt, 3);
-    url += "&amp=";
-    url += String(sample.amp, 4);
-    url += "&health_timestamp=";
-    url += urlEncode(healthTimestamp);
-  }
+  // Les mesures électriques sont envoyées par le check de configuration,
+  // avec le diagnostic GNSS. Les requêtes de position restent légères.
 
   return url;
 }
