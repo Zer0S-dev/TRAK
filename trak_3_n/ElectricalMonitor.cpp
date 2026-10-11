@@ -17,7 +17,9 @@ uint32_t lastInitAttemptMs = 0;
 
 bool beginIna219() {
   // Wire est deja initialise par motionBegin() pour le LSM6DS3.
-  // Ne jamais appeler Wire.begin() ni Wire.setClock() ici.
+  // Ne pas reconfigurer explicitement le bus ici. Adafruit BusIO appelle
+  // Wire.begin() en interne ; sur ESP32 l'appel est sans effet si Wire est
+  // deja actif, donc les broches et la frequence partagees restent intactes.
   lastInitAttemptMs = millis();
 
   if (!ina219.begin(&Wire)) {
