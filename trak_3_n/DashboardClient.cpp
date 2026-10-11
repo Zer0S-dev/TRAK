@@ -72,8 +72,21 @@ String buildUrl(const GnssPosition& position) {
   url += "&firmware_version=";
   url += urlEncode(String(TRAK_VERSION));
 
-  // Les mesures électriques sont envoyées par le check de configuration,
-  // avec le diagnostic GNSS. Les requêtes de position restent légères.
+  // Transmettre le diagnostic GNSS avec chaque position :
+  // la page Santé ne dépend plus du contrôle de configuration toutes les 5 min.
+  url += "&gnss_fix=";
+  url += (position.valid && position.fixMode >= 2) ? "1" : "0";
+  url += "&fix_mode="; url += String(position.fixMode);
+  url += "&satellites_total="; url += String(position.totalSatellites);
+  url += "&satellites_used="; url += String(position.usedSatellites);
+  url += "&gps_satellites="; url += String(position.gpsSatellites);
+  url += "&glonass_satellites="; url += String(position.glonassSatellites);
+  url += "&galileo_satellites="; url += String(position.galileoSatellites);
+  url += "&beidou_satellites="; url += String(position.beidouSatellites);
+  url += "&hdop="; url += String(position.hdop, 2);
+  url += "&pdop="; url += String(position.pdop, 2);
+  url += "&vdop="; url += String(position.vdop, 2);
+  url += "&gnss_timestamp="; url += urlEncode(position.timestamp);
 
   return url;
 }
