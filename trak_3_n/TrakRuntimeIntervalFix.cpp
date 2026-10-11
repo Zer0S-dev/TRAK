@@ -155,7 +155,8 @@ bool trakPositionBufferInit() {
 
 
 void trakCommunicationTaskFixed(void*) {
-  GnssPosition position; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
+  GnssPosition position;
+  GnssPosition latestGnssDiagnostics; uint32_t lastGnssPoll = millis() - GNSS_POLL_MS, lastRecord = millis() - SEND_INTERVAL_MS, lastLog = 0, lastRecovery = millis();
   uint32_t lastBufferRetry = 0, lastBufferInitRetry = millis(), previousMotionReturnMs = 0, lastTerrainLog = 0;
   bool bufferFlushActive = false, bufferWasFull = false;
 
@@ -181,7 +182,7 @@ void trakCommunicationTaskFixed(void*) {
   for (;;) {
     const uint32_t now = millis();
     smsConfigTick();
-    if (positionBuffer.empty() && !dashboardIsBusy()) remoteConfigTick();
+    if (positionBuffer.empty() && !dashboardIsBusy()) remoteConfigTick(latestGnssDiagnostics, gnssFix, electricalMonitorSnapshot());
     wifiNetworkTick(true);
     const NetworkPath previousNetwork = activeNetwork;
     if (wifiIsActive()) activeNetwork = NetworkPath::WiFi;
@@ -208,6 +209,7 @@ void trakCommunicationTaskFixed(void*) {
       const bool previousFix = gnssFix;
       GnssPosition next;
       const bool gnssResponse = readGnss(next);
+      latestGnssDiagnostics = next;
       gnssFix = gnssResponse && next.valid;
       if (gnssFix) {
         position = next;
