@@ -38,7 +38,7 @@ String urlEncode(const String& value) {
   return out;
 }
 
-String buildUrl(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
+String buildUrl(const GnssPosition& position) {
   const String baseUrl = smsConfigDashboardUrl();
   if (baseUrl.isEmpty() || baseUrl.length() > MAX_URL_LEN) return "";
 
@@ -202,12 +202,12 @@ void dashboardBegin() {
   }
 }
 
-DashboardResult dashboardSend(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
+DashboardResult dashboardSend(const GnssPosition& position) {
   if (smsConfigDashboardUrl().isEmpty() || !position.valid) {
     return DashboardResult::NotReady;
   }
 
-  const String url = buildUrl(position, sample, healthTimestamp);
+  const String url = buildUrl(position);
   if (url.isEmpty()) {
     Serial.println("[DASHBOARD] URL invalide ou absente.");
     devLog("DASHBOARD | URL invalide");
