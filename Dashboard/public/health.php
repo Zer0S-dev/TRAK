@@ -163,7 +163,9 @@ page_header('Santé', $user);
                 $historyByTrak[(int)$box['trak_box_id']] ?? [],
                 JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
             );
-            $gnssFix = (int)($box['gnss_fix'] ?? 0) === 1 || (int)($box['fix_mode'] ?? 0) >= 2;
+            $gnssFix = $box['gnss_fix'] !== null
+                ? (int)$box['gnss_fix'] === 1
+                : (int)($box['fix_mode'] ?? 0) >= 2;
             $gnssFixLabel = $box['diagnostic_received_at'] === null
                 ? 'Aucun diagnostic'
                 : ($gnssFix
@@ -198,7 +200,7 @@ page_header('Santé', $user);
             </td>
             <td><strong><?=htmlspecialchars((string)$box['trak_id'])?></strong></td>
             <td><?=htmlspecialchars((string)($box['username'] ?? '—'))?></td>
-            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && ((int)($box['gnss_fix'] ?? 0) === 1 || (int)($box['fix_mode'] ?? 0) >= 2) ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
+            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && $gnssFix ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
             <td><?=htmlspecialchars($diagnosticReceivedLocal, ENT_QUOTES, 'UTF-8')?></td>
           </tr>
         <?php endforeach; ?>
