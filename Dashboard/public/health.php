@@ -117,10 +117,13 @@ page_header('Santé', $user);
     <button type="button" id="healthDialogClose" class="health-close" aria-label="Fermer">×</button>
   </div>
   <div id="healthNoData" class="muted health-no-data" hidden>Aucune mesure enregistrée pour ce TRAK durant la dernière heure.</div>
-  <div class="health-charts">
-    <section class="health-chart-card"><h3>Tension U (V)</h3><div class="health-canvas"><canvas id="healthVoltageChart"></canvas></div></section>
-    <section class="health-chart-card"><h3>Courant I (A)</h3><div class="health-canvas"><canvas id="healthCurrentChart"></canvas></div></section>
-    <section class="health-chart-card"><h3>Puissance P (W)</h3><div class="health-canvas"><canvas id="healthPowerChart"></canvas></div></section>
+  <div class="health-chart-controls" aria-label="Valeurs à afficher">
+    <label><input type="checkbox" class="health-series-toggle" data-series="0" checked> Tension U (V)</label>
+    <label><input type="checkbox" class="health-series-toggle" data-series="1" checked> Courant I (A)</label>
+    <label><input type="checkbox" class="health-series-toggle" data-series="2" checked> Puissance P (W)</label>
+  </div>
+  <div class="health-chart-card">
+    <div class="health-canvas health-canvas-combined"><canvas id="healthCombinedChart"></canvas></div>
   </div>
 </dialog>
 
@@ -132,12 +135,14 @@ page_header('Santé', $user);
 .health-dialog-header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}
 .health-dialog-header h2{margin:5px 0}
 .health-close{border:0;background:transparent;color:inherit;font-size:30px;line-height:1;cursor:pointer;padding:0 5px}
-.health-charts{display:grid;grid-template-columns:1fr;gap:14px}
 .health-chart-card{border:1px solid #8883;border-radius:12px;padding:14px;min-width:0}
 .health-chart-card h3{margin:0 0 10px;font-size:1rem}
-.health-canvas{height:190px;position:relative}
+.health-canvas{height:360px;position:relative}
+.health-chart-controls{display:flex;flex-wrap:wrap;gap:12px 20px;margin:16px 0;align-items:center}
+.health-chart-controls label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:.95rem}
+.health-chart-controls input{accent-color:var(--accent,#6d35ff);width:16px;height:16px}
 .health-no-data{padding:12px 0}
-@media(min-width:760px){.health-charts{grid-template-columns:1fr 1fr}.health-chart-card:last-child{grid-column:1/-1}.health-chart-card:last-child .health-canvas{height:220px}}
+@media(max-width:600px){.health-dialog{padding:15px}.health-canvas{height:300px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
@@ -146,55 +151,105 @@ page_header('Santé', $user);
   const closeButton = document.getElementById('healthDialogClose');
   const title = document.getElementById('healthDialogTitle');
   const noData = document.getElementById('healthNoData');
-  const chartSpecs = [
-    { id: 'healthVoltageChart', label: 'Tension (V)', field: 'volt' },
-    { id: 'healthCurrentChart', label: 'Courant (A)', field: 'amp' },
-    { id: 'healthPowerChart', label: 'Puissance (W)', field: 'power' }
-  ];
-  let charts = [];
+  const chartArea = document.querySelector('.health-chart-card');
+  const toggles = Array.from(document.querySelectorAll('.health-series-toggle'));
+  let chart = null;
 
-  function destroyCharts() {
-    charts.forEach(chart => chart.destroy());
-    charts = [];
+  function destroyChart() {
+    if (chart) {
+      chart.destroy();
+      chart = null;
+    }
   }
 
-  function renderCharts(series) {
-    destroyCharts();
-    const labels = series.map(point => point.time);
-    chartSpecs.forEach(spec => {
-      const canvas = document.getElementById(spec.id);
-      const values = series.map(point => point[spec.field]);
-      charts.push(new Chart(canvas, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: spec.label,
-            data: values,
+  function renderChart(series) {
+    destroyChart();
+    const canvas = document.getElementById('healthCombinedChart');
+    chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: series.map(point => point.time),
+        datasets: [
+          {
+            label: 'Tension U (V)',
+            data: series.map(point => point.volt),
             borderColor: '#6d35ff',
-            backgroundColor: 'rgba(109,53,255,.12)',
-            borderWidth: 2,
+            backgroundColor: 'rgba(109,53,255,.08)',
+            yAxisID: 'yVoltage',
+            hidden: !toggles[0].checked,
             pointRadius: series.length > 90 ? 0 : 2,
             pointHoverRadius: 4,
+            borderWidth: 2,
             tension: .18,
-            fill: true,
             spanGaps: false
-          }]
+          },
+          {
+            label: 'Courant I (A)',
+            data: series.map(point => point.amp),
+            borderColor: '#0891b2',
+            backgroundColor: 'rgba(8,145,178,.08)',
+            yAxisID: 'yCurrent',
+            hidden: !toggles[1].checked,
+            pointRadius: series.length > 90 ? 0 : 2,
+            pointHoverRadius: 4,
+            borderWidth: 2,
+            tension: .18,
+            spanGaps: false
+          },
+          {
+            label: 'Puissance P (W)',
+            data: series.map(point => point.power),
+            borderColor: '#e58b19',
+            backgroundColor: 'rgba(229,139,25,.08)',
+            yAxisID: 'yPower',
+            hidden: !toggles[2].checked,
+            pointRadius: series.length > 90 ? 0 : 2,
+            pointHoverRadius: 4,
+            borderWidth: 2,
+            tension: .18,
+            spanGaps: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: { mode: 'index', intersect: false }
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          interaction: { mode: 'index', intersect: false },
-          plugins: { legend: { display: false } },
-          scales: {
-            x: { ticks: { maxTicksLimit: 8, maxRotation: 0 } },
-            y: { beginAtZero: false }
+        scales: {
+          x: { title: { display: true, text: 'Heure locale' }, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
+          yVoltage: {
+            type: 'linear', position: 'left',
+            title: { display: true, text: 'U (V)' },
+            grid: { drawOnChartArea: true }
+          },
+          yCurrent: {
+            type: 'linear', position: 'right',
+            title: { display: true, text: 'I (A)' },
+            grid: { drawOnChartArea: false }
+          },
+          yPower: {
+            type: 'linear', position: 'right',
+            title: { display: true, text: 'P (W)' },
+            grid: { drawOnChartArea: false },
+            display: false
           }
         }
-      }));
+      }
     });
   }
+
+  toggles.forEach((toggle, index) => {
+    toggle.addEventListener('change', () => {
+      if (!chart) return;
+      chart.setDatasetVisibility(index, toggle.checked);
+      chart.update();
+    });
+  });
 
   document.querySelectorAll('.health-view-btn').forEach(button => {
     button.addEventListener('click', () => {
@@ -202,9 +257,10 @@ page_header('Santé', $user);
       try { series = JSON.parse(button.dataset.series || '[]'); } catch (e) {}
       title.textContent = 'Santé — ' + button.dataset.trak;
       noData.hidden = series.length > 0;
-      document.querySelector('.health-charts').hidden = series.length === 0;
-      if (series.length > 0 && typeof Chart !== 'undefined') renderCharts(series);
-      else destroyCharts();
+      chartArea.hidden = series.length === 0;
+      document.querySelector('.health-chart-controls').hidden = series.length === 0;
+      if (series.length > 0 && typeof Chart !== 'undefined') renderChart(series);
+      else destroyChart();
       if (typeof dialog.showModal === 'function') dialog.showModal();
     });
   });
@@ -213,7 +269,7 @@ page_header('Santé', $user);
   dialog.addEventListener('click', event => {
     if (event.target === dialog) dialog.close();
   });
-  dialog.addEventListener('close', destroyCharts);
+  dialog.addEventListener('close', destroyChart);
 })();
 </script>
 <?php page_footer(); ?>
