@@ -68,7 +68,7 @@ if (($_GET['live'] ?? '') === '1') {
         'amp' => $liveBox['amp'] !== null ? (float)$liveBox['amp'] : null,
         'received_at' => $liveBox['received_at'],
         'last_position_received_at' => $liveBox['last_position_received_at'],
-        'online' => $liveBox['last_position_received_at'] !== null && (time() - (new DateTimeImmutable((string)$liveBox['last_position_received_at'], $utcZone))->getTimestamp()) <= 120,
+        'online' => $liveBox['diagnostic_received_at'] !== null && (time() - (new DateTimeImmutable((string)$liveBox['diagnostic_received_at'], $utcZone))->getTimestamp()) <= 120,
         'diagnostic' => $diagnostic,
         'series' => $liveSeries
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -173,9 +173,9 @@ page_header('Santé', $user);
                 ? (int)$box['gnss_fix'] === 1
                 : (int)($box['fix_mode'] ?? 0) >= 2;
             $lastContactAge = null;
-            if ($box['last_position_received_at'] !== null) {
+            if ($box['diagnostic_received_at'] !== null) {
                 try {
-                    $lastContactAge = time() - (new DateTimeImmutable((string)$box['last_position_received_at'], $utcZone))->getTimestamp();
+                    $lastContactAge = time() - (new DateTimeImmutable((string)$box['diagnostic_received_at'], $utcZone))->getTimestamp();
                 } catch (Throwable $e) { $lastContactAge = null; }
             }
             $isOffline = $lastContactAge === null || $lastContactAge > 120;
@@ -262,6 +262,6 @@ page_header('Santé', $user);
 <link rel="stylesheet" href="assets/health.css?v=2">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="assets/health.js?v=3"></script>
+<script src="assets/health.js?v=4"></script>
 
 <?php page_footer(); ?>
