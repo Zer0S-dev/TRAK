@@ -153,45 +153,8 @@ try {
         }
     }
 
-    // Diagnostic GNSS envoyé avec chaque position pour alimenter immédiatement la page Santé.
-    if ($fixModeRaw !== null || $satTotalRaw !== null || $gpsRaw !== null || $hdopRaw !== null) {
-        $intValue = static function ($value, int $min, int $max): ?int {
-            if ($value === null || $value === '' || !is_numeric($value)) return null;
-            $number = (float)$value;
-            return is_finite($number) && $number >= $min && $number <= $max ? (int)$number : null;
-        };
-        $floatValue = static function ($value): ?float {
-            if ($value === null || $value === '' || !is_numeric($value)) return null;
-            $number = (float)$value;
-            return is_finite($number) && $number >= 0 && $number <= 999 ? $number : null;
-        };
-        $fixMode = $intValue($fixModeRaw, 0, 3);
-        $gnssFix = $gnssFixRaw !== null
-            ? (in_array(strtolower(trim((string)$gnssFixRaw)), ['1', 'true'], true) ? 1 : 0)
-            : (($fixMode !== null && $fixMode >= 2) ? 1 : 0);
-        $satTotal = $intValue($satTotalRaw, 0, 100);
-        $satUsed = $intValue($satUsedRaw, 0, 100);
-        $gps = $intValue($gpsRaw, 0, 100);
-        $glonass = $intValue($glonassRaw, 0, 100);
-        $galileo = $intValue($galileoRaw, 0, 100);
-        $beidou = $intValue($beidouRaw, 0, 100);
-        $hdop = $floatValue($hdopRaw);
-        $pdop = $floatValue($pdopRaw);
-        $vdop = $floatValue($vdopRaw);
-        if ($gnssTimestamp === '' || strlen($gnssTimestamp) > 40) $gnssTimestamp = $timestamp !== '' ? $timestamp : null;
-        $diagValues = [(int)$trak['id'], $gnssFix, $fixMode, $satTotal, $satUsed, $gps, $glonass, $galileo, $beidou, $hdop, $pdop, $vdop, $gnssTimestamp, null, null];
-        $diagColumns = 'trak_box_id, gnss_fix, fix_mode, satellites_total, satellites_used, gps_satellites, glonass_satellites, galileo_satellites, beidou_satellites, hdop, pdop, vdop, gnss_timestamp, volt, amp';
-        $diagHistory = $pdo->prepare("INSERT INTO trak_diagnostics_history ($diagColumns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $diagHistory->execute($diagValues);
-        $diagCurrent = $pdo->prepare("INSERT INTO trak_diagnostics ($diagColumns) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(trak_box_id) DO UPDATE SET gnss_fix=excluded.gnss_fix, fix_mode=excluded.fix_mode,
-            satellites_total=excluded.satellites_total, satellites_used=excluded.satellites_used,
-            gps_satellites=excluded.gps_satellites, glonass_satellites=excluded.glonass_satellites,
-            galileo_satellites=excluded.galileo_satellites, beidou_satellites=excluded.beidou_satellites,
-            hdop=excluded.hdop, pdop=excluded.pdop, vdop=excluded.vdop,
-            gnss_timestamp=excluded.gnss_timestamp, received_at=CURRENT_TIMESTAMP");
-        $diagCurrent->execute($diagValues);
-    }
+    // Important : une position peut provenir de la FIFO et être ancienne.
+    // Elle ne doit jamais remplacer le diagnostic GNSS temps réel.
 
     // La version du firmware est déclarée par le TRAK dans chaque requête de position.
     // On n'écrit en SQLite que si la valeur est absente ou différente.
