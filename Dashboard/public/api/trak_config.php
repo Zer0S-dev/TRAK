@@ -112,7 +112,7 @@ try {
             $value = (float)$data[$key];
             return is_finite($value) && $value >= $min && $value <= $max ? $value : null;
         };
-        $integer = static function (array $data, string $key, int $min, int $max): ?int {
+        $integer = static function (array $data, string $key, int $min, int $max) use ($number): ?int {
             $value = $number($data, $key, $min, $max);
             return $value === null ? null : (int)$value;
         };
