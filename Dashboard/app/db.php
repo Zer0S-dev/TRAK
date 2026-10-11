@@ -159,6 +159,17 @@ function db(): PDO {
     }
     $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_positions_received ON trak_positions(received_at)');
 
+    // Dernières mesures électriques reçues pour chaque TRAK.
+    $pdo->exec('CREATE TABLE IF NOT EXISTS trak_health (
+        trak_box_id INTEGER PRIMARY KEY,
+        volt REAL,
+        amp REAL,
+        health_timestamp TEXT,
+        received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(trak_box_id) REFERENCES trak_boxes(id) ON DELETE CASCADE
+    )');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_trak_health_received ON trak_health(received_at)');
+
     $userCount = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
     if ($userCount === 1) {
         $onlyUserId = (int)$pdo->query('SELECT id FROM users LIMIT 1')->fetchColumn();
