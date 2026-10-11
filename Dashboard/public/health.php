@@ -25,16 +25,6 @@ if (($_GET['live'] ?? '') === '1') {
             INNER JOIN (
                 SELECT trak_box_id, MAX(id) AS id
                 FROM trak_diagnostics_history
-                WHERE COALESCE(gnss_fix, 0) = 1
-                   OR COALESCE(fix_mode, 0) > 0
-                   OR COALESCE(satellites_total, 0) > 0
-                   OR COALESCE(gps_satellites, 0) > 0
-                   OR COALESCE(glonass_satellites, 0) > 0
-                   OR COALESCE(galileo_satellites, 0) > 0
-                   OR COALESCE(beidou_satellites, 0) > 0
-                   OR COALESCE(hdop, 0) > 0
-                   OR COALESCE(pdop, 0) > 0
-                   OR COALESCE(vdop, 0) > 0
                 GROUP BY trak_box_id
             ) latest ON latest.id = h.id
         ) td ON td.trak_box_id = tb.id
@@ -97,16 +87,6 @@ $boxes = $pdo->query(
             INNER JOIN (
                 SELECT trak_box_id, MAX(id) AS id
                 FROM trak_diagnostics_history
-                WHERE COALESCE(gnss_fix, 0) = 1
-                   OR COALESCE(fix_mode, 0) > 0
-                   OR COALESCE(satellites_total, 0) > 0
-                   OR COALESCE(gps_satellites, 0) > 0
-                   OR COALESCE(glonass_satellites, 0) > 0
-                   OR COALESCE(galileo_satellites, 0) > 0
-                   OR COALESCE(beidou_satellites, 0) > 0
-                   OR COALESCE(hdop, 0) > 0
-                   OR COALESCE(pdop, 0) > 0
-                   OR COALESCE(vdop, 0) > 0
                 GROUP BY trak_box_id
             ) latest ON latest.id = h.id
         ) td ON td.trak_box_id = tb.id
