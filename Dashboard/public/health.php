@@ -160,19 +160,16 @@ page_header('Santé', $user);
           <th>Voir</th>
           <th>TRAK ID</th>
           <th>Utilisateur</th>
-          <th>Volt (V)</th>
-          <th>Amp (A)</th>
           <th>GNSS</th>
           <th>Satellites (vus / utilisés)</th>
           <th>Constellations (GPS / GAL / GLO / BDS)</th>
           <th>DOP (H / P / V)</th>
           <th>Dernier diagnostic GNSS</th>
-          <th>Dernière réception électrique (heure locale)</th>
         </tr>
       </thead>
       <tbody>
       <?php if (!$boxes): ?>
-        <tr><td colspan="11">Aucun TRAK enregistré.</td></tr>
+        <tr><td colspan="8">Aucun TRAK enregistré.</td></tr>
       <?php else: ?>
         <?php foreach ($boxes as $box): ?>
           <?php
@@ -224,14 +221,11 @@ page_header('Santé', $user);
             </td>
             <td><strong><?=htmlspecialchars((string)$box['trak_id'])?></strong></td>
             <td><?=htmlspecialchars((string)($box['username'] ?? '—'))?></td>
-            <td><?= $box['volt'] !== null ? number_format((float)$box['volt'], 3, ',', ' ') . ' V' : '—' ?></td>
-            <td><?= $box['amp'] !== null ? number_format((float)$box['amp'], 4, ',', ' ') . ' A' : '—' ?></td>
             <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && ((int)($box['gnss_fix'] ?? 0) === 1 || (int)($box['fix_mode'] ?? 0) >= 2) ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
             <td><?=htmlspecialchars($satelliteLabel, ENT_QUOTES, 'UTF-8')?></td>
             <td title="GPS / Galileo / GLONASS / BeiDou"><?=htmlspecialchars($constellationLabel, ENT_QUOTES, 'UTF-8')?></td>
             <td title="HDOP / PDOP / VDOP"><?=htmlspecialchars($dopLabel, ENT_QUOTES, 'UTF-8')?></td>
             <td><?=htmlspecialchars($diagnosticReceivedLocal, ENT_QUOTES, 'UTF-8')?></td>
-            <td><?=htmlspecialchars($receivedLocal, ENT_QUOTES, 'UTF-8')?></td>
           </tr>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -247,7 +241,24 @@ page_header('Santé', $user);
       <h2 id="healthDialogTitle">Santé du TRAK</h2>
       <p class="muted">Heures locales — puissance calculée : P = U × I.</p>
       <p id="healthLiveStatus" class="health-live-status" role="status"><span class="health-live-dot"></span> LIVE — connexion en cours…</p>
-      <p id="healthGnssDiagnostic" class="muted">GNSS — en attente de diagnostic</p>
+      <section id="healthGnssDiagnostic" class="health-gnss-card" aria-label="Diagnostic GNSS">
+        <div class="health-gnss-card-title">
+          <span class="health-gnss-icon" aria-hidden="true">⌁</span>
+          <div><h3>Diagnostic GNSS</h3><p id="healthGnssReceived" class="health-gnss-updated">En attente de données</p></div>
+          <span id="healthGnssFix" class="health-gnss-status">En attente</span>
+        </div>
+        <div class="health-gnss-grid">
+          <div class="health-gnss-metric"><span>Satellites visibles</span><strong id="healthGnssVisible">—</strong></div>
+          <div class="health-gnss-metric"><span>Satellites utilisés</span><strong id="healthGnssUsed">—</strong></div>
+          <div class="health-gnss-metric"><span>GPS</span><strong id="healthGnssGps">—</strong></div>
+          <div class="health-gnss-metric"><span>Galileo</span><strong id="healthGnssGalileo">—</strong></div>
+          <div class="health-gnss-metric"><span>GLONASS</span><strong id="healthGnssGlonass">—</strong></div>
+          <div class="health-gnss-metric"><span>BeiDou</span><strong id="healthGnssBeidou">—</strong></div>
+          <div class="health-gnss-metric"><span>HDOP · précision horizontale</span><strong id="healthGnssHdop">—</strong></div>
+          <div class="health-gnss-metric"><span>PDOP · précision globale</span><strong id="healthGnssPdop">—</strong></div>
+          <div class="health-gnss-metric"><span>VDOP · précision verticale</span><strong id="healthGnssVdop">—</strong></div>
+        </div>
+      </section>
     </div>
     <button type="button" id="healthDialogClose" class="health-close" aria-label="Fermer">×</button>
   </div>
@@ -268,6 +279,16 @@ page_header('Santé', $user);
 .health-gnss-status{display:inline-block;padding:4px 8px;border-radius:999px;font-size:.82rem;font-weight:600;white-space:nowrap;background:#e5e7eb;color:#374151}
 .health-gnss-status.is-fixed{background:#dcfce7;color:#166534}
 .health-gnss-status.is-no-fix{background:#fef3c7;color:#92400e}
+.health-gnss-card{margin:14px 0 20px;padding:16px;border:1px solid #8883;border-radius:14px;background:var(--card,#fff)}
+.health-gnss-card-title{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:14px}
+.health-gnss-card-title h3{margin:0;font-size:1.02rem}
+.health-gnss-updated{margin:3px 0 0;color:var(--muted,#737b89);font-size:.82rem}
+.health-gnss-icon{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border-radius:11px;background:#6d35ff16;color:var(--accent,#6d35ff);font-size:1.5rem}
+.health-gnss-card-title .health-gnss-status{margin-left:auto}
+.health-gnss-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.health-gnss-metric{display:flex;flex-direction:column;gap:6px;min-width:0;padding:12px;border:1px solid #8882;border-radius:10px;background:#8882}
+.health-gnss-metric span{font-size:.78rem;color:var(--muted,#737b89)}
+.health-gnss-metric strong{font-size:1.12rem;font-weight:650;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .data-table td{vertical-align:middle}
 .table-wrap{overflow-x:auto}
 .health-dialog{width:min(1000px,94vw);max-width:1000px;max-height:90vh;overflow:auto;border:0;border-radius:16px;padding:22px;background:var(--bg,#fff);color:var(--text,#14161d);box-shadow:0 20px 70px #0004}
@@ -286,7 +307,7 @@ page_header('Santé', $user);
 .health-live-dot{width:8px;height:8px;border-radius:50%;background:#20c55e;box-shadow:0 0 0 3px #20c55e22;display:inline-block}
 .health-live-status.is-stale{color:#b45309}
 .health-live-status.is-stale .health-live-dot{background:#f59e0b;box-shadow:0 0 0 3px #f59e0b22}
-@media(max-width:600px){.health-dialog{padding:15px}.health-canvas{height:300px}}
+@media(max-width:600px){.health-dialog{padding:15px}.health-canvas{height:300px}.health-gnss-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.health-gnss-card{padding:12px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
@@ -491,18 +512,27 @@ page_header('Santé', $user);
       if (!payload.ok) throw new Error(payload.error || 'Réponse invalide');
       const diagnostic = payload.diagnostic;
       if (gnssDiagnostic) {
+        const n = value => value === null || value === undefined || value === '' ? '—' : value;
+        const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = n(value); };
+        const fixBadge = document.getElementById('healthGnssFix');
         if (!diagnostic) {
-          gnssDiagnostic.textContent = 'GNSS — aucun diagnostic reçu';
+          setValue('healthGnssReceived', 'Aucun diagnostic reçu');
+          ['healthGnssVisible','healthGnssUsed','healthGnssGps','healthGnssGalileo','healthGnssGlonass','healthGnssBeidou','healthGnssHdop','healthGnssPdop','healthGnssVdop'].forEach(id => setValue(id, null));
+          if (fixBadge) { fixBadge.textContent = 'Aucune donnée'; fixBadge.className = 'health-gnss-status'; }
         } else {
-          const fix = diagnostic.gnss_fix === true
-            ? (diagnostic.fix_mode === 3 ? 'FIX 3D' : 'FIX')
-            : 'Sans fix';
-          const n = value => value === null || value === undefined ? '—' : value;
-          gnssDiagnostic.textContent = 'GNSS : ' + fix +
-            ' | Satellites : ' + n(diagnostic.satellites_total) + ' visibles, ' + n(diagnostic.satellites_used) + ' utilisés' +
-            ' (GPS ' + n(diagnostic.gps_satellites) + ', Galileo ' + n(diagnostic.galileo_satellites) +
-            ', GLONASS ' + n(diagnostic.glonass_satellites) + ', BeiDou ' + n(diagnostic.beidou_satellites) + ')' +
-            ' | HDOP ' + n(diagnostic.hdop) + ' · PDOP ' + n(diagnostic.pdop) + ' · VDOP ' + n(diagnostic.vdop);
+          const fixed = diagnostic.gnss_fix === true || Number(diagnostic.fix_mode) >= 2;
+          const fix = fixed ? (Number(diagnostic.fix_mode) === 3 ? 'FIX 3D' : 'FIX') : 'Sans fix';
+          if (fixBadge) { fixBadge.textContent = fix; fixBadge.className = 'health-gnss-status ' + (fixed ? 'is-fixed' : 'is-no-fix'); }
+          setValue('healthGnssReceived', diagnostic.received_at ? 'Reçu le ' + new Date(diagnostic.received_at.replace(' ', 'T') + 'Z').toLocaleString('fr-FR') : 'Dernier diagnostic');
+          setValue('healthGnssVisible', diagnostic.satellites_total);
+          setValue('healthGnssUsed', diagnostic.satellites_used);
+          setValue('healthGnssGps', diagnostic.gps_satellites);
+          setValue('healthGnssGalileo', diagnostic.galileo_satellites);
+          setValue('healthGnssGlonass', diagnostic.glonass_satellites);
+          setValue('healthGnssBeidou', diagnostic.beidou_satellites);
+          setValue('healthGnssHdop', diagnostic.hdop);
+          setValue('healthGnssPdop', diagnostic.pdop);
+          setValue('healthGnssVdop', diagnostic.vdop);
         }
       }
       const series = Array.isArray(payload.series) ? payload.series : [];
