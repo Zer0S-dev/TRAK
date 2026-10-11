@@ -14,11 +14,13 @@ if (($_GET['live'] ?? '') === '1') {
     $boxId = filter_input(INPUT_GET, 'trak_box_id', FILTER_VALIDATE_INT);
     if (!$boxId || $boxId < 1) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'invalid_trak_box_id']); exit; }
     $boxStmt = $pdo->prepare('SELECT tb.id, tb.trak_id, th.volt, th.amp, th.received_at,
+        tp.received_at AS last_position_received_at,
         td.gnss_fix, td.fix_mode, td.satellites_total, td.satellites_used,
         td.gps_satellites, td.glonass_satellites, td.galileo_satellites, td.beidou_satellites,
         td.hdop, td.pdop, td.vdop, td.gnss_timestamp, td.received_at AS diagnostic_received_at
         FROM trak_boxes tb
         LEFT JOIN trak_health th ON th.trak_box_id = tb.id
+        LEFT JOIN trak_positions tp ON tp.trak_box_id = tb.id
         LEFT JOIN (
             SELECT h.*
             FROM trak_diagnostics_history h
@@ -65,6 +67,8 @@ if (($_GET['live'] ?? '') === '1') {
         'volt' => $liveBox['volt'] !== null ? (float)$liveBox['volt'] : null,
         'amp' => $liveBox['amp'] !== null ? (float)$liveBox['amp'] : null,
         'received_at' => $liveBox['received_at'],
+        'last_position_received_at' => $liveBox['last_position_received_at'],
+        'online' => $liveBox['last_position_received_at'] !== null && (time() - (new DateTimeImmutable((string)$liveBox['last_position_received_at'], $utcZone))->getTimestamp()) <= 120,
         'diagnostic' => $diagnostic,
         'series' => $liveSeries
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -74,6 +78,7 @@ if (($_GET['live'] ?? '') === '1') {
 $boxes = $pdo->query(
     'SELECT tb.id AS trak_box_id, tb.trak_id, tb.phone, u.username,
             th.volt, th.amp, th.health_timestamp, th.received_at,
+            tp.received_at AS last_position_received_at,
             td.gnss_fix, td.fix_mode, td.satellites_total, td.satellites_used,
             td.gps_satellites, td.glonass_satellites, td.galileo_satellites,
             td.beidou_satellites, td.hdop, td.pdop, td.vdop,
@@ -81,6 +86,7 @@ $boxes = $pdo->query(
      FROM trak_boxes tb
      LEFT JOIN users u ON u.id = tb.user_id
      LEFT JOIN trak_health th ON th.trak_box_id = tb.id
+     LEFT JOIN trak_positions tp ON tp.trak_box_id = tb.id
      LEFT JOIN (
             SELECT h.*
             FROM trak_diagnostics_history h
@@ -166,11 +172,20 @@ page_header('Santé', $user);
             $gnssFix = $box['gnss_fix'] !== null
                 ? (int)$box['gnss_fix'] === 1
                 : (int)($box['fix_mode'] ?? 0) >= 2;
-            $gnssFixLabel = $box['diagnostic_received_at'] === null
-                ? 'Aucun diagnostic'
-                : ($gnssFix
-                    ? ((int)($box['fix_mode'] ?? 0) === 3 ? 'FIX 3D' : 'FIX')
-                    : 'Sans fix');
+            $lastContactAge = null;
+            if ($box['last_position_received_at'] !== null) {
+                try {
+                    $lastContactAge = time() - (new DateTimeImmutable((string)$box['last_position_received_at'], $utcZone))->getTimestamp();
+                } catch (Throwable $e) { $lastContactAge = null; }
+            }
+            $isOffline = $lastContactAge === null || $lastContactAge > 120;
+            $gnssFixLabel = $isOffline
+                ? 'Hors ligne'
+                : ($box['diagnostic_received_at'] === null
+                    ? 'Aucun diagnostic'
+                    : ($gnssFix
+                        ? ((int)($box['fix_mode'] ?? 0) === 3 ? 'FIX 3D' : 'FIX')
+                        : 'Sans fix'));
             $satelliteLabel = $box['diagnostic_received_at'] === null
                 ? '—'
                 : (string)($box['satellites_total'] ?? '—') . ' / ' . (string)($box['satellites_used'] ?? '—');
@@ -200,7 +215,7 @@ page_header('Santé', $user);
             </td>
             <td><strong><?=htmlspecialchars((string)$box['trak_id'])?></strong></td>
             <td><?=htmlspecialchars((string)($box['username'] ?? '—'))?></td>
-            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && $gnssFix ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
+            <td><span class="health-gnss-status <?= !$isOffline && $box['diagnostic_received_at'] !== null && $gnssFix ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
             <td><?=htmlspecialchars($diagnosticReceivedLocal, ENT_QUOTES, 'UTF-8')?></td>
           </tr>
         <?php endforeach; ?>
@@ -244,9 +259,9 @@ page_header('Santé', $user);
   </div>
 </dialog>
 
-<link rel="stylesheet" href="assets/health.css?v=1">
+<link rel="stylesheet" href="assets/health.css?v=2">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script src="assets/health.js?v=2"></script>
+<script src="assets/health.js?v=3"></script>
 
 <?php page_footer(); ?>
