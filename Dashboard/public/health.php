@@ -7,6 +7,29 @@ $pdo = db();
 $localZone = new DateTimeZone('Europe/Paris');
 $utcZone = new DateTimeZone('UTC');
 
+// Flux JSON du graphique live.
+if (($_GET['live'] ?? '') === '1') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    $boxId = filter_input(INPUT_GET, 'trak_box_id', FILTER_VALIDATE_INT);
+    if (!$boxId || $boxId < 1) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'invalid_trak_box_id']); exit; }
+    $boxStmt = $pdo->prepare('SELECT tb.id, tb.trak_id, th.volt, th.amp, th.received_at FROM trak_boxes tb LEFT JOIN trak_health th ON th.trak_box_id = tb.id WHERE tb.id = ? LIMIT 1');
+    $boxStmt->execute([$boxId]);
+    $liveBox = $boxStmt->fetch();
+    if (!$liveBox) { http_response_code(404); echo json_encode(['ok' => false, 'error' => 'trak_not_found']); exit; }
+    $liveStmt = $pdo->prepare("SELECT volt, amp, received_at FROM health WHERE trak_box_id = ? AND received_at >= datetime('now', '-1 hour') ORDER BY received_at ASC");
+    $liveStmt->execute([$boxId]);
+    $liveSeries = [];
+    foreach ($liveStmt->fetchAll() as $point) {
+        try {
+            $received = new DateTimeImmutable((string)$point['received_at'], $utcZone);
+            $liveSeries[] = ['time' => $received->setTimezone($localZone)->format('H:i:s'), 'volt' => (float)$point['volt'], 'amp' => (float)$point['amp'], 'power' => (float)$point['volt'] * (float)$point['amp']];
+        } catch (Throwable $e) { /* Ignore dates historiques invalides. */ }
+    }
+    echo json_encode(['ok' => true, 'trak_id' => (string)$liveBox['trak_id'], 'volt' => $liveBox['volt'] !== null ? (float)$liveBox['volt'] : null, 'amp' => $liveBox['amp'] !== null ? (float)$liveBox['amp'] : null, 'received_at' => $liveBox['received_at'], 'series' => $liveSeries], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 $boxes = $pdo->query(
     'SELECT tb.id AS trak_box_id, tb.trak_id, tb.phone, u.username,
             th.volt, th.amp, th.health_timestamp, th.received_at
@@ -92,6 +115,7 @@ page_header('Santé', $user);
             <td>
               <button type="button" class="health-view-btn"
                 data-trak="<?=htmlspecialchars((string)$box['trak_id'], ENT_QUOTES, 'UTF-8')?>"
+                data-trak-box-id="<?= (int)$box['trak_box_id'] ?>"
                 data-series="<?=htmlspecialchars((string)$seriesJson, ENT_QUOTES, 'UTF-8')?>">Voir</button>
             </td>
             <td><strong><?=htmlspecialchars((string)$box['trak_id'])?></strong></td>
@@ -113,6 +137,7 @@ page_header('Santé', $user);
       <span class="section-kicker">HISTORIQUE · DERNIÈRE HEURE</span>
       <h2 id="healthDialogTitle">Santé du TRAK</h2>
       <p class="muted">Heures locales — puissance calculée : P = U × I.</p>
+      <p id="healthLiveStatus" class="health-live-status" role="status"><span class="health-live-dot"></span> LIVE — connexion en cours…</p>
     </div>
     <button type="button" id="healthDialogClose" class="health-close" aria-label="Fermer">×</button>
   </div>
@@ -142,6 +167,10 @@ page_header('Santé', $user);
 .health-chart-controls label{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:.95rem}
 .health-chart-controls input{accent-color:var(--accent,#6d35ff);width:16px;height:16px}
 .health-no-data{padding:12px 0}
+.health-live-status{display:flex;align-items:center;gap:7px;margin:8px 0 0;font-size:.85rem;font-weight:600;color:#16803d}
+.health-live-dot{width:8px;height:8px;border-radius:50%;background:#20c55e;box-shadow:0 0 0 3px #20c55e22;display:inline-block}
+.health-live-status.is-stale{color:#b45309}
+.health-live-status.is-stale .health-live-dot{background:#f59e0b;box-shadow:0 0 0 3px #f59e0b22}
 @media(max-width:600px){.health-dialog{padding:15px}.health-canvas{height:300px}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -153,7 +182,24 @@ page_header('Santé', $user);
   const noData = document.getElementById('healthNoData');
   const chartArea = document.querySelector('.health-chart-card');
   const toggles = Array.from(document.querySelectorAll('.health-series-toggle'));
+  const liveStatus = document.getElementById('healthLiveStatus');
   let chart = null;
+  let liveTimer = null;
+  let activeBoxId = null;
+  const LIVE_REFRESH_MS = 5000;
+
+  function stopLive() {
+    if (liveTimer !== null) {
+      window.clearInterval(liveTimer);
+      liveTimer = null;
+    }
+    activeBoxId = null;
+  }
+
+  function setLiveStatus(message, stale = false) {
+    liveStatus.classList.toggle('is-stale', stale);
+    liveStatus.innerHTML = '<span class="health-live-dot"></span>' + message;
+  }
 
   function destroyChart() {
     if (chart) {
@@ -285,8 +331,64 @@ page_header('Santé', $user);
     });
   });
 
+  function paddedRangeForLive(values, minimumSpan, paddingRatio = 0.10, floor = null) {
+    const valid = values.filter(Number.isFinite);
+    if (!valid.length) return { min: 0, max: minimumSpan };
+    let low = Math.min(...valid);
+    let high = Math.max(...valid);
+    if (high - low < minimumSpan) {
+      const middle = (high + low) / 2;
+      low = middle - minimumSpan / 2;
+      high = middle + minimumSpan / 2;
+    }
+    const pad = (high - low) * paddingRatio;
+    low -= pad;
+    high += pad;
+    if (floor !== null) low = Math.max(floor, low);
+    return { min: low, max: high };
+  }
+
+  async function refreshLive() {
+    if (!activeBoxId) return;
+    try {
+      const response = await fetch('health.php?live=1&trak_box_id=' + encodeURIComponent(activeBoxId), {
+        cache: 'no-store',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const payload = await response.json();
+      if (!payload.ok) throw new Error(payload.error || 'Réponse invalide');
+      const series = Array.isArray(payload.series) ? payload.series : [];
+      if (series.length && chart) {
+        chart.data.labels = series.map(point => point.time);
+        chart.data.datasets[0].data = series.map(point => point.volt);
+        chart.data.datasets[1].data = series.map(point => point.amp);
+        chart.data.datasets[2].data = series.map(point => point.power);
+        const ranges = [
+          paddedRangeForLive(series.map(point => point.volt), 0.20, 0.10),
+          paddedRangeForLive(series.map(point => point.amp), 0.10, 0.10, 0),
+          paddedRangeForLive(series.map(point => point.power), 0.50, 0.10, 0)
+        ];
+        chart.options.scales.yVoltage.min = ranges[0].min;
+        chart.options.scales.yVoltage.max = ranges[0].max;
+        chart.options.scales.yCurrent.min = ranges[1].min;
+        chart.options.scales.yCurrent.max = ranges[1].max;
+        chart.options.scales.yPower.min = ranges[2].min;
+        chart.options.scales.yPower.max = ranges[2].max;
+        chart.update('none');
+        noData.hidden = true;
+        chartArea.hidden = false;
+      }
+      setLiveStatus('LIVE — actualisé à ' + new Date().toLocaleTimeString('fr-FR'));
+    } catch (error) {
+      setLiveStatus('LIVE — connexion en attente, nouvelle tentative…', true);
+    }
+  }
+
   document.querySelectorAll('.health-view-btn').forEach(button => {
     button.addEventListener('click', () => {
+      stopLive();
+      activeBoxId = button.dataset.trakBoxId;
       let series = [];
       try { series = JSON.parse(button.dataset.series || '[]'); } catch (e) {}
       title.textContent = 'Santé — ' + button.dataset.trak;
@@ -296,6 +398,9 @@ page_header('Santé', $user);
       if (series.length > 0 && typeof Chart !== 'undefined') renderChart(series);
       else destroyChart();
       if (typeof dialog.showModal === 'function') dialog.showModal();
+      setLiveStatus('LIVE — connexion en cours…');
+      refreshLive();
+      liveTimer = window.setInterval(refreshLive, LIVE_REFRESH_MS);
     });
   });
 
@@ -303,7 +408,10 @@ page_header('Santé', $user);
   dialog.addEventListener('click', event => {
     if (event.target === dialog) dialog.close();
   });
-  dialog.addEventListener('close', destroyChart);
+  dialog.addEventListener('close', () => {
+    stopLive();
+    destroyChart();
+  });
 })();
 </script>
 <?php page_footer(); ?>
