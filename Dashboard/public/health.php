@@ -186,9 +186,9 @@ page_header('Santé', $user);
       return { min: low, max: high };
     }
 
-    const voltageRange = paddedRange(series.map(p => p.volt), 0.08, 0.18);
-    const currentRange = paddedRange(series.map(p => p.amp), 0.04, 0.16, 0);
-    const powerRange = paddedRange(series.map(p => p.power), 0.20, 0.16, 0);
+    const voltageRange = paddedRange(series.map(p => p.volt), 0.20, 0.10);
+    const currentRange = paddedRange(series.map(p => p.amp), 0.10, 0.10, 0);
+    const powerRange = paddedRange(series.map(p => p.power), 0.50, 0.10, 0);
     chart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -205,7 +205,7 @@ page_header('Santé', $user);
             pointHoverRadius: 0,
             pointHitRadius: 8,
             borderWidth: 2,
-            tension: .28,
+            tension: .38,
             spanGaps: false
           },
           {
@@ -219,7 +219,7 @@ page_header('Santé', $user);
             pointHoverRadius: 0,
             pointHitRadius: 8,
             borderWidth: 2,
-            tension: .18,
+            tension: .32,
             spanGaps: false
           },
           {
