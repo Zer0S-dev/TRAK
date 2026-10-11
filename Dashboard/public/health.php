@@ -19,7 +19,25 @@ if (($_GET['live'] ?? '') === '1') {
         td.hdop, td.pdop, td.vdop, td.gnss_timestamp, td.received_at AS diagnostic_received_at
         FROM trak_boxes tb
         LEFT JOIN trak_health th ON th.trak_box_id = tb.id
-        LEFT JOIN trak_diagnostics td ON td.trak_box_id = tb.id
+        LEFT JOIN (
+            SELECT h.*
+            FROM trak_diagnostics_history h
+            INNER JOIN (
+                SELECT trak_box_id, MAX(id) AS id
+                FROM trak_diagnostics_history
+                WHERE COALESCE(gnss_fix, 0) = 1
+                   OR COALESCE(fix_mode, 0) > 0
+                   OR COALESCE(satellites_total, 0) > 0
+                   OR COALESCE(gps_satellites, 0) > 0
+                   OR COALESCE(glonass_satellites, 0) > 0
+                   OR COALESCE(galileo_satellites, 0) > 0
+                   OR COALESCE(beidou_satellites, 0) > 0
+                   OR COALESCE(hdop, 0) > 0
+                   OR COALESCE(pdop, 0) > 0
+                   OR COALESCE(vdop, 0) > 0
+                GROUP BY trak_box_id
+            ) latest ON latest.id = h.id
+        ) td ON td.trak_box_id = tb.id
         WHERE tb.id = ? LIMIT 1');
     $boxStmt->execute([$boxId]);
     $liveBox = $boxStmt->fetch();
@@ -73,7 +91,25 @@ $boxes = $pdo->query(
      FROM trak_boxes tb
      LEFT JOIN users u ON u.id = tb.user_id
      LEFT JOIN trak_health th ON th.trak_box_id = tb.id
-     LEFT JOIN trak_diagnostics td ON td.trak_box_id = tb.id
+     LEFT JOIN (
+            SELECT h.*
+            FROM trak_diagnostics_history h
+            INNER JOIN (
+                SELECT trak_box_id, MAX(id) AS id
+                FROM trak_diagnostics_history
+                WHERE COALESCE(gnss_fix, 0) = 1
+                   OR COALESCE(fix_mode, 0) > 0
+                   OR COALESCE(satellites_total, 0) > 0
+                   OR COALESCE(gps_satellites, 0) > 0
+                   OR COALESCE(glonass_satellites, 0) > 0
+                   OR COALESCE(galileo_satellites, 0) > 0
+                   OR COALESCE(beidou_satellites, 0) > 0
+                   OR COALESCE(hdop, 0) > 0
+                   OR COALESCE(pdop, 0) > 0
+                   OR COALESCE(vdop, 0) > 0
+                GROUP BY trak_box_id
+            ) latest ON latest.id = h.id
+        ) td ON td.trak_box_id = tb.id
      ORDER BY tb.trak_id COLLATE NOCASE'
 )->fetchAll();
 
@@ -153,9 +189,10 @@ page_header('Santé', $user);
                 $historyByTrak[(int)$box['trak_box_id']] ?? [],
                 JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
             );
+            $gnssFix = (int)($box['gnss_fix'] ?? 0) === 1 || (int)($box['fix_mode'] ?? 0) >= 2;
             $gnssFixLabel = $box['diagnostic_received_at'] === null
                 ? 'Aucun diagnostic'
-                : ((int)($box['gnss_fix'] ?? 0) === 1
+                : ($gnssFix
                     ? ((int)($box['fix_mode'] ?? 0) === 3 ? 'FIX 3D' : 'FIX')
                     : 'Sans fix');
             $satelliteLabel = $box['diagnostic_received_at'] === null
@@ -189,7 +226,7 @@ page_header('Santé', $user);
             <td><?=htmlspecialchars((string)($box['username'] ?? '—'))?></td>
             <td><?= $box['volt'] !== null ? number_format((float)$box['volt'], 3, ',', ' ') . ' V' : '—' ?></td>
             <td><?= $box['amp'] !== null ? number_format((float)$box['amp'], 4, ',', ' ') . ' A' : '—' ?></td>
-            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && (int)($box['gnss_fix'] ?? 0) === 1 ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
+            <td><span class="health-gnss-status <?= $box['diagnostic_received_at'] !== null && ((int)($box['gnss_fix'] ?? 0) === 1 || (int)($box['fix_mode'] ?? 0) >= 2) ? 'is-fixed' : 'is-no-fix' ?>"><?=htmlspecialchars($gnssFixLabel, ENT_QUOTES, 'UTF-8')?></span></td>
             <td><?=htmlspecialchars($satelliteLabel, ENT_QUOTES, 'UTF-8')?></td>
             <td title="GPS / Galileo / GLONASS / BeiDou"><?=htmlspecialchars($constellationLabel, ENT_QUOTES, 'UTF-8')?></td>
             <td title="HDOP / PDOP / VDOP"><?=htmlspecialchars($dopLabel, ENT_QUOTES, 'UTF-8')?></td>
