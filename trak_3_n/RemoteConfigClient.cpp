@@ -9,6 +9,7 @@
 #include "SmsConfigManager.h"
 #include "TrakRuntime.h"
 #include "MotionManager.h"
+#include "ElectricalMonitor.h"
 
 extern HardwareSerial modem;
 extern volatile bool modemReady;
@@ -19,7 +20,7 @@ extern void devLog(const String& message);
 namespace {
 constexpr uint32_t FIRST_CHECK_DELAY_MS = 0UL;
 constexpr uint32_t RETRY_INTERVAL_MS = 10000UL;
-constexpr uint32_t CHECK_INTERVAL_MS = 60000UL;
+constexpr uint32_t CHECK_INTERVAL_MS = 300000UL;
 constexpr uint32_t WIFI_TIMEOUT_MS = 2500UL;
 constexpr uint32_t CELLULAR_TIMEOUT_MS = 8000UL;
 constexpr size_t MAX_URL_LEN = 160;
@@ -505,7 +506,30 @@ bool fetchConfig(const String& url, uint64_t serverTimestamp) {
   return smsConfigLastConfigTimestamp() == receivedTimestamp;
 }
 
-bool checkConfig() {
+String buildDiagnosticJson(const GnssPosition& gnss, bool hasFix, const ElectricalSample& electrical) {
+  String json = String("{\"gnss_fix\":") + (hasFix ? "true" : "false") +
+      ",\"fix_mode\":" + String(gnss.fixMode) +
+      ",\"satellites_total\":" + String(gnss.totalSatellites) +
+      ",\"satellites_used\":" + String(gnss.usedSatellites) +
+      ",\"gps_satellites\":" + String(gnss.gpsSatellites) +
+      ",\"glonass_satellites\":" + String(gnss.glonassSatellites) +
+      ",\"galileo_satellites\":" + String(gnss.galileoSatellites) +
+      ",\"beidou_satellites\":" + String(gnss.beidouSatellites) +
+      ",\"hdop\":" + String(gnss.hdop, 2) +
+      ",\"pdop\":" + String(gnss.pdop, 2) +
+      ",\"vdop\":" + String(gnss.vdop, 2);
+  if (hasFix && !gnss.timestamp.isEmpty()) {
+    json += ",\"gnss_timestamp\":\"" + gnss.timestamp + "\"";
+  }
+  if (electrical.valid && millis() - electrical.measuredAtMs <= 10000UL) {
+    json += ",\"volt\":" + String(electrical.volt, 3);
+    json += ",\"amp\":" + String(electrical.amp, 4);
+  }
+  json += "}";
+  return json;
+}
+
+bool checkConfig(const GnssPosition& gnss, bool hasFix, const ElectricalSample& electrical) {
   const String url = configApiUrl();
   const String trakId = smsConfigTrakId();
   const String apiKey = smsConfigApiKey();
@@ -517,7 +541,8 @@ bool checkConfig() {
   if (pendingAckTimestamp > 0) {
     const String ack = String("{\"action\":\"ack\",\"trak_id\":\"") + trakId +
                        "\",\"config_updated_at\":" +
-                       String((unsigned long long)pendingAckTimestamp) + "}";
+                       String((unsigned long long)pendingAckTimestamp) +
+                       ",\"diagnostic\":" + buildDiagnosticJson(gnss, hasFix, electrical) + "}";
     String ackResponse;
     if (!postRequest(url, ack, ackResponse) || !responseOk(ackResponse)) {
       Serial.println("[CONFIG] ACK apres reboot indisponible.");
@@ -530,7 +555,8 @@ bool checkConfig() {
     return true;
   }
 
-  const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId + "\"}";
+  const String body = String("{\"action\":\"status\",\"trak_id\":\"") + trakId +
+                      "\",\"diagnostic\":" + buildDiagnosticJson(gnss, hasFix, electrical) + "}";
   String response;
   if (!postRequest(url, body, response) || !responseOk(response)) {
     Serial.println("[CONFIG] STATUS indisponible.");
@@ -579,7 +605,7 @@ void remoteConfigBegin() {
   busy = false;
 }
 
-void remoteConfigTick() {
+void remoteConfigTick(const GnssPosition& gnss, bool hasFix, const ElectricalSample& electrical) {
   if (!initialized || busy) return;
   if (!smsConfigIsConfigured()) return;
 
@@ -588,7 +614,7 @@ void remoteConfigTick() {
   if (now - lastCheck < interval) return;
 
   busy = true;
-  const bool success = checkConfig();
+  const bool success = checkConfig(gnss, hasFix, electrical);
   busy = false;
 
   // Controle immediat au boot. En cas d'echec HTTP/reseau, on reessaie
