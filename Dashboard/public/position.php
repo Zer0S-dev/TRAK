@@ -26,6 +26,9 @@ $timestamp = trim((string)($_GET['timestamp'] ?? $_POST['timestamp'] ?? ''));
 $speedRaw = $_GET['speed'] ?? $_POST['speed'] ?? null;
 $bearingRaw = $_GET['bearing'] ?? $_POST['bearing'] ?? null;
 $firmwareVersion = trim((string)($_GET['firmware_version'] ?? $_POST['firmware_version'] ?? ''));
+$voltRaw = $_GET['volt'] ?? $_POST['volt'] ?? null;
+$ampRaw = $_GET['amp'] ?? $_POST['amp'] ?? null;
+$healthTimestamp = trim((string)($_GET['health_timestamp'] ?? $_POST['health_timestamp'] ?? ''));
 
 if ($trakId === '') $trakId = trim((string)($_SERVER['HTTP_X_TRAK_ID'] ?? ''));
 if ($apiKey === '') $apiKey = trim((string)($_SERVER['HTTP_X_API_KEY'] ?? ''));
@@ -42,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && str_contains(strtolower((string)($_
         $speedRaw = $json['speed'] ?? $speedRaw;
         $bearingRaw = $json['bearing'] ?? $bearingRaw;
         $firmwareVersion = $firmwareVersion !== '' ? trim((string)($json['firmware_version'] ?? '')) : trim((string)($json['firmware_version'] ?? ''));
+        $voltRaw = $json['volt'] ?? $voltRaw;
+        $ampRaw = $json['amp'] ?? $ampRaw;
+        $healthTimestamp = $healthTimestamp !== '' ? $healthTimestamp : trim((string)($json['health_timestamp'] ?? ''));
     }
 }
 
@@ -89,6 +95,32 @@ try {
             received_at = CURRENT_TIMESTAMP'
     );
     $stmt->execute([(int)$trak['id'], $latitude, $longitude, $altitude, $speed, $bearing, $timestamp !== '' ? $timestamp : null]);
+
+    // Enregistre les dernières mesures INA219 quand volt et amp sont présents.
+    // Les requêtes historiques restent compatibles si ces champs sont absents.
+    if ($voltRaw !== null && $voltRaw !== '' && $ampRaw !== null && $ampRaw !== ''
+        && is_numeric($voltRaw) && is_numeric($ampRaw)
+        && is_finite((float)$voltRaw) && is_finite((float)$ampRaw)) {
+        $volt = (float)$voltRaw;
+        $amp = (float)$ampRaw;
+        if ($volt >= 0 && $volt <= 1000 && $amp >= -1000 && $amp <= 1000) {
+            $healthStmt = $pdo->prepare(
+                'INSERT INTO trak_health (trak_box_id, volt, amp, health_timestamp, received_at)
+                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(trak_box_id) DO UPDATE SET
+                    volt = excluded.volt,
+                    amp = excluded.amp,
+                    health_timestamp = excluded.health_timestamp,
+                    received_at = CURRENT_TIMESTAMP'
+            );
+            $healthStmt->execute([
+                (int)$trak['id'],
+                $volt,
+                $amp,
+                $healthTimestamp !== '' ? $healthTimestamp : ($timestamp !== '' ? $timestamp : null)
+            ]);
+        }
+    }
 
     // La version du firmware est déclarée par le TRAK dans chaque requête de position.
     // On n'écrit en SQLite que si la valeur est absente ou différente.
