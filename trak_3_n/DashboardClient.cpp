@@ -38,7 +38,7 @@ String urlEncode(const String& value) {
   return out;
 }
 
-String buildUrl(const GnssPosition& position) {
+String buildUrl(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
   const String baseUrl = smsConfigDashboardUrl();
   if (baseUrl.isEmpty() || baseUrl.length() > MAX_URL_LEN) return "";
 
@@ -71,6 +71,17 @@ String buildUrl(const GnssPosition& position) {
   url += String(position.courseDeg, 1);
   url += "&firmware_version=";
   url += urlEncode(String(TRAK_VERSION));
+
+  // Les mesures électriques ont leur propre horodatage : elles ne doivent
+  // pas hériter de celui d’une position éventuellement rejouée depuis le FIFO.
+  if (sample.valid && !healthTimestamp.isEmpty()) {
+    url += "&volt=";
+    url += String(sample.volt, 3);
+    url += "&amp=";
+    url += String(sample.amp, 4);
+    url += "&health_timestamp=";
+    url += urlEncode(healthTimestamp);
+  }
 
   return url;
 }
@@ -199,12 +210,12 @@ void dashboardBegin() {
   }
 }
 
-DashboardResult dashboardSend(const GnssPosition& position) {
+DashboardResult dashboardSend(const GnssPosition& position, const ElectricalSample& sample, const String& healthTimestamp) {
   if (smsConfigDashboardUrl().isEmpty() || !position.valid) {
     return DashboardResult::NotReady;
   }
 
-  const String url = buildUrl(position);
+  const String url = buildUrl(position, sample, healthTimestamp);
   if (url.isEmpty()) {
     Serial.println("[DASHBOARD] URL invalide ou absente.");
     devLog("DASHBOARD | URL invalide");
