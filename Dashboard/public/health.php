@@ -13,7 +13,14 @@ if (($_GET['live'] ?? '') === '1') {
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     $boxId = filter_input(INPUT_GET, 'trak_box_id', FILTER_VALIDATE_INT);
     if (!$boxId || $boxId < 1) { http_response_code(400); echo json_encode(['ok' => false, 'error' => 'invalid_trak_box_id']); exit; }
-    $boxStmt = $pdo->prepare('SELECT tb.id, tb.trak_id, th.volt, th.amp, th.received_at FROM trak_boxes tb LEFT JOIN trak_health th ON th.trak_box_id = tb.id WHERE tb.id = ? LIMIT 1');
+    $boxStmt = $pdo->prepare('SELECT tb.id, tb.trak_id, th.volt, th.amp, th.received_at,
+        td.gnss_fix, td.fix_mode, td.satellites_total, td.satellites_used,
+        td.gps_satellites, td.glonass_satellites, td.galileo_satellites, td.beidou_satellites,
+        td.hdop, td.pdop, td.vdop, td.gnss_timestamp, td.received_at AS diagnostic_received_at
+        FROM trak_boxes tb
+        LEFT JOIN trak_health th ON th.trak_box_id = tb.id
+        LEFT JOIN trak_diagnostics td ON td.trak_box_id = tb.id
+        WHERE tb.id = ? LIMIT 1');
     $boxStmt->execute([$boxId]);
     $liveBox = $boxStmt->fetch();
     if (!$liveBox) { http_response_code(404); echo json_encode(['ok' => false, 'error' => 'trak_not_found']); exit; }
@@ -26,7 +33,33 @@ if (($_GET['live'] ?? '') === '1') {
             $liveSeries[] = ['time' => $received->setTimezone($localZone)->format('H:i:s'), 'volt' => (float)$point['volt'], 'amp' => (float)$point['amp'], 'power' => (float)$point['volt'] * (float)$point['amp']];
         } catch (Throwable $e) { /* Ignore dates historiques invalides. */ }
     }
-    echo json_encode(['ok' => true, 'trak_id' => (string)$liveBox['trak_id'], 'volt' => $liveBox['volt'] !== null ? (float)$liveBox['volt'] : null, 'amp' => $liveBox['amp'] !== null ? (float)$liveBox['amp'] : null, 'received_at' => $liveBox['received_at'], 'series' => $liveSeries], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $diagnostic = null;
+    if ($liveBox['diagnostic_received_at'] !== null) {
+        $diagnostic = [
+            'gnss_fix' => $liveBox['gnss_fix'] !== null ? (bool)$liveBox['gnss_fix'] : null,
+            'fix_mode' => $liveBox['fix_mode'] !== null ? (int)$liveBox['fix_mode'] : null,
+            'satellites_total' => $liveBox['satellites_total'] !== null ? (int)$liveBox['satellites_total'] : null,
+            'satellites_used' => $liveBox['satellites_used'] !== null ? (int)$liveBox['satellites_used'] : null,
+            'gps_satellites' => $liveBox['gps_satellites'] !== null ? (int)$liveBox['gps_satellites'] : null,
+            'glonass_satellites' => $liveBox['glonass_satellites'] !== null ? (int)$liveBox['glonass_satellites'] : null,
+            'galileo_satellites' => $liveBox['galileo_satellites'] !== null ? (int)$liveBox['galileo_satellites'] : null,
+            'beidou_satellites' => $liveBox['beidou_satellites'] !== null ? (int)$liveBox['beidou_satellites'] : null,
+            'hdop' => $liveBox['hdop'] !== null ? (float)$liveBox['hdop'] : null,
+            'pdop' => $liveBox['pdop'] !== null ? (float)$liveBox['pdop'] : null,
+            'vdop' => $liveBox['vdop'] !== null ? (float)$liveBox['vdop'] : null,
+            'gnss_timestamp' => $liveBox['gnss_timestamp'],
+            'received_at' => $liveBox['diagnostic_received_at']
+        ];
+    }
+    echo json_encode([
+        'ok' => true,
+        'trak_id' => (string)$liveBox['trak_id'],
+        'volt' => $liveBox['volt'] !== null ? (float)$liveBox['volt'] : null,
+        'amp' => $liveBox['amp'] !== null ? (float)$liveBox['amp'] : null,
+        'received_at' => $liveBox['received_at'],
+        'diagnostic' => $diagnostic,
+        'series' => $liveSeries
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -138,6 +171,7 @@ page_header('Santé', $user);
       <h2 id="healthDialogTitle">Santé du TRAK</h2>
       <p class="muted">Heures locales — puissance calculée : P = U × I.</p>
       <p id="healthLiveStatus" class="health-live-status" role="status"><span class="health-live-dot"></span> LIVE — connexion en cours…</p>
+      <p id="healthGnssDiagnostic" class="muted">GNSS — en attente de diagnostic</p>
     </div>
     <button type="button" id="healthDialogClose" class="health-close" aria-label="Fermer">×</button>
   </div>
@@ -183,6 +217,7 @@ page_header('Santé', $user);
   const chartArea = document.querySelector('.health-chart-card');
   const toggles = Array.from(document.querySelectorAll('.health-series-toggle'));
   const liveStatus = document.getElementById('healthLiveStatus');
+  const gnssDiagnostic = document.getElementById('healthGnssDiagnostic');
   let chart = null;
   let liveTimer = null;
   let activeBoxId = null;
@@ -373,6 +408,22 @@ page_header('Santé', $user);
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const payload = await response.json();
       if (!payload.ok) throw new Error(payload.error || 'Réponse invalide');
+      const diagnostic = payload.diagnostic;
+      if (gnssDiagnostic) {
+        if (!diagnostic) {
+          gnssDiagnostic.textContent = 'GNSS — aucun diagnostic reçu';
+        } else {
+          const fix = diagnostic.gnss_fix === true
+            ? (diagnostic.fix_mode === 3 ? 'FIX 3D' : 'FIX')
+            : 'Sans fix';
+          const n = value => value === null || value === undefined ? '—' : value;
+          gnssDiagnostic.textContent = 'GNSS : ' + fix +
+            ' | Satellites : ' + n(diagnostic.satellites_total) + ' visibles, ' + n(diagnostic.satellites_used) + ' utilisés' +
+            ' (GPS ' + n(diagnostic.gps_satellites) + ', Galileo ' + n(diagnostic.galileo_satellites) +
+            ', GLONASS ' + n(diagnostic.glonass_satellites) + ', BeiDou ' + n(diagnostic.beidou_satellites) + ')' +
+            ' | HDOP ' + n(diagnostic.hdop) + ' · PDOP ' + n(diagnostic.pdop) + ' · VDOP ' + n(diagnostic.vdop);
+        }
+      }
       const series = Array.isArray(payload.series) ? payload.series : [];
       if (series.length) {
         if (!chart && typeof Chart !== 'undefined') renderChart(series);
